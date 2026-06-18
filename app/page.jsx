@@ -25,7 +25,7 @@ export default function InfluencerOS() {
   
   // Global Controls
   const [globalLens, setGlobalLens] = useState('planned_go_live_month');
-  const [targetMonth, setTargetMonth] = useState('April');
+  const [targetMonth, setTargetMonth] = useState('May');
   const [currency, setCurrency] = useState('INR');
   
   // App Data State
@@ -75,15 +75,22 @@ export default function InfluencerOS() {
     return new Intl.NumberFormat('en-IN').format(num);
   };
 
-  // CORE LOGIC ENGINE
+  const getCreatorBillDate = (creatorId) => {
+    const bill = bills.find(b => b.creator_deal_id === creatorId);
+    return bill ? bill.invoice_date : '';
+  };
+
+  // --- REBUILT CORE LOGIC ENGINE (Finance vs Ops) ---
   const computations = useMemo(() => {
     let opsTotal = 0;
     let financeTotal = 0;
     let mismatchReasons = [];
 
-    const opsDeals = creators.filter(c => c[globalLens] === targetMonth);
+    // OPS ALWAYS LOOKS AT GO-LIVE MONTH
+    const opsDeals = creators.filter(c => c.planned_go_live_month === targetMonth);
     opsTotal = opsDeals.reduce((sum, c) => sum + Number(c.deal_value), 0);
 
+    // FINANCE ALWAYS LOOKS AT BILL MONTH
     const finBills = bills.filter(b => b.invoice_month === targetMonth);
     financeTotal = finBills.reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
@@ -91,26 +98,32 @@ export default function InfluencerOS() {
 
     creators.forEach(c => {
       const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
-      
-      if (bill?.invoice_month === targetMonth && c.planned_go_live_month !== targetMonth) {
+      if (!bill) return;
+
+      const isOpsMonth = c.planned_go_live_month === targetMonth;
+      const isFinMonth = bill.invoice_month === targetMonth;
+
+      // Case 1: Billed in the target month, but goes live later/earlier
+      if (isFinMonth && !isOpsMonth) {
         mismatchReasons.push({
           creator: c.creator_name,
-          reason: `Full bill raised in ${bill.invoice_month}, but live post planned for ${c.planned_go_live_month}.`,
-          impact: `+${formatMoney(bill.invoice_amount)}`,
+          reason: `Billed in ${targetMonth}, but Ops tracks go-live for ${c.planned_go_live_month}.`,
+          impact: `Finance is carrying +${formatMoney(bill.invoice_amount)}`,
         });
       }
       
-      if (c.planned_go_live_month === targetMonth && c.payment_model === 'full_later') {
+      // Case 2: Goes live in the target month, but was billed in a different month
+      if (!isFinMonth && isOpsMonth) {
          mismatchReasons.push({
           creator: c.creator_name,
-          reason: `Full later booking; budget recognized in ${targetMonth}, but payment scheduled after live.`,
-          impact: `Pending`,
+          reason: `Goes live in ${targetMonth}, but Finance already billed this in ${bill.invoice_month}.`,
+          impact: `Ops is carrying +${formatMoney(c.deal_value)}`,
         });
       }
     });
 
     return { opsTotal, financeTotal, variance, mismatchReasons };
-  }, [creators, bills, globalLens, targetMonth, currency]);
+  }, [creators, bills, targetMonth, currency]);
 
   // --- CRUD ACTIONS: CAMPAIGNS ---
   const handleSaveCampaign = async (e) => {
@@ -145,8 +158,15 @@ export default function InfluencerOS() {
   const handleSaveCreator = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    
+    // Parse Go-Live Date
     const goLiveDate = formData.get('planned_go_live_date');
     const goLiveMonth = new Date(goLiveDate).toLocaleString('default', { month: 'long' }) || targetMonth;
+    
+    // Parse Editable Bill Date
+    const invoiceDate = formData.get('invoice_date');
+    const invoiceMonth = new Date(invoiceDate).toLocaleString('default', { month: 'long' }) || targetMonth;
+    
     const dealValue = parseInt(formData.get('deal_value')) || 0;
 
     const creatorData = {
@@ -166,24 +186,34 @@ export default function InfluencerOS() {
       creator_status: 'booked'
     };
 
+    const billData = {
+      invoice_id: editingCreator ? bills.find(b=>b.creator_deal_id === creatorData.creator_deal_id)?.invoice_id || `inv_${creatorData.creator_deal_id}` : `inv_${creatorData.creator_deal_id}`,
+      creator_deal_id: creatorData.creator_deal_id,
+      invoice_amount: dealValue,
+      invoice_date: invoiceDate,
+      invoice_month: invoiceMonth,
+      status: 'processed'
+    };
+
     if (editingCreator) {
+      // Update Creator
       setCreators(creators.map(c => c.creator_deal_id === creatorData.creator_deal_id ? creatorData : c));
       await supabase.from('creators').update(creatorData).eq('creator_deal_id', creatorData.creator_deal_id);
+      
+      // Update Bill
+      const existingBill = bills.find(b => b.creator_deal_id === creatorData.creator_deal_id);
+      if (existingBill) {
+        setBills(bills.map(b => b.creator_deal_id === billData.creator_deal_id ? billData : b));
+        await supabase.from('bills').update(billData).eq('creator_deal_id', creatorData.creator_deal_id);
+      } else {
+        setBills([...bills, billData]);
+        await supabase.from('bills').insert([billData]);
+      }
     } else {
+      // Insert New
       setCreators([...creators, creatorData]);
-      await supabase.from('creators').insert([creatorData]);
-      
-      const today = new Date().toISOString().split('T')[0];
-      const billData = {
-        invoice_id: `inv_${creatorData.creator_deal_id}`,
-        creator_deal_id: creatorData.creator_deal_id,
-        invoice_amount: dealValue,
-        invoice_date: today,
-        invoice_month: targetMonth,
-        status: 'processed'
-      };
-      
       setBills([...bills, billData]);
+      await supabase.from('creators').insert([creatorData]);
       await supabase.from('bills').insert([billData]);
     }
     
@@ -206,6 +236,7 @@ export default function InfluencerOS() {
       setCreators(creators.filter(c => c.creator_deal_id !== deletePrompt.id));
       setBills(bills.filter(b => b.creator_deal_id !== deletePrompt.id));
       await supabase.from('creators').delete().eq('creator_deal_id', deletePrompt.id);
+      await supabase.from('bills').delete().eq('creator_deal_id', deletePrompt.id);
     }
     setDeletePrompt({ isOpen: false, type: '', id: '', name: '' });
   };
@@ -276,17 +307,7 @@ export default function InfluencerOS() {
             <div className="h-4 w-px bg-zinc-800"></div>
             
             <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-md p-1 shadow-sm">
-              <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest pl-2">Lens:</span>
-              <select 
-                value={globalLens}
-                onChange={(e) => setGlobalLens(e.target.value)}
-                className="bg-transparent text-sm font-medium text-zinc-200 outline-none cursor-pointer pl-2 pr-4"
-              >
-                <option value="closed_month">Booked Month</option>
-                <option value="planned_go_live_month">Planned Live Month</option>
-                <option value="invoice_month">Bill Month</option>
-              </select>
-              <div className="h-3 w-px bg-zinc-700 mx-1"></div>
+              <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest pl-2">Filter Month:</span>
               <select 
                 value={targetMonth}
                 onChange={(e) => setTargetMonth(e.target.value)}
@@ -499,13 +520,13 @@ export default function InfluencerOS() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Finance vs Ops</h2>
-                  <p className="text-sm text-zinc-500 mt-1 font-light">Resolving the timing gap between campaign execution and cash flow.</p>
+                  <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Finance vs Ops Mismatch</h2>
+                  <p className="text-sm text-zinc-500 mt-1 font-light">Resolving the timing gap between campaign execution and cash flow for {targetMonth}.</p>
                 </div>
                 {computations.variance !== 0 && (
                   <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-lg backdrop-blur-sm">
                     <AlertCircle size={16} className="text-indigo-400" />
-                    Billing vs Live Gap: Finance booked {formatMoney(Math.abs(computations.variance))} higher than Ops budget.
+                    Variance Detected: Finance expense and Ops budget differ by {formatMoney(Math.abs(computations.variance))}.
                   </div>
                 )}
               </div>
@@ -516,12 +537,11 @@ export default function InfluencerOS() {
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-zinc-500"></div>
-                      <h3 className="font-medium text-zinc-200">Operations Target</h3>
+                      <h3 className="font-medium text-zinc-200">Ops Budget ({targetMonth})</h3>
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500 border border-zinc-800 px-2 py-1 rounded bg-zinc-950">Expected Execution</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500 border border-zinc-800 px-2 py-1 rounded bg-zinc-950">Counted by Go-Live</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Ops Budget ({globalLens.replace(/_/g, ' ')})</p>
                     <p className="text-4xl font-light tracking-tight text-zinc-100">{formatMoney(computations.opsTotal)}</p>
                   </div>
                 </div>
@@ -531,12 +551,11 @@ export default function InfluencerOS() {
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                      <h3 className="font-medium text-zinc-200">Finance Booked</h3>
+                      <h3 className="font-medium text-zinc-200">Finance Expense ({targetMonth})</h3>
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded bg-indigo-500/10">Bills Processed</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded bg-indigo-500/10">Counted by Bill Date</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Billed Amount (Bill Month)</p>
                     <p className="text-4xl font-light tracking-tight text-zinc-100">{formatMoney(computations.financeTotal)}</p>
                   </div>
                 </div>
@@ -551,19 +570,19 @@ export default function InfluencerOS() {
                     <tr>
                       <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest">Creator Booking</th>
                       <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest">Mismatch Reason</th>
-                      <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest text-right">Impact</th>
+                      <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest text-right">Impact for {targetMonth}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50">
                     {computations.mismatchReasons.length > 0 ? computations.mismatchReasons.map((mr, i) => (
                       <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="px-6 py-4 text-zinc-200">{mr.creator}</td>
+                        <td className="px-6 py-4 font-medium text-zinc-200">{mr.creator}</td>
                         <td className="px-6 py-4 text-zinc-400">{mr.reason}</td>
                         <td className="px-6 py-4 text-right font-medium text-indigo-400">{mr.impact}</td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="3" className="px-6 py-12 text-center text-zinc-600 font-light">Data is aligned. No timing gaps detected.</td>
+                        <td colSpan="3" className="px-6 py-12 text-center text-zinc-600 font-light">Data is aligned. No timing gaps detected for {targetMonth}.</td>
                       </tr>
                     )}
                   </tbody>
@@ -651,7 +670,7 @@ export default function InfluencerOS() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Spend / Fee</label>
                   <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="Amount" />
@@ -664,9 +683,16 @@ export default function InfluencerOS() {
                     <option value="full_later">Full Post-Live</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Planned Go-Live</label>
+                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Planned Go-Live Date</label>
                   <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Finance Bill Date</label>
+                  <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
                 </div>
               </div>
 
