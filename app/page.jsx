@@ -39,7 +39,7 @@ export default function InfluencerOS() {
   
   // New State for Exports
   const [selectedCampaigns, setSelectedCampaigns] = useState([]);
-  const [exportModal, setExportModal] = useState({ isOpen: false, type: '' }); // type: 'ops' | 'finance'
+  const [exportModal, setExportModal] = useState({ isOpen: false, type: '' });
 
   const [isMounted, setIsMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); 
@@ -71,9 +71,9 @@ export default function InfluencerOS() {
       ...rows.map(row => headers.map(fieldName => {
         let data = row[fieldName] === null || row[fieldName] === undefined ? '' : row[fieldName];
         if (typeof data === 'string') {
-          data = data.replace(/"/g, '""'); // Escape double quotes
+          data = data.replace(/"/g, '""'); 
           if (data.includes(',') || data.includes('\n') || data.includes('"')) {
-            data = `"${data}"`; // Wrap in quotes if contains commas/newlines
+            data = `"${data}"`; 
           }
         }
         return data;
@@ -125,7 +125,7 @@ export default function InfluencerOS() {
       }
     });
     downloadCSV('Campaign_Export.csv', dataToExport);
-    setSelectedCampaigns([]); // Clear selection after export
+    setSelectedCampaigns([]); 
   };
 
   const executeAdvancedExport = (e) => {
@@ -138,7 +138,6 @@ export default function InfluencerOS() {
     const dataToExport = [];
 
     if (exportModal.type === 'ops') {
-      // OPS EXPORT: Focuses on Go-Live Dates for the current campaign
       let filteredCreators = creators.filter(c => c.ip_id === activeCampaignId);
       const campName = campaigns.find(c => c.ip_id === activeCampaignId)?.ip_name || 'Campaign';
 
@@ -146,7 +145,7 @@ export default function InfluencerOS() {
         filteredCreators = filteredCreators.filter(c => c.planned_go_live_month === targetMonth);
       } else if (filterType === 'custom') {
         filteredCreators = filteredCreators.filter(c => c.planned_go_live_date >= startDate && c.planned_go_live_date <= endDate);
-      } // 'all' requires no filter
+      } 
 
       filteredCreators.forEach(c => {
         const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
@@ -169,7 +168,6 @@ export default function InfluencerOS() {
       downloadCSV(`Ops_Report_${campName.replace(/\s+/g, '_')}.csv`, dataToExport);
 
     } else if (exportModal.type === 'finance') {
-      // FINANCE EXPORT: Focuses strictly on Bill Dates across ALL campaigns
       let filteredBills = bills;
       
       if (filterType === 'month') {
@@ -1021,7 +1019,7 @@ export default function InfluencerOS() {
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Creator'}?</h3>
+              <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Campaign' : 'Creator'}?</h3>
               <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
                 You are about to delete <strong>{deletePrompt.name}</strong>. This action will permanently remove all associated data, including financial records and billing history. This cannot be undone.
               </p>
