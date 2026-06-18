@@ -6,7 +6,7 @@ import {
   CreditCard, Receipt, CalendarDays, BarChart3, Plus, 
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
-  Download, CheckSquare, Square
+  Download, CheckSquare, Square, Lock, Mail
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,6 +19,13 @@ const ALL_MONTHS = [
 ];
 
 export default function InfluencerOS() {
+  // --- AUTHENTICATION STATE ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // --- DASHBOARD STATE ---
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   
@@ -37,7 +44,6 @@ export default function InfluencerOS() {
 
   const [deletePrompt, setDeletePrompt] = useState({ isOpen: false, type: '', id: '', name: '' });
   
-  // New State for Exports
   const [selectedCampaigns, setSelectedCampaigns] = useState([]);
   const [exportModal, setExportModal] = useState({ isOpen: false, type: '' });
 
@@ -57,6 +63,17 @@ export default function InfluencerOS() {
     if (campData) setCampaigns(campData);
     if (creatorData) setCreators(creatorData);
     if (billData) setBills(billData);
+  };
+
+  // --- AUTHENTICATION HANDLER ---
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (loginEmail === 'collab@yaas.studio' && loginPassword === 'influencermarketing@yaas') {
+      setIsAuthenticated(true);
+      setLoginError('');
+    } else {
+      setLoginError('Invalid email or password.');
+    }
   };
 
   // --- CSV GENERATOR ENGINE ---
@@ -420,6 +437,75 @@ export default function InfluencerOS() {
 
   if (!isMounted) return <div className="h-screen w-full bg-[#09090b]"></div>;
 
+  // --- LOGIN GATEKEEPER ---
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#09090b] font-sans selection:bg-indigo-500/30">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#09090b] to-[#09090b]"></div>
+        
+        <div className="relative w-full max-w-md p-8 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] flex items-center justify-center mb-4">
+              <Lock size={24} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Influencer OS</h1>
+            <p className="text-sm text-zinc-500 mt-2">Sign in to access your workspace</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Email Address</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail size={16} className="text-zinc-500" />
+                </div>
+                <input 
+                  type="email" 
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full bg-black/50 border border-zinc-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors" 
+                  placeholder="name@company.com"
+                  required 
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock size={16} className="text-zinc-500" />
+                </div>
+                <input 
+                  type="password" 
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-black/50 border border-zinc-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors" 
+                  placeholder="••••••••"
+                  required 
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 p-3 rounded-md border border-red-400/20">
+                <AlertCircle size={14} /> {loginError}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-all shadow-lg hover:shadow-indigo-500/25 mt-2"
+            >
+              Sign In
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- MAIN DASHBOARD RENDER ---
   return (
     <div className="flex h-screen bg-[#09090b] font-sans text-zinc-300 selection:bg-indigo-500/30">
       
