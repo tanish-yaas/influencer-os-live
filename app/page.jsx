@@ -233,12 +233,27 @@ export default function InfluencerOS() {
     let opsTotal = 0;
     let financeTotal = 0;
     let mismatchReasons = [];
+    let opsBreakdown = {};
+    let financeBreakdown = {};
 
+    // Calculate Ops Budget & Campaign Breakdown
     const opsDeals = creators.filter(c => c.planned_go_live_month === targetMonth);
-    opsTotal = opsDeals.reduce((sum, c) => sum + Number(c.deal_value), 0);
+    opsDeals.forEach(c => {
+      const val = Number(c.deal_value) || 0;
+      opsTotal += val;
+      const campName = campaigns.find(camp => camp.ip_id === c.ip_id)?.ip_name || 'Unassigned Campaign';
+      opsBreakdown[campName] = (opsBreakdown[campName] || 0) + val;
+    });
 
+    // Calculate Finance Expense & Campaign Breakdown
     const finBills = bills.filter(b => b.invoice_month === targetMonth);
-    financeTotal = finBills.reduce((sum, b) => sum + Number(b.invoice_amount), 0);
+    finBills.forEach(b => {
+      const val = Number(b.invoice_amount) || 0;
+      financeTotal += val;
+      const creator = creators.find(c => c.creator_deal_id === b.creator_deal_id);
+      const campName = creator ? (campaigns.find(camp => camp.ip_id === creator.ip_id)?.ip_name || 'Unassigned Campaign') : 'Unassigned Campaign';
+      financeBreakdown[campName] = (financeBreakdown[campName] || 0) + val;
+    });
 
     const variance = financeTotal - opsTotal;
 
@@ -266,8 +281,8 @@ export default function InfluencerOS() {
       }
     });
 
-    return { opsTotal, financeTotal, variance, mismatchReasons };
-  }, [creators, bills, targetMonth, currency]);
+    return { opsTotal, financeTotal, variance, mismatchReasons, opsBreakdown, financeBreakdown };
+  }, [creators, bills, campaigns, targetMonth, currency]);
 
   // --- CRUD ACTIONS ---
   const handleSaveCampaign = async (e) => {
@@ -824,8 +839,10 @@ export default function InfluencerOS() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
+                
+                {/* Ops Card with Breakdown */}
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
+                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-zinc-500"></div>
                       <h3 className="font-medium text-zinc-200">Ops Budget ({targetMonth})</h3>
@@ -833,12 +850,29 @@ export default function InfluencerOS() {
                     <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500 border border-zinc-800 px-2 py-1 rounded bg-zinc-950">Counted by Go-Live</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-4xl font-light tracking-tight text-zinc-100">{formatMoney(computations.opsTotal)}</p>
+                    <p className="text-4xl font-light tracking-tight text-zinc-100 mb-5">{formatMoney(computations.opsTotal)}</p>
+                    
+                    {Object.keys(computations.opsBreakdown).length > 0 ? (
+                      <div className="space-y-2 border-t border-zinc-800/50 pt-4">
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-3">IP Breakdown</p>
+                        {Object.entries(computations.opsBreakdown).map(([campName, amount]) => (
+                          <div key={campName} className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-400 truncate pr-4">{campName}</span>
+                            <span className="text-zinc-200 font-medium">{formatMoney(amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                       <div className="border-t border-zinc-800/50 pt-4">
+                          <p className="text-sm text-zinc-600 italic">No go-lives scheduled for {targetMonth}</p>
+                       </div>
+                    )}
                   </div>
                 </div>
 
+                {/* Finance Card with Breakdown */}
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
+                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
                       <h3 className="font-medium text-zinc-200">Finance Expense ({targetMonth})</h3>
@@ -846,9 +880,26 @@ export default function InfluencerOS() {
                     <span className="text-[10px] font-medium uppercase tracking-widest text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded bg-indigo-500/10">Counted by Bill Date</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-4xl font-light tracking-tight text-zinc-100">{formatMoney(computations.financeTotal)}</p>
+                    <p className="text-4xl font-light tracking-tight text-zinc-100 mb-5">{formatMoney(computations.financeTotal)}</p>
+                    
+                    {Object.keys(computations.financeBreakdown).length > 0 ? (
+                      <div className="space-y-2 border-t border-zinc-800/50 pt-4">
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-3">IP Breakdown</p>
+                        {Object.entries(computations.financeBreakdown).map(([campName, amount]) => (
+                          <div key={campName} className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-400 truncate pr-4">{campName}</span>
+                            <span className="text-zinc-200 font-medium">{formatMoney(amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                     ) : (
+                       <div className="border-t border-zinc-800/50 pt-4">
+                          <p className="text-sm text-zinc-600 italic">No invoices billed in {targetMonth}</p>
+                       </div>
+                    )}
                   </div>
                 </div>
+
               </div>
 
               <div className="bg-[#09090b] rounded-xl border border-zinc-800/80 overflow-hidden shadow-2xl">
