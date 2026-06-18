@@ -1182,7 +1182,7 @@ export default function InfluencerOS() {
                       className="flex items-center gap-2 text-[10px] uppercase tracking-widest bg-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 hover:bg-indigo-600/30 transition-colors disabled:opacity-50"
                     >
                       <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-                      {isSyncing ? "Syncing Simulator..." : "Auto-Sync Simulator"}
+                      {isSyncing ? "Fetching Live Data..." : "Auto-Sync Live Metrics"}
                     </button>
                   </div>
                   

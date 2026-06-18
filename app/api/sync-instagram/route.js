@@ -1,15 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// Simple hash helper to generate consistent mock numbers based on the link string
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0; // Convert to 32bit integer
-  }
-  return Math.abs(hash);
-}
-
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -19,36 +9,61 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: "No link provided" }, { status: 400 });
     }
 
-    console.log(`[SIMULATOR] Generating high-fidelity mock metrics for: ${link}`);
+    console.log(`[BACKEND] Fetching live data from Scraping-Bot for: ${link}`);
 
-    // Generate a stable numeric seed from the link text
-    const seed = hashCode(link);
+    // 1. Grab your secure credentials from the environment variables
+    const username = process.env.SCRAPING_BOT_USERNAME;
+    const apiKey = process.env.SCRAPING_BOT_API_KEY;
+
+    // 2. Encode them into a Basic Auth header (Required by Scraping-Bot)
+    const authHeader = 'Basic ' + Buffer.from(username + ':' + apiKey).toString('base64');
+
+    // 3. Ping the Scraping-Bot Universal Scraper API
+    const response = await fetch('https://api.scraping-bot.io/scrape/data-scraper', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify({
+        scraper_name: "instagramPost",
+        url: link
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Scraping-Bot returned status ${response.status}: ${errorText}`);
+    }
+
+    const jsonResult = await response.json();
     
-    // Create realistic, reproducible performance data bounded by the seed
-    const baseViews = (seed % 450000) + 50000; // Generates views between 50k and 500k
-    const likes = Math.floor(baseViews * 0.065); // 6.5% standard engagement rate
-    const comments = Math.floor(baseViews * 0.004); // 0.4% comment rate
-    const shares = Math.floor(baseViews * 0.012); // 1.2% share rate
-    const saves = Math.floor(baseViews * 0.008); // 0.8% save rate
+    // 4. Extract the metrics from the Scraping-Bot JSON payload
+    // (Safely handling nested data arrays/objects just in case)
+    const postData = jsonResult.data ? (Array.isArray(jsonResult.data) ? jsonResult.data[0] : jsonResult.data) : jsonResult;
 
-    const simulatedMetrics = {
-      views: baseViews,
-      likes,
-      comments,
-      shares,
-      saves
+    const realMetrics = {
+      views: Number(postData.video_view_count || postData.view_count || postData.views || 0),
+      likes: Number(postData.like_count || postData.likes || 0),
+      comments: Number(postData.comment_count || postData.comments || 0),
+      shares: Number(postData.share_count || postData.shares || 0), 
+      saves: Number(postData.save_count || postData.saves || 0)     
     };
 
-    // Keep the network latency delay so the loading spinners still function beautifully in the UI
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Fallback: If it's a static image post, Instagram doesn't return "views". 
+    // In influencer reporting, we usually fall back to likes as the baseline view count.
+    if (realMetrics.views === 0 && realMetrics.likes > 0) {
+      realMetrics.views = realMetrics.likes; 
+    }
 
+    // 5. Send the real data back to your Influencer OS Frontend!
     return NextResponse.json({ 
       success: true, 
-      metrics: simulatedMetrics 
+      metrics: realMetrics 
     });
 
   } catch (error) {
-    console.error("Simulator Error:", error);
+    console.error("Scraping-Bot Sync Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
