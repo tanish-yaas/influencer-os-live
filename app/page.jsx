@@ -5,7 +5,8 @@ import {
   FolderKanban, Users, ArrowRightLeft, 
   CreditCard, Receipt, CalendarDays, BarChart3, Plus, 
   Search, Bell, AlertCircle, ArrowLeft, 
-  Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw
+  Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
+  Download, CheckSquare, Square
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,7 +22,6 @@ export default function InfluencerOS() {
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   
-  const [globalLens, setGlobalLens] = useState('planned_go_live_month');
   const [targetMonth, setTargetMonth] = useState('May');
   const [currency, setCurrency] = useState('INR');
   
@@ -36,8 +36,13 @@ export default function InfluencerOS() {
   const [editingCreator, setEditingCreator] = useState(null);
 
   const [deletePrompt, setDeletePrompt] = useState({ isOpen: false, type: '', id: '', name: '' });
+  
+  // New State for Exports
+  const [selectedCampaigns, setSelectedCampaigns] = useState([]);
+  const [exportModal, setExportModal] = useState({ isOpen: false, type: '' }); // type: 'ops' | 'finance'
+
   const [isMounted, setIsMounted] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false); // New state for backend API call
+  const [isSyncing, setIsSyncing] = useState(false); 
 
   useEffect(() => {
     setIsMounted(true);
@@ -54,32 +59,158 @@ export default function InfluencerOS() {
     if (billData) setBills(billData);
   };
 
+  // --- CSV GENERATOR ENGINE ---
+  const downloadCSV = (filename, rows) => {
+    if (!rows || !rows.length) {
+      alert("No data available to export for this selection.");
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => headers.map(fieldName => {
+        let data = row[fieldName] === null || row[fieldName] === undefined ? '' : row[fieldName];
+        if (typeof data === 'string') {
+          data = data.replace(/"/g, '""'); // Escape double quotes
+          if (data.includes(',') || data.includes('\n') || data.includes('"')) {
+            data = `"${data}"`; // Wrap in quotes if contains commas/newlines
+          }
+        }
+        return data;
+      }).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportCampaigns = () => {
+    const dataToExport = [];
+    selectedCampaigns.forEach(campId => {
+      const camp = campaigns.find(c => c.ip_id === campId);
+      const campCreators = creators.filter(c => c.ip_id === campId);
+      
+      if (campCreators.length === 0) {
+        dataToExport.push({
+          'Campaign Name': camp.ip_name, 'Campaign Owner': camp.owner, 
+          'Creator Name': 'No creators booked', 'Spend': 0
+        });
+      } else {
+        campCreators.forEach(c => {
+          const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
+          dataToExport.push({
+            'Campaign Name': camp.ip_name,
+            'Campaign Owner': camp.owner,
+            'Creator Name': c.creator_name,
+            'Platform': c.platform,
+            'Content Type': c.content_type,
+            'Followers': c.followers,
+            'Spend (Fee)': c.deal_value,
+            'Payment Model': c.payment_model?.replace('_', ' '),
+            'Go-Live Date': c.planned_go_live_date,
+            'Go-Live Month': c.planned_go_live_month,
+            'Bill Date': bill ? bill.invoice_date : 'Pending',
+            'Bill Month': bill ? bill.invoice_month : 'Pending',
+            'Views': c.views || 0,
+            'Engagement': (c.likes||0) + (c.comments||0) + (c.shares||0) + (c.saves||0)
+          });
+        });
+      }
+    });
+    downloadCSV('Campaign_Export.csv', dataToExport);
+    setSelectedCampaigns([]); // Clear selection after export
+  };
+
+  const executeAdvancedExport = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const filterType = formData.get('filter_type');
+    const startDate = formData.get('start_date');
+    const endDate = formData.get('end_date');
+
+    const dataToExport = [];
+
+    if (exportModal.type === 'ops') {
+      // OPS EXPORT: Focuses on Go-Live Dates for the current campaign
+      let filteredCreators = creators.filter(c => c.ip_id === activeCampaignId);
+      const campName = campaigns.find(c => c.ip_id === activeCampaignId)?.ip_name || 'Campaign';
+
+      if (filterType === 'month') {
+        filteredCreators = filteredCreators.filter(c => c.planned_go_live_month === targetMonth);
+      } else if (filterType === 'custom') {
+        filteredCreators = filteredCreators.filter(c => c.planned_go_live_date >= startDate && c.planned_go_live_date <= endDate);
+      } // 'all' requires no filter
+
+      filteredCreators.forEach(c => {
+        const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
+        dataToExport.push({
+          'Campaign': campName,
+          'Creator': c.creator_name,
+          'Platform': c.platform,
+          'Deliverable': c.content_type,
+          'Target Go-Live Date': c.planned_go_live_date,
+          'Spend': c.deal_value,
+          'Finance Bill Date': bill ? bill.invoice_date : 'Pending',
+          'Link': c.deliverable_link || '',
+          'Views': c.views || 0,
+          'Likes': c.likes || 0,
+          'Comments': c.comments || 0,
+          'Shares': c.shares || 0,
+          'Saves': c.saves || 0
+        });
+      });
+      downloadCSV(`Ops_Report_${campName.replace(/\s+/g, '_')}.csv`, dataToExport);
+
+    } else if (exportModal.type === 'finance') {
+      // FINANCE EXPORT: Focuses strictly on Bill Dates across ALL campaigns
+      let filteredBills = bills;
+      
+      if (filterType === 'month') {
+        filteredBills = filteredBills.filter(b => b.invoice_month === targetMonth);
+      } else if (filterType === 'custom') {
+        filteredBills = filteredBills.filter(b => b.invoice_date >= startDate && b.invoice_date <= endDate);
+      }
+
+      filteredBills.forEach(b => {
+        const creator = creators.find(c => c.creator_deal_id === b.creator_deal_id);
+        const campName = creator ? campaigns.find(c => c.ip_id === creator.ip_id)?.ip_name : 'Unknown';
+        
+        dataToExport.push({
+          'Invoice ID': b.invoice_id,
+          'Bill Date': b.invoice_date,
+          'Bill Month': b.invoice_month,
+          'Billed Amount': b.invoice_amount,
+          'Creator Name': creator ? creator.creator_name : 'Unknown',
+          'Campaign Attached': campName,
+          'Ops Target Go-Live': creator ? creator.planned_go_live_date : 'Unknown',
+          'Payment Terms': creator ? creator.payment_model.replace('_', ' ') : 'Unknown'
+        });
+      });
+      downloadCSV('Finance_Billing_Report.csv', dataToExport);
+    }
+    
+    setExportModal({ isOpen: false, type: '' });
+  };
+
   // --- FORMATTING & MATH HELPERS ---
-  const formatMoney = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(amount);
-  };
-
-  const formatMicroMoney = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 2 }).format(amount);
-  };
-
+  const formatMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(amount);
+  const formatMicroMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 2 }).format(amount);
   const formatNumber = (num) => new Intl.NumberFormat('en-IN').format(num);
 
-  const getCreatorBillDate = (creatorId) => {
-    const bill = bills.find(b => b.creator_deal_id === creatorId);
-    return bill ? bill.invoice_date : '';
-  };
+  const getCreatorBillDate = (creatorId) => bills.find(b => b.creator_deal_id === creatorId)?.invoice_date || '';
 
   const calculateCreatorMetrics = (c) => {
     const views = Number(c.views) || 0;
     const engagement = (Number(c.likes) || 0) + (Number(c.comments) || 0) + (Number(c.shares) || 0) + (Number(c.saves) || 0);
     const cost = Number(c.deal_value) || 0;
-    
-    return {
-      engagement,
-      cpv: views > 0 ? (cost / views) : 0,
-      cpe: engagement > 0 ? (cost / engagement) : 0
-    };
+    return { engagement, cpv: views > 0 ? (cost / views) : 0, cpe: engagement > 0 ? (cost / engagement) : 0 };
   };
 
   // --- CORE LOGIC ENGINE ---
@@ -123,7 +254,7 @@ export default function InfluencerOS() {
     return { opsTotal, financeTotal, variance, mismatchReasons };
   }, [creators, bills, targetMonth, currency]);
 
-  // --- CRUD ACTIONS: CAMPAIGNS ---
+  // --- CRUD ACTIONS ---
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -152,7 +283,6 @@ export default function InfluencerOS() {
     setCampaignModalOpen(true);
   };
 
-  // --- CRUD ACTIONS: CREATORS ---
   const handleSaveCreator = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -177,7 +307,6 @@ export default function InfluencerOS() {
       planned_go_live_month: goLiveMonth,
       payment_model: formData.get('payment_model'),
       creator_status: 'booked',
-      
       deliverable_link: formData.get('deliverable_link'),
       views: parseInt(formData.get('views')) || 0,
       likes: parseInt(formData.get('likes')) || 0,
@@ -237,45 +366,28 @@ export default function InfluencerOS() {
     setDeletePrompt({ isOpen: false, type: '', id: '', name: '' });
   };
 
-  // --- API ROUTE TRIGGER (SYNC METRICS) ---
   const handleAutoSync = async () => {
     const linkInput = document.querySelector('input[name="deliverable_link"]').value;
-    
-    if (!linkInput) {
-      alert("Please paste a deliverable link first to auto-sync metrics.");
-      return;
-    }
-
+    if (!linkInput) { alert("Please paste a deliverable link first to auto-sync metrics."); return; }
     setIsSyncing(true);
-    
     try {
-      // Calls the secure Next.js Backend Route we just created
       const res = await fetch('/api/sync-instagram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link: linkInput })
       });
-      
       const data = await res.json();
-      
       if (data.success) {
-        // Auto-fill the form inputs with the API data
         document.querySelector('input[name="views"]').value = data.metrics.views;
         document.querySelector('input[name="likes"]').value = data.metrics.likes;
         document.querySelector('input[name="comments"]').value = data.metrics.comments;
         document.querySelector('input[name="shares"]').value = data.metrics.shares;
         document.querySelector('input[name="saves"]').value = data.metrics.saves;
-        
-        // Temporarily update the visual state of the currently editing creator
-        setEditingCreator({
-          ...editingCreator,
-          ...data.metrics
-        });
+        setEditingCreator({ ...editingCreator, ...data.metrics });
       } else {
         alert("Failed to sync metrics: " + data.error);
       }
     } catch (err) {
-      console.error("Sync error:", err);
       alert("A network error occurred while syncing.");
     } finally {
       setIsSyncing(false);
@@ -296,7 +408,7 @@ export default function InfluencerOS() {
 
   const NavItem = ({ id, icon: Icon, label }) => (
     <button 
-      onClick={() => { setActiveTab(id); setActiveCampaignId(null); }}
+      onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
         activeTab === id && !activeCampaignId
           ? 'bg-zinc-800/80 text-zinc-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' 
@@ -372,7 +484,17 @@ export default function InfluencerOS() {
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Active Campaigns</h2>
+                <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-4">
+                  Active Campaigns
+                  {selectedCampaigns.length > 0 && (
+                    <button 
+                      onClick={handleExportCampaigns}
+                      className="text-xs flex items-center gap-1.5 bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors"
+                    >
+                      <Download size={12} /> Export Selected ({selectedCampaigns.length})
+                    </button>
+                  )}
+                </h2>
                 <button 
                   onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
                   className="bg-zinc-100 text-zinc-900 hover:bg-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
@@ -384,14 +506,12 @@ export default function InfluencerOS() {
                 {campaigns.map(camp => {
                   const campCreators = creators.filter(c => c.ip_id === camp.ip_id);
                   const bookedValue = campCreators.reduce((sum, c) => sum + Number(c.deal_value), 0);
+                  const isSelected = selectedCampaigns.includes(camp.ip_id);
                   
-                  // Campaign Aggregates
-                  let campViews = 0;
-                  let campEngagements = 0;
+                  let campViews = 0; let campEngagements = 0;
                   campCreators.forEach(c => {
                     const metrics = calculateCreatorMetrics(c);
-                    campViews += Number(c.views || 0);
-                    campEngagements += metrics.engagement;
+                    campViews += Number(c.views || 0); campEngagements += metrics.engagement;
                   });
 
                   const campCpv = campViews > 0 ? (bookedValue / campViews) : 0;
@@ -401,14 +521,25 @@ export default function InfluencerOS() {
                     <div 
                       key={camp.ip_id} 
                       onClick={() => setActiveCampaignId(camp.ip_id)}
-                      className="bg-zinc-900/40 border border-zinc-800/80 p-5 rounded-xl hover:border-zinc-700 transition-colors cursor-pointer group flex flex-col relative overflow-hidden"
+                      className={`bg-zinc-900/40 border p-5 rounded-xl transition-colors cursor-pointer group flex flex-col relative overflow-hidden ${isSelected ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-zinc-800/80 hover:border-zinc-700'}`}
                     >
+                      {/* Selection Checkbox */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCampaigns(prev => prev.includes(camp.ip_id) ? prev.filter(id => id !== camp.ip_id) : [...prev, camp.ip_id]);
+                        }}
+                        className={`absolute top-4 left-4 z-10 p-1 rounded-md transition-opacity ${isSelected ? 'opacity-100 text-indigo-400' : 'opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300'}`}
+                      >
+                        {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                      </button>
+
                       <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => openCampaignEdit(e, camp)} className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded shadow-md transition-colors"><Edit2 size={14}/></button>
                         <button onClick={(e) => requestDelete(e, 'campaign', camp.ip_id, camp.ip_name)} className="p-1.5 bg-zinc-800 hover:bg-red-900/50 text-zinc-300 hover:text-red-400 rounded shadow-md transition-colors"><Trash2 size={14}/></button>
                       </div>
 
-                      <div className="flex justify-between items-start mb-4">
+                      <div className="flex justify-between items-start mb-4 pl-8">
                         <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-indigo-400 transition-colors">
                           <FolderKanban size={20} />
                         </div>
@@ -427,7 +558,6 @@ export default function InfluencerOS() {
                         </div>
                       </div>
                       
-                      {/* Efficiency Metrics Strip */}
                       <div className="mt-4 flex items-center gap-4 bg-zinc-950 rounded-lg p-2.5 border border-zinc-800/50">
                         <div className="flex-1">
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Avg CPV</p>
@@ -463,12 +593,20 @@ export default function InfluencerOS() {
                     </h2>
                     <p className="text-sm text-zinc-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
                   </div>
-                  <button 
-                    onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg"
-                  >
-                    <Plus size={16} /> Book Creator
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setExportModal({ isOpen: true, type: 'ops' })}
+                      className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
+                    >
+                      <Download size={16} /> Export Report
+                    </button>
+                    <button 
+                      onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg"
+                    >
+                      <Plus size={16} /> Book Creator
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -509,7 +647,6 @@ export default function InfluencerOS() {
 
                               return (
                                 <tr key={c.creator_deal_id} className="hover:bg-zinc-800/20 transition-colors group">
-                                  {/* Creator */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
                                       <span className="font-medium text-zinc-200">{c.creator_name}</span>
@@ -517,7 +654,6 @@ export default function InfluencerOS() {
                                     </div>
                                   </td>
                                   
-                                  {/* Deliverable Type & Link */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
                                       <span className="text-zinc-300">{c.content_type}</span>
@@ -533,7 +669,6 @@ export default function InfluencerOS() {
 
                                   <td className="px-5 py-4 text-zinc-400">{c.planned_go_live_date}</td>
                                   
-                                  {/* Performance (Views + Engagements) */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col gap-1">
                                       <span className="text-zinc-200 font-medium">{formatNumber(c.views || 0)} <span className="text-zinc-600 text-xs font-normal">views</span></span>
@@ -541,7 +676,6 @@ export default function InfluencerOS() {
                                     </div>
                                   </td>
 
-                                  {/* Efficiency (CPV + CPE) */}
                                   <td className="px-5 py-4">
                                      <div className="flex flex-col gap-1">
                                       <span className="text-indigo-400 font-medium">{formatMicroMoney(metrics.cpv)} <span className="text-zinc-600 text-xs font-normal">CPV</span></span>
@@ -549,7 +683,6 @@ export default function InfluencerOS() {
                                     </div>
                                   </td>
 
-                                  {/* Spend */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
                                       <span className="font-medium text-zinc-200">{formatMoney(c.deal_value)}</span>
@@ -559,12 +692,10 @@ export default function InfluencerOS() {
                                     </div>
                                   </td>
 
-                                  {/* Bill Date */}
                                   <td className="px-5 py-4 text-zinc-400">
                                     {creatorBill ? creatorBill.invoice_date : <span className="text-zinc-600 italic">Pending</span>}
                                   </td>
                                   
-                                  {/* Actions */}
                                   <td className="px-5 py-4 text-right">
                                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-zinc-500 hover:text-zinc-200"><Edit2 size={16} /></button>
@@ -592,12 +723,20 @@ export default function InfluencerOS() {
                   <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Finance vs Ops Mismatch</h2>
                   <p className="text-sm text-zinc-500 mt-1 font-light">Resolving the timing gap between campaign execution and cash flow for {targetMonth}.</p>
                 </div>
-                {computations.variance !== 0 && (
-                  <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-lg backdrop-blur-sm">
-                    <AlertCircle size={16} className="text-indigo-400" />
-                    Variance Detected: Finance expense and Ops budget differ by {formatMoney(Math.abs(computations.variance))}.
-                  </div>
-                )}
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setExportModal({ isOpen: true, type: 'finance' })}
+                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                  >
+                    <Download size={16} /> Export Financials
+                  </button>
+                  {computations.variance !== 0 && (
+                    <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-lg backdrop-blur-sm">
+                      <AlertCircle size={16} className="text-indigo-400" />
+                      Variance Detected: {formatMoney(Math.abs(computations.variance))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -661,6 +800,58 @@ export default function InfluencerOS() {
       </main>
 
       {/* --- OVERLAY MODALS --- */}
+
+      {/* Date Range Export Modal */}
+      {exportModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
+              <h3 className="font-medium text-zinc-100 flex items-center gap-2">
+                <Download size={18} className={exportModal.type === 'finance' ? 'text-emerald-400' : 'text-indigo-400'}/> 
+                Export {exportModal.type === 'finance' ? 'Finance' : 'Ops'} Report
+              </h3>
+              <button type="button" onClick={() => setExportModal({ isOpen: false, type: '' })} className="text-zinc-500 hover:text-zinc-300">Close</button>
+            </div>
+            <form onSubmit={executeAdvancedExport} className="p-6 space-y-5">
+              
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+                <p className="text-xs text-zinc-400 mb-3">
+                  {exportModal.type === 'finance' 
+                    ? 'Finance reports filter creators strictly by their Invoice Bill Date, regardless of when they post.' 
+                    : 'Ops reports filter creators strictly by their Target Go-Live Date, regardless of when they are billed.'}
+                </p>
+                
+                <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-2 font-medium">Select Range Type</label>
+                <select name="filter_type" defaultValue="month" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 mb-4" onChange={(e) => {
+                  document.getElementById('custom-date-row').style.display = e.target.value === 'custom' ? 'grid' : 'none';
+                }}>
+                  <option value="month">Current Filtered Month ({targetMonth})</option>
+                  <option value="custom">Custom Date Range</option>
+                  <option value="all">All Available Data</option>
+                </select>
+
+                <div id="custom-date-row" className="grid-cols-2 gap-4 hidden">
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Start Date</label>
+                    <input name="start_date" type="date" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">End Date</label>
+                    <input name="end_date" type="date" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button type="submit" className={`px-6 py-2.5 text-white text-sm font-semibold rounded-md transition-colors shadow-lg ${exportModal.type === 'finance' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                  Download CSV
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isCampaignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -702,7 +893,6 @@ export default function InfluencerOS() {
             <form onSubmit={handleSaveCreator} className="flex flex-col overflow-hidden">
               <div className="p-6 space-y-6 overflow-y-auto">
                 
-                {/* 1. Core Profile */}
                 <div>
                   <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Core Profile</h4>
                   <div className="grid grid-cols-3 gap-5">
@@ -726,7 +916,6 @@ export default function InfluencerOS() {
                   </div>
                 </div>
 
-                {/* 2. Deal Details */}
                 <div>
                   <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Deal Details</h4>
                   <div className="grid grid-cols-4 gap-5">
@@ -753,7 +942,6 @@ export default function InfluencerOS() {
                   </div>
                 </div>
 
-                {/* 3. Performance Tracking */}
                 <div className="bg-zinc-900/30 p-5 rounded-xl border border-zinc-800/50">
                   <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
                     <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest">Live Performance Tracking</h4>
@@ -764,7 +952,7 @@ export default function InfluencerOS() {
                       className="flex items-center gap-2 text-[10px] uppercase tracking-widest bg-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 hover:bg-indigo-600/30 transition-colors disabled:opacity-50"
                     >
                       <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-                      {isSyncing ? "Syncing API..." : "Auto-Sync Metrics"}
+                      {isSyncing ? "Syncing Simulator..." : "Auto-Sync Simulator"}
                     </button>
                   </div>
                   
@@ -833,7 +1021,7 @@ export default function InfluencerOS() {
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Campaign' : 'Creator'}?</h3>
+              <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Creator'}?</h3>
               <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
                 You are about to delete <strong>{deletePrompt.name}</strong>. This action will permanently remove all associated data, including financial records and billing history. This cannot be undone.
               </p>
