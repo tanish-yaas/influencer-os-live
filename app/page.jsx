@@ -5,10 +5,9 @@ import {
   FolderKanban, Users, ArrowRightLeft, 
   CreditCard, Receipt, CalendarDays, BarChart3, Plus, 
   Search, Bell, AlertCircle, ArrowLeft, 
-  Edit2, Trash2, ExternalLink, AlertTriangle
+  Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw
 } from 'lucide-react';
 
-// Connect to the Live Database
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -19,34 +18,27 @@ const ALL_MONTHS = [
 ];
 
 export default function InfluencerOS() {
-  // Navigation State
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   
-  // Global Controls
   const [globalLens, setGlobalLens] = useState('planned_go_live_month');
   const [targetMonth, setTargetMonth] = useState('May');
   const [currency, setCurrency] = useState('INR');
   
-  // App Data State
   const [campaigns, setCampaigns] = useState([]);
   const [creators, setCreators] = useState([]);
   const [bills, setBills] = useState([]);
 
-  // Modals & Forms State
   const [isCampaignModalOpen, setCampaignModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   
   const [isCreatorModalOpen, setCreatorModalOpen] = useState(false);
   const [editingCreator, setEditingCreator] = useState(null);
 
-  // Delete Prompt State
   const [deletePrompt, setDeletePrompt] = useState({ isOpen: false, type: '', id: '', name: '' });
-
-  // System State
   const [isMounted, setIsMounted] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // New state for backend API call
 
-  // --- SUPABASE DATABASE ENGINE ---
   useEffect(() => {
     setIsMounted(true);
     fetchLiveDatabase();
@@ -62,35 +54,43 @@ export default function InfluencerOS() {
     if (billData) setBills(billData);
   };
 
-  // Helpers
+  // --- FORMATTING & MATH HELPERS ---
   const formatMoney = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: currency,
-      maximumFractionDigits: 0
-    }).format(amount);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(amount);
   };
 
-  const formatNumber = (num) => {
-    return new Intl.NumberFormat('en-IN').format(num);
+  const formatMicroMoney = (amount) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 2 }).format(amount);
   };
+
+  const formatNumber = (num) => new Intl.NumberFormat('en-IN').format(num);
 
   const getCreatorBillDate = (creatorId) => {
     const bill = bills.find(b => b.creator_deal_id === creatorId);
     return bill ? bill.invoice_date : '';
   };
 
-  // --- REBUILT CORE LOGIC ENGINE (Finance vs Ops) ---
+  const calculateCreatorMetrics = (c) => {
+    const views = Number(c.views) || 0;
+    const engagement = (Number(c.likes) || 0) + (Number(c.comments) || 0) + (Number(c.shares) || 0) + (Number(c.saves) || 0);
+    const cost = Number(c.deal_value) || 0;
+    
+    return {
+      engagement,
+      cpv: views > 0 ? (cost / views) : 0,
+      cpe: engagement > 0 ? (cost / engagement) : 0
+    };
+  };
+
+  // --- CORE LOGIC ENGINE ---
   const computations = useMemo(() => {
     let opsTotal = 0;
     let financeTotal = 0;
     let mismatchReasons = [];
 
-    // OPS ALWAYS LOOKS AT GO-LIVE MONTH
     const opsDeals = creators.filter(c => c.planned_go_live_month === targetMonth);
     opsTotal = opsDeals.reduce((sum, c) => sum + Number(c.deal_value), 0);
 
-    // FINANCE ALWAYS LOOKS AT BILL MONTH
     const finBills = bills.filter(b => b.invoice_month === targetMonth);
     financeTotal = finBills.reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
@@ -103,7 +103,6 @@ export default function InfluencerOS() {
       const isOpsMonth = c.planned_go_live_month === targetMonth;
       const isFinMonth = bill.invoice_month === targetMonth;
 
-      // Case 1: Billed in the target month, but goes live later/earlier
       if (isFinMonth && !isOpsMonth) {
         mismatchReasons.push({
           creator: c.creator_name,
@@ -112,7 +111,6 @@ export default function InfluencerOS() {
         });
       }
       
-      // Case 2: Goes live in the target month, but was billed in a different month
       if (!isFinMonth && isOpsMonth) {
          mismatchReasons.push({
           creator: c.creator_name,
@@ -159,14 +157,10 @@ export default function InfluencerOS() {
     e.preventDefault();
     const formData = new FormData(e.target);
     
-    // Parse Go-Live Date
     const goLiveDate = formData.get('planned_go_live_date');
     const goLiveMonth = new Date(goLiveDate).toLocaleString('default', { month: 'long' }) || targetMonth;
-    
-    // Parse Editable Bill Date
     const invoiceDate = formData.get('invoice_date');
     const invoiceMonth = new Date(invoiceDate).toLocaleString('default', { month: 'long' }) || targetMonth;
-    
     const dealValue = parseInt(formData.get('deal_value')) || 0;
 
     const creatorData = {
@@ -181,9 +175,15 @@ export default function InfluencerOS() {
       closed_month: targetMonth,
       planned_go_live_date: goLiveDate,
       planned_go_live_month: goLiveMonth,
-      views: parseInt(formData.get('views')) || 0,
       payment_model: formData.get('payment_model'),
-      creator_status: 'booked'
+      creator_status: 'booked',
+      
+      deliverable_link: formData.get('deliverable_link'),
+      views: parseInt(formData.get('views')) || 0,
+      likes: parseInt(formData.get('likes')) || 0,
+      comments: parseInt(formData.get('comments')) || 0,
+      shares: parseInt(formData.get('shares')) || 0,
+      saves: parseInt(formData.get('saves')) || 0,
     };
 
     const billData = {
@@ -196,11 +196,9 @@ export default function InfluencerOS() {
     };
 
     if (editingCreator) {
-      // Update Creator
       setCreators(creators.map(c => c.creator_deal_id === creatorData.creator_deal_id ? creatorData : c));
       await supabase.from('creators').update(creatorData).eq('creator_deal_id', creatorData.creator_deal_id);
       
-      // Update Bill
       const existingBill = bills.find(b => b.creator_deal_id === creatorData.creator_deal_id);
       if (existingBill) {
         setBills(bills.map(b => b.creator_deal_id === billData.creator_deal_id ? billData : b));
@@ -210,7 +208,6 @@ export default function InfluencerOS() {
         await supabase.from('bills').insert([billData]);
       }
     } else {
-      // Insert New
       setCreators([...creators, creatorData]);
       setBills([...bills, billData]);
       await supabase.from('creators').insert([creatorData]);
@@ -221,7 +218,6 @@ export default function InfluencerOS() {
     setEditingCreator(null);
   };
 
-  // --- DESTRUCTIVE ACTIONS ENGINE ---
   const requestDelete = (e, type, id, name) => {
     e.stopPropagation();
     setDeletePrompt({ isOpen: true, type, id, name });
@@ -241,22 +237,63 @@ export default function InfluencerOS() {
     setDeletePrompt({ isOpen: false, type: '', id: '', name: '' });
   };
 
-  // --- TABULATION ENGINE ---
+  // --- API ROUTE TRIGGER (SYNC METRICS) ---
+  const handleAutoSync = async () => {
+    const linkInput = document.querySelector('input[name="deliverable_link"]').value;
+    
+    if (!linkInput) {
+      alert("Please paste a deliverable link first to auto-sync metrics.");
+      return;
+    }
+
+    setIsSyncing(true);
+    
+    try {
+      // Calls the secure Next.js Backend Route we just created
+      const res = await fetch('/api/sync-instagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: linkInput })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        // Auto-fill the form inputs with the API data
+        document.querySelector('input[name="views"]').value = data.metrics.views;
+        document.querySelector('input[name="likes"]').value = data.metrics.likes;
+        document.querySelector('input[name="comments"]').value = data.metrics.comments;
+        document.querySelector('input[name="shares"]').value = data.metrics.shares;
+        document.querySelector('input[name="saves"]').value = data.metrics.saves;
+        
+        // Temporarily update the visual state of the currently editing creator
+        setEditingCreator({
+          ...editingCreator,
+          ...data.metrics
+        });
+      } else {
+        alert("Failed to sync metrics: " + data.error);
+      }
+    } catch (err) {
+      console.error("Sync error:", err);
+      alert("A network error occurred while syncing.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getGroupedCreators = () => {
     const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId);
     campaignCreators.sort((a, b) => new Date(a.planned_go_live_date) - new Date(b.planned_go_live_date));
 
-    const grouped = campaignCreators.reduce((acc, creator) => {
+    return campaignCreators.reduce((acc, creator) => {
       const month = creator.planned_go_live_month || 'Unscheduled';
       if (!acc[month]) acc[month] = [];
       acc[month].push(creator);
       return acc;
     }, {});
-
-    return grouped;
   };
 
-  // NAVIGATION COMPONENT
   const NavItem = ({ id, icon: Icon, label }) => (
     <button 
       onClick={() => { setActiveTab(id); setActiveCampaignId(null); }}
@@ -297,15 +334,12 @@ export default function InfluencerOS() {
       {/* MAIN CANVAS */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#09090b] to-[#09090b]">
         
-        {/* TOP COMMAND BAR */}
         <header className="h-16 border-b border-zinc-800/60 flex items-center justify-between px-8 backdrop-blur-md bg-[#09090b]/80 z-10 sticky top-0">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-medium text-zinc-100 tracking-tight capitalize">
               {activeCampaignId ? 'Campaign Workspace' : activeTab.replace(/_/g, ' ')}
             </h1>
-            
             <div className="h-4 w-px bg-zinc-800"></div>
-            
             <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-md p-1 shadow-sm">
               <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest pl-2">Filter Month:</span>
               <select 
@@ -332,10 +366,9 @@ export default function InfluencerOS() {
           </div>
         </header>
 
-        {/* SCROLLABLE WORKSPACE */}
         <div className="flex-1 overflow-y-auto p-8 relative">
           
-          {/* VIEW: CAMPAIGNS GRID */}
+          {/* CAMPAIGNS GRID */}
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
@@ -347,10 +380,22 @@ export default function InfluencerOS() {
                   <Plus size={16} /> New Campaign
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                 {campaigns.map(camp => {
                   const campCreators = creators.filter(c => c.ip_id === camp.ip_id);
                   const bookedValue = campCreators.reduce((sum, c) => sum + Number(c.deal_value), 0);
+                  
+                  // Campaign Aggregates
+                  let campViews = 0;
+                  let campEngagements = 0;
+                  campCreators.forEach(c => {
+                    const metrics = calculateCreatorMetrics(c);
+                    campViews += Number(c.views || 0);
+                    campEngagements += metrics.engagement;
+                  });
+
+                  const campCpv = campViews > 0 ? (bookedValue / campViews) : 0;
+                  const campCpe = campEngagements > 0 ? (bookedValue / campEngagements) : 0;
 
                   return (
                     <div 
@@ -358,7 +403,6 @@ export default function InfluencerOS() {
                       onClick={() => setActiveCampaignId(camp.ip_id)}
                       className="bg-zinc-900/40 border border-zinc-800/80 p-5 rounded-xl hover:border-zinc-700 transition-colors cursor-pointer group flex flex-col relative overflow-hidden"
                     >
-                      {/* Action Hover Strip */}
                       <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => openCampaignEdit(e, camp)} className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded shadow-md transition-colors"><Edit2 size={14}/></button>
                         <button onClick={(e) => requestDelete(e, 'campaign', camp.ip_id, camp.ip_name)} className="p-1.5 bg-zinc-800 hover:bg-red-900/50 text-zinc-300 hover:text-red-400 rounded shadow-md transition-colors"><Trash2 size={14}/></button>
@@ -372,32 +416,39 @@ export default function InfluencerOS() {
                       <h3 className="text-lg font-medium text-zinc-200">{camp.ip_name}</h3>
                       <p className="text-sm text-zinc-500 mt-1">Owner: {camp.owner}</p>
                       
-                      <div className="mt-6 pt-4 border-t border-zinc-800/50 grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-zinc-500 mb-1">Creators</p>
-                          <p className="text-sm font-medium text-zinc-200">{campCreators.length}</p>
-                        </div>
+                      <div className="mt-5 pt-4 border-t border-zinc-800/50 grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs text-zinc-500 mb-1">Booked Value</p>
                           <p className="text-sm font-medium text-zinc-200">{formatMoney(bookedValue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500 mb-1">Total Views</p>
+                          <p className="text-sm font-medium text-zinc-200">{formatNumber(campViews)}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Efficiency Metrics Strip */}
+                      <div className="mt-4 flex items-center gap-4 bg-zinc-950 rounded-lg p-2.5 border border-zinc-800/50">
+                        <div className="flex-1">
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Avg CPV</p>
+                          <p className="text-xs font-semibold text-indigo-400">{formatMicroMoney(campCpv)}</p>
+                        </div>
+                        <div className="w-px h-6 bg-zinc-800"></div>
+                        <div className="flex-1">
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Avg CPE</p>
+                          <p className="text-xs font-semibold text-emerald-400">{formatMicroMoney(campCpe)}</p>
                         </div>
                       </div>
                     </div>
                   );
                 })}
-                {campaigns.length === 0 && (
-                  <div className="col-span-3 py-16 text-center border border-dashed border-zinc-800 rounded-xl">
-                    <p className="text-zinc-500 mb-4">No active campaigns.</p>
-                    <button onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }} className="text-indigo-400 hover:text-indigo-300 font-medium text-sm">Create your first campaign &rarr;</button>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {/* VIEW: SINGLE CAMPAIGN DETAIL */}
+          {/* SINGLE CAMPAIGN DETAIL */}
           {activeTab === 'campaigns' && activeCampaignId && (
-             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
+             <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col gap-4 mb-6">
                 <button 
                   onClick={() => setActiveCampaignId(null)}
@@ -410,11 +461,11 @@ export default function InfluencerOS() {
                     <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">
                       {campaigns.find(c => c.ip_id === activeCampaignId)?.ip_name}
                     </h2>
-                    <p className="text-sm text-zinc-500 mt-1">Manage creator bookings and deliverables for this campaign.</p>
+                    <p className="text-sm text-zinc-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
                   </div>
                   <button 
                     onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg"
                   >
                     <Plus size={16} /> Book Creator
                   </button>
@@ -425,13 +476,13 @@ export default function InfluencerOS() {
                  <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-zinc-900/50 text-zinc-500 border-b border-zinc-800/80">
                     <tr>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Creator Profile</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Deliverable Type</th>
+                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Creator</th>
+                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Deliverable</th>
                       <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Target Date</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Reach / Views</th>
+                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Performance</th>
+                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Efficiency</th>
                       <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Spend (Fee)</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Bill Date</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Payment terms</th>
+                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Finance Bill</th>
                       <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest text-right">Actions</th>
                     </tr>
                   </thead>
@@ -443,58 +494,77 @@ export default function InfluencerOS() {
                   ) : (
                     <tbody className="divide-y divide-zinc-800/50">
                       {Object.entries(getGroupedCreators()).map(([month, monthCreators]) => {
-                        const monthTotal = monthCreators.reduce((sum, c) => sum + Number(c.deal_value), 0);
-                        
                         return (
                           <React.Fragment key={month}>
                             <tr className="bg-zinc-900/30">
                               <td colSpan="8" className="px-5 py-2.5">
-                                <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-widest">
-                                  <span className="text-zinc-400">{month} Delivery Target</span>
-                                  <span className="text-zinc-500">
-                                    <span className="text-zinc-300">{monthCreators.length}</span> Creators • Total: <span className="text-indigo-400">{formatMoney(monthTotal)}</span>
-                                  </span>
+                                <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                                  <span>{month} Delivery Target</span>
                                 </div>
                               </td>
                             </tr>
                             {monthCreators.map((c) => {
                               const creatorBill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
+                              const metrics = calculateCreatorMetrics(c);
+
                               return (
                                 <tr key={c.creator_deal_id} className="hover:bg-zinc-800/20 transition-colors group">
+                                  {/* Creator */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
                                       <span className="font-medium text-zinc-200">{c.creator_name}</span>
-                                      <a href={`https://${c.profile_link}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-0.5">
-                                        {c.platform} <ExternalLink size={10} />
-                                      </a>
+                                      <span className="text-xs text-zinc-500 mt-0.5">{formatNumber(c.followers)} foll</span>
                                     </div>
                                   </td>
-                                  <td className="px-5 py-4 text-zinc-300">{c.content_type}</td>
-                                  <td className="px-5 py-4 text-zinc-400">{c.planned_go_live_date}</td>
+                                  
+                                  {/* Deliverable Type & Link */}
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
-                                      <span className="text-zinc-300">{formatNumber(c.followers)} <span className="text-zinc-600 text-xs">foll</span></span>
-                                      <span className="text-zinc-500 text-xs mt-0.5">{formatNumber(c.views)} <span className="text-zinc-600">est. views</span></span>
-                                    </div>
-                                  </td>
-                                  <td className="px-5 py-4">
-                                    <div className="flex flex-col">
-                                      <span className="font-medium text-zinc-200">{formatMoney(c.deal_value)}</span>
-                                      {c.payment_model === '50_50' && (
-                                        <span className="text-[10px] text-zinc-500 mt-1 tracking-wider border-t border-zinc-800 pt-1 w-max">
-                                          {formatMoney(c.deal_value / 2)} <span className="text-zinc-700">/</span> {formatMoney(c.deal_value / 2)}
-                                        </span>
+                                      <span className="text-zinc-300">{c.content_type}</span>
+                                      {c.deliverable_link ? (
+                                        <a href={c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-1">
+                                          <LinkIcon size={12} /> View Live Post
+                                        </a>
+                                      ) : (
+                                        <span className="text-xs text-zinc-600 italic mt-1">No link provided</span>
                                       )}
                                     </div>
                                   </td>
+
+                                  <td className="px-5 py-4 text-zinc-400">{c.planned_go_live_date}</td>
+                                  
+                                  {/* Performance (Views + Engagements) */}
+                                  <td className="px-5 py-4">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-zinc-200 font-medium">{formatNumber(c.views || 0)} <span className="text-zinc-600 text-xs font-normal">views</span></span>
+                                      <span className="text-zinc-400 text-xs">{formatNumber(metrics.engagement)} <span className="text-zinc-600">engagements</span></span>
+                                    </div>
+                                  </td>
+
+                                  {/* Efficiency (CPV + CPE) */}
+                                  <td className="px-5 py-4">
+                                     <div className="flex flex-col gap-1">
+                                      <span className="text-indigo-400 font-medium">{formatMicroMoney(metrics.cpv)} <span className="text-zinc-600 text-xs font-normal">CPV</span></span>
+                                      <span className="text-emerald-400 text-xs font-medium">{formatMicroMoney(metrics.cpe)} <span className="text-zinc-600 font-normal">CPE</span></span>
+                                    </div>
+                                  </td>
+
+                                  {/* Spend */}
+                                  <td className="px-5 py-4">
+                                    <div className="flex flex-col">
+                                      <span className="font-medium text-zinc-200">{formatMoney(c.deal_value)}</span>
+                                      <span className="text-[10px] uppercase tracking-widest text-zinc-500 mt-1">
+                                        {c.payment_model.replace('_', ' ')}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  {/* Bill Date */}
                                   <td className="px-5 py-4 text-zinc-400">
                                     {creatorBill ? creatorBill.invoice_date : <span className="text-zinc-600 italic">Pending</span>}
                                   </td>
-                                  <td className="px-5 py-4">
-                                    <span className="text-[10px] uppercase tracking-widest bg-zinc-800/80 text-zinc-400 px-2 py-1 rounded border border-zinc-700">
-                                      {c.payment_model.replace('_', ' ')}
-                                    </span>
-                                  </td>
+                                  
+                                  {/* Actions */}
                                   <td className="px-5 py-4 text-right">
                                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-zinc-500 hover:text-zinc-200"><Edit2 size={16} /></button>
@@ -514,10 +584,9 @@ export default function InfluencerOS() {
              </div>
           )}
 
-          {/* VIEW: FINANCE VS OPS */}
+          {/* FINANCE VS OPS */}
           {activeTab === 'finance_vs_ops' && (
-            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-              
+             <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Finance vs Ops Mismatch</h2>
@@ -533,7 +602,6 @@ export default function InfluencerOS() {
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-zinc-500"></div>
@@ -547,7 +615,6 @@ export default function InfluencerOS() {
                 </div>
 
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
@@ -582,7 +649,7 @@ export default function InfluencerOS() {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="3" className="px-6 py-12 text-center text-zinc-600 font-light">Data is aligned. No timing gaps detected for {targetMonth}.</td>
+                        <td colSpan="3" className="px-6 py-12 text-center text-zinc-600 font-light">Data is aligned. No timing gaps detected.</td>
                       </tr>
                     )}
                   </tbody>
@@ -590,7 +657,6 @@ export default function InfluencerOS() {
               </div>
             </div>
           )}
-
         </div>
       </main>
 
@@ -605,15 +671,15 @@ export default function InfluencerOS() {
             <form onSubmit={handleSaveCampaign} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Campaign Name</label>
-                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. Summer Launch" />
+                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Owner</label>
-                <input name="owner" defaultValue={editingCampaign?.owner} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="Owner Name" />
+                <input name="owner" defaultValue={editingCampaign?.owner} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Total Budget</label>
-                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="1500000" />
+                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="submit" className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-900 text-sm font-medium rounded-md transition-colors">
@@ -627,76 +693,130 @@ export default function InfluencerOS() {
 
       {isCreatorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
+          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30 shrink-0">
               <h3 className="font-medium text-zinc-100">{editingCreator ? 'Edit Creator Booking' : 'Book Creator'}</h3>
               <button type="button" onClick={() => {setCreatorModalOpen(false); setEditingCreator(null);}} className="text-zinc-500 hover:text-zinc-300">Close</button>
             </div>
-            <form onSubmit={handleSaveCreator} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-5">
+            
+            <form onSubmit={handleSaveCreator} className="flex flex-col overflow-hidden">
+              <div className="p-6 space-y-6 overflow-y-auto">
+                
+                {/* 1. Core Profile */}
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Creator Name</label>
-                  <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="Creator Name" />
+                  <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Core Profile</h4>
+                  <div className="grid grid-cols-3 gap-5">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Creator Name</label>
+                      <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Platform</label>
+                      <select name="platform" defaultValue={editingCreator?.platform || 'Instagram'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+                        <option>Instagram</option>
+                        <option>YouTube</option>
+                        <option>TikTok</option>
+                        <option>LinkedIn</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Profile Link</label>
+                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="instagram.com/username" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Profile Link</label>
-                  <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="instagram.com/username" />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-5">
+                {/* 2. Deal Details */}
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Platform</label>
-                  <select name="platform" defaultValue={editingCreator?.platform || 'Instagram'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                    <option>Instagram</option>
-                    <option>YouTube</option>
-                    <option>TikTok</option>
-                    <option>LinkedIn</option>
-                  </select>
+                  <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Deal Details</h4>
+                  <div className="grid grid-cols-4 gap-5">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Spend / Fee</label>
+                      <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Payment Model</label>
+                      <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+                        <option value="100_advance">100% Advance</option>
+                        <option value="50_50">50-50 Split</option>
+                        <option value="full_later">Full Post-Live</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Target Go-Live Date</label>
+                      <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Finance Bill Date</label>
+                      <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Content Type</label>
-                  <select name="content_type" defaultValue={editingCreator?.content_type || 'Reel Collab'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                    <option>Reel Collab</option>
-                    <option>Story (Set of 3)</option>
-                    <option>Dedicated Video</option>
-                    <option>YT Integration</option>
-                    <option>Shorts</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Followers</label>
-                  <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. 150000" />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Spend / Fee</label>
-                  <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="Amount" />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Payment Model</label>
-                  <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                    <option value="100_advance">100% Advance</option>
-                    <option value="50_50">50-50 Split</option>
-                    <option value="full_later">Full Post-Live</option>
-                  </select>
-                </div>
-              </div>
+                {/* 3. Performance Tracking */}
+                <div className="bg-zinc-900/30 p-5 rounded-xl border border-zinc-800/50">
+                  <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
+                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest">Live Performance Tracking</h4>
+                    <button 
+                      type="button" 
+                      onClick={handleAutoSync}
+                      disabled={isSyncing}
+                      className="flex items-center gap-2 text-[10px] uppercase tracking-widest bg-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 hover:bg-indigo-600/30 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+                      {isSyncing ? "Syncing API..." : "Auto-Sync Metrics"}
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-5 mb-5">
+                     <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Deliverable Link (URL)</label>
+                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="https://instagram.com/p/..." />
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Content Type</label>
+                        <select name="content_type" defaultValue={editingCreator?.content_type || 'Reel Collab'} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+                          <option>Reel Collab</option>
+                          <option>Story (Set of 3)</option>
+                          <option>Dedicated Video</option>
+                          <option>YT Integration</option>
+                          <option>Shorts</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Followers</label>
+                        <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Planned Go-Live Date</label>
-                  <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                  <div className="grid grid-cols-5 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium text-indigo-300">Views</label>
+                      <input name="views" type="number" defaultValue={editingCreator?.views} className="w-full bg-indigo-950/20 border border-indigo-900/50 rounded-md px-3 py-2 text-sm text-indigo-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Likes</label>
+                      <input name="likes" type="number" defaultValue={editingCreator?.likes} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Comments</label>
+                      <input name="comments" type="number" defaultValue={editingCreator?.comments} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Shares</label>
+                      <input name="shares" type="number" defaultValue={editingCreator?.shares} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Saves</label>
+                      <input name="saves" type="number" defaultValue={editingCreator?.saves} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Finance Bill Date</label>
-                  <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
-                </div>
-              </div>
 
-              <div className="pt-4 flex justify-end">
+              </div>
+              <div className="p-5 border-t border-zinc-800 flex justify-end shrink-0 bg-zinc-900/30">
                 <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-md transition-colors shadow-lg">
                   {editingCreator ? 'Update Creator Booking' : 'Save Booking'}
                 </button>
