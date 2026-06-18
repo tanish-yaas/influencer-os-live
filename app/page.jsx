@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   FolderKanban, Users, ArrowRightLeft, 
@@ -30,7 +30,6 @@ export default function InfluencerOS() {
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   
   const [targetMonth, setTargetMonth] = useState('May');
-  const [currency, setCurrency] = useState('INR');
   
   const [campaigns, setCampaigns] = useState([]);
   const [creators, setCreators] = useState([]);
@@ -49,6 +48,10 @@ export default function InfluencerOS() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); 
+
+  // --- SMART SEARCH STATE ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -214,9 +217,9 @@ export default function InfluencerOS() {
     setExportModal({ isOpen: false, type: '' });
   };
 
-  // --- FORMATTING & MATH HELPERS ---
-  const formatMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(amount);
-  const formatMicroMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency, maximumFractionDigits: 2 }).format(amount);
+  // --- FORMATTING & MATH HELPERS (Hardcoded to INR) ---
+  const formatMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  const formatMicroMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount);
   const formatNumber = (num) => new Intl.NumberFormat('en-IN').format(num);
 
   const getCreatorBillDate = (creatorId) => bills.find(b => b.creator_deal_id === creatorId)?.invoice_date || '';
@@ -228,6 +231,27 @@ export default function InfluencerOS() {
     return { engagement, cpv: views > 0 ? (cost / views) : 0, cpe: engagement > 0 ? (cost / engagement) : 0 };
   };
 
+  // --- SMART SEARCH ENGINE ---
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return { campaigns: [], creators: [] };
+    const q = searchQuery.toLowerCase();
+    return {
+      campaigns: campaigns.filter(c => c.ip_name.toLowerCase().includes(q) || c.owner.toLowerCase().includes(q)),
+      creators: creators.filter(c => c.creator_name.toLowerCase().includes(q))
+    };
+  }, [searchQuery, campaigns, creators]);
+
+  const handleSearchResultClick = (type, item) => {
+    setActiveTab('campaigns');
+    if (type === 'campaign') {
+      setActiveCampaignId(item.ip_id);
+    } else if (type === 'creator') {
+      setActiveCampaignId(item.ip_id); // Route to the campaign the creator belongs to
+    }
+    setSearchQuery('');
+    setIsSearchFocused(false);
+  };
+
   // --- CORE LOGIC ENGINE ---
   const computations = useMemo(() => {
     let opsTotal = 0;
@@ -236,7 +260,6 @@ export default function InfluencerOS() {
     let opsBreakdown = {};
     let financeBreakdown = {};
 
-    // Calculate Ops Budget & Campaign Breakdown
     const opsDeals = creators.filter(c => c.planned_go_live_month === targetMonth);
     opsDeals.forEach(c => {
       const val = Number(c.deal_value) || 0;
@@ -245,7 +268,6 @@ export default function InfluencerOS() {
       opsBreakdown[campName] = (opsBreakdown[campName] || 0) + val;
     });
 
-    // Calculate Finance Expense & Campaign Breakdown
     const finBills = bills.filter(b => b.invoice_month === targetMonth);
     finBills.forEach(b => {
       const val = Number(b.invoice_amount) || 0;
@@ -282,7 +304,7 @@ export default function InfluencerOS() {
     });
 
     return { opsTotal, financeTotal, variance, mismatchReasons, opsBreakdown, financeBreakdown };
-  }, [creators, bills, campaigns, targetMonth, currency]);
+  }, [creators, bills, campaigns, targetMonth]);
 
   // --- CRUD ACTIONS ---
   const handleSaveCampaign = async (e) => {
@@ -566,12 +588,85 @@ export default function InfluencerOS() {
           </div>
 
           <div className="flex items-center gap-5">
-            <div className="flex bg-zinc-900/80 border border-zinc-800 rounded-md p-1 shadow-sm">
-              <button onClick={() => setCurrency('INR')} className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${currency === 'INR' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>INR</button>
-              <button onClick={() => setCurrency('USD')} className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${currency === 'USD' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>USD</button>
+            {/* --- SMART SEARCH UI --- */}
+            <div 
+              className="relative"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  setTimeout(() => setIsSearchFocused(false), 200);
+                }
+              }}
+            >
+              <div className={`flex items-center bg-zinc-900/80 border ${isSearchFocused ? 'border-indigo-500' : 'border-zinc-800'} rounded-md px-3 py-1.5 transition-colors`}>
+                <Search size={16} className="text-zinc-500" />
+                <input 
+                  type="text"
+                  placeholder="Search campaigns or creators..."
+                  className="bg-transparent border-none outline-none text-sm text-zinc-200 ml-2 w-56 placeholder-zinc-600"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                />
+              </div>
+
+              {/* SEARCH DROPDOWN */}
+              {isSearchFocused && searchQuery.trim() !== '' && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-[#09090b] border border-zinc-800 rounded-lg shadow-2xl overflow-hidden z-50">
+                  <div className="max-h-80 overflow-y-auto">
+                    {/* Campaigns Results */}
+                    {searchResults.campaigns.length > 0 && (
+                      <div className="p-2">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Campaigns</p>
+                        {searchResults.campaigns.map(camp => (
+                          <button
+                            key={camp.ip_id}
+                            onMouseDown={() => handleSearchResultClick('campaign', camp)}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 transition-colors"
+                          >
+                            <FolderKanban size={14} className="text-indigo-400" />
+                            <div>
+                              <p className="text-sm font-medium text-zinc-200">{camp.ip_name}</p>
+                              <p className="text-xs text-zinc-500">Owner: {camp.owner}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Creators Results */}
+                    {searchResults.creators.length > 0 && (
+                      <div className="p-2 border-t border-zinc-800/50">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Creators</p>
+                        {searchResults.creators.map(creator => {
+                          const parentCamp = campaigns.find(c => c.ip_id === creator.ip_id);
+                          return (
+                            <button
+                              key={creator.creator_deal_id}
+                              onMouseDown={() => handleSearchResultClick('creator', creator)}
+                              className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 transition-colors"
+                            >
+                              <Users size={14} className="text-emerald-400" />
+                              <div>
+                                <p className="text-sm font-medium text-zinc-200">{creator.creator_name}</p>
+                                <p className="text-xs text-zinc-500">in {parentCamp?.ip_name || 'Campaign'}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {searchResults.campaigns.length === 0 && searchResults.creators.length === 0 && (
+                      <div className="p-4 text-center text-sm text-zinc-500">
+                        No results found for "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
             <div className="h-4 w-px bg-zinc-800"></div>
-            <Search size={18} className="text-zinc-500 hover:text-zinc-300 cursor-pointer" />
             <Bell size={18} className="text-zinc-500 hover:text-zinc-300 cursor-pointer" />
             <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-medium text-zinc-300">TR</div>
           </div>
