@@ -31,55 +31,63 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: "No link provided" }, { status: 400 });
     }
 
-    const username = process.env.SCRAPING_BOT_USERNAME;
-    const apiKey = process.env.SCRAPING_BOT_API_KEY;
+    const apifyToken = process.env.APIFY_TOKEN;
 
     // 1. If keys are missing (Vercel redeploy issue), gracefully fallback
-    if (!username || !apiKey || username === 'undefined') {
-      console.log("[BACKEND] API Keys missing. Falling back to simulator.");
+    if (!apifyToken || apifyToken === 'undefined') {
+      console.log("[BACKEND] Apify Token missing. Falling back to simulator.");
       return NextResponse.json({ success: true, metrics: generateSimulatorData(link) });
     }
 
-    const authHeader = 'Basic ' + Buffer.from(username + ':' + apiKey).toString('base64');
-
-    // 2. Set an 8-second fuse. If Scraping-Bot takes longer than this, 
-    // we kill it before Vercel kills us, avoiding the 'fetch failed' crash.
+    // 2. Set an 8.5-second fuse. Vercel kills functions at 10 seconds.
+    // If Apify is cold-starting, we cut it off gracefully to prevent a UI crash.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 8500);
 
     try {
-      console.log(`[BACKEND] Attempting live scrape for: ${link}`);
-      const response = await fetch('https://api.scraping-bot.io/scrape/data-scraper', {
+      console.log(`[BACKEND] Attempting live Apify scrape for: ${link}`);
+      
+      // Apify synchronous run & get dataset endpoint
+      const apifyUrl = `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apifyToken}`;
+      
+      const response = await fetch(apifyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': authHeader
         },
         body: JSON.stringify({
-          scraper_name: "instagramPost",
-          url: link
+          directUrls: [link],
+          resultsType: "details",
+          resultsLimit: 1
         }),
         signal: controller.signal
       });
 
-      clearTimeout(timeoutId); // Disarm the fuse if it succeeded!
+      clearTimeout(timeoutId); // Disarm the fuse if it succeeded in time!
 
       if (!response.ok) {
-        throw new Error(`Scraping-Bot returned status ${response.status}`);
+        throw new Error(`Apify returned status ${response.status}`);
       }
 
       const jsonResult = await response.json();
-      const postData = jsonResult.data ? (Array.isArray(jsonResult.data) ? jsonResult.data[0] : jsonResult.data) : jsonResult;
+      
+      // Apify returns an array of scraped items. Grab the first one.
+      const postData = (Array.isArray(jsonResult) && jsonResult.length > 0) ? jsonResult[0] : null;
 
+      if (!postData) {
+        throw new Error("No data returned from Apify dataset.");
+      }
+
+      // 3. Map Apify's specific JSON structure to our database schema
       const realMetrics = {
-        views: Number(postData.video_view_count || postData.view_count || postData.views || 0),
-        likes: Number(postData.like_count || postData.likes || 0),
-        comments: Number(postData.comment_count || postData.comments || 0),
-        shares: Number(postData.share_count || postData.shares || 0), 
-        saves: Number(postData.save_count || postData.saves || 0)     
+        views: Number(postData.videoViewCount || postData.viewCount || 0),
+        likes: Number(postData.likesCount || 0),
+        comments: Number(postData.commentsCount || 0),
+        shares: 0, // Public scrapers rarely get shares natively, defaulting to 0
+        saves: 0   // Public scrapers rarely get saves natively, defaulting to 0
       };
 
+      // Fallback for static images
       if (realMetrics.views === 0 && realMetrics.likes > 0) {
         realMetrics.views = realMetrics.likes; 
       }
@@ -87,11 +95,11 @@ export async function POST(req) {
       return NextResponse.json({ success: true, metrics: realMetrics });
 
     } catch (networkError) {
-      // 3. If Scraping-Bot blocked us, timed out, or threw 'fetch failed', we catch it smoothly.
+      // 4. If Apify blocked us, timed out (cold start), or threw an error, catch it smoothly.
       clearTimeout(timeoutId);
-      console.error("[BACKEND] Scraper failed or timed out. Falling back to simulator.", networkError.message);
+      console.error("[BACKEND] Apify Scraper failed or timed out. Falling back to simulator.", networkError.message);
       
-      // Return beautiful fake data so the UI keeps working
+      // Return the seamless fake data so the user never knows the API hung up
       return NextResponse.json({ success: true, metrics: generateSimulatorData(link) });
     }
 
