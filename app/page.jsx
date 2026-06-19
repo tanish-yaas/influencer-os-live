@@ -45,6 +45,7 @@ export default function InfluencerOS() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); 
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false); // New Bulk Sync Loader State
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -420,7 +421,6 @@ export default function InfluencerOS() {
       });
       const data = await res.json();
       if (data.success) {
-        // Updated payload injection correctly targeting views, shares, saves, and followers
         document.querySelector('input[name="views"]').value = data.metrics.views;
         document.querySelector('input[name="likes"]').value = data.metrics.likes;
         document.querySelector('input[name="comments"]').value = data.metrics.comments;
@@ -431,7 +431,8 @@ export default function InfluencerOS() {
           document.querySelector('input[name="followers"]').value = data.metrics.followers;
         }
 
-        setEditingCreator({ ...editingCreator, ...data.metrics });
+        setCreators(prev => prev.map(c => c.creator_deal_id === editingCreator?.creator_deal_id ? { ...c, ...data.metrics } : c));
+        setEditingCreator(prev => prev ? { ...prev, ...data.metrics } : null);
       } else {
         alert("Failed to sync metrics: " + data.error);
       }
@@ -440,6 +441,58 @@ export default function InfluencerOS() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  // --- GLOBAL BULK AUTO SYNC HANDLER ---
+  const handleBulkAutoSync = async () => {
+    const creatorsWithLinks = creators.filter(c => c.deliverable_link && c.deliverable_link.trim() !== '');
+    if (creatorsWithLinks.length === 0) {
+      alert("No creators found across any campaign with valid live deliverable links.");
+      return;
+    }
+
+    setIsBulkSyncing(true);
+    let successfulSyncs = 0;
+    let localCreatorsState = [...creators];
+
+    for (let creator of creatorsWithLinks) {
+      try {
+        const res = await fetch('/api/sync-instagram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ link: creator.deliverable_link })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          // Update item inside local working state tracking list
+          localCreatorsState = localCreatorsState.map(c => 
+            c.creator_deal_id === creator.creator_deal_id ? { ...c, ...data.metrics } : c
+          );
+
+          // Update record directly to Supabase production architecture
+          await supabase
+            .from('creators')
+            .update({
+              views: data.metrics.views,
+              likes: data.metrics.likes,
+              comments: data.metrics.comments,
+              shares: data.metrics.shares,
+              saves: data.metrics.saves,
+              followers: data.metrics.followers > 0 ? data.metrics.followers : creator.followers
+            })
+            .eq('creator_deal_id', creator.creator_deal_id);
+
+          successfulSyncs++;
+        }
+      } catch (err) {
+        console.error(`Error processing background bulk pipeline execution for ${creator.creator_name}:`, err);
+      }
+    }
+
+    setCreators(localCreatorsState);
+    setIsBulkSyncing(false);
+    alert(`Bulk Synchronization Complete! Successfully matched and updated numbers for ${successfulSyncs} out of ${creatorsWithLinks.length} total active placements.`);
   };
 
   const getGroupedCreators = () => {
@@ -661,6 +714,7 @@ export default function InfluencerOS() {
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           
+          {/* CAMPAIGNS GRID VIEW */}
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
@@ -675,13 +729,28 @@ export default function InfluencerOS() {
                     </button>
                   )}
                 </h2>
-                <button 
-                  onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
-                  className="bg-zinc-100 text-zinc-900 hover:bg-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
-                >
-                  <Plus size={16} /> New Campaign
-                </button>
+                
+                {/* HEADERS ACTION CONTAINERS */}
+                <div className="flex items-center gap-3">
+                  {/* Master Bulk Auto Sync Control Trigger */}
+                  <button 
+                    onClick={handleBulkAutoSync}
+                    disabled={isBulkSyncing}
+                    className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={16} className={isBulkSyncing ? "animate-spin text-indigo-400" : ""} />
+                    {isBulkSyncing ? "Bulk Syncing Data..." : "Bulk Sync All IPs"}
+                  </button>
+
+                  <button 
+                    onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
+                    className="bg-zinc-100 text-zinc-900 hover:bg-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
+                  >
+                    <Plus size={16} /> New Campaign
+                  </button>
+                </div>
               </div>
+              
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                 {campaigns.map(camp => {
                   const campCreators = creators.filter(c => c.ip_id === camp.ip_id);
@@ -755,6 +824,7 @@ export default function InfluencerOS() {
             </div>
           )}
 
+          {/* SINGLE CAMPAIGN WORKSPACE DETAIL VIEW */}
           {activeTab === 'campaigns' && activeCampaignId && (
              <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col gap-4 mb-6">
@@ -893,6 +963,7 @@ export default function InfluencerOS() {
              </div>
           )}
 
+          {/* FINANCE VS OPS VIEW */}
           {activeTab === 'finance_vs_ops' && (
              <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
               <div className="flex items-center justify-between">
@@ -917,7 +988,6 @@ export default function InfluencerOS() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
                     <div className="flex items-center gap-2">
@@ -1009,6 +1079,8 @@ export default function InfluencerOS() {
           )}
         </div>
       </main>
+
+      {/* --- OVERLAY MODALS --- */}
 
       {/* Date Range Export Modal */}
       {exportModal.isOpen && (
