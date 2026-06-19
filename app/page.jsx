@@ -45,7 +45,7 @@ export default function InfluencerOS() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); 
-  const [isBulkSyncing, setIsBulkSyncing] = useState(false); // New Bulk Sync Loader State
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -443,7 +443,6 @@ export default function InfluencerOS() {
     }
   };
 
-  // --- GLOBAL BULK AUTO SYNC HANDLER ---
   const handleBulkAutoSync = async () => {
     const creatorsWithLinks = creators.filter(c => c.deliverable_link && c.deliverable_link.trim() !== '');
     if (creatorsWithLinks.length === 0) {
@@ -465,12 +464,10 @@ export default function InfluencerOS() {
         const data = await res.json();
 
         if (data.success) {
-          // Update item inside local working state tracking list
           localCreatorsState = localCreatorsState.map(c => 
             c.creator_deal_id === creator.creator_deal_id ? { ...c, ...data.metrics } : c
           );
 
-          // Update record directly to Supabase production architecture
           await supabase
             .from('creators')
             .update({
@@ -507,48 +504,53 @@ export default function InfluencerOS() {
     }, {});
   };
 
-  const NavItem = ({ id, icon: Icon, label }) => (
-    <button 
-      onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-        activeTab === id && !activeCampaignId
-          ? 'bg-zinc-800/80 text-zinc-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' 
-          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
-      }`}
-    >
-      <Icon size={16} className={activeTab === id && !activeCampaignId ? 'text-indigo-400' : ''} />
-      {label}
-    </button>
-  );
+  const NavItem = ({ id, icon: Icon, label }) => {
+    const active = activeTab === id && !activeCampaignId;
+    return (
+      <button 
+        onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
+        className={`group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+          active
+            ? 'bg-orange-500/10 text-orange-200 border border-orange-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_-8px_rgba(249,115,22,0.5)]' 
+            : 'text-stone-500 border border-transparent hover:text-stone-300 hover:bg-white/[0.03]'
+        }`}
+      >
+        {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-orange-500 shadow-[0_0_10px_2px_rgba(249,115,22,0.7)]"></span>}
+        <Icon className={active ? 'text-orange-400' : 'text-stone-500 group-hover:text-stone-300'} size={16}/>
+        {label}
+      </button>
+    );
+  };
 
-  if (!isMounted) return <div className="h-screen w-full bg-[#09090b]"></div>;
+  if (!isMounted) return <div className="h-screen w-full bg-[#0a0807]"></div>;
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#09090b] font-sans selection:bg-indigo-500/30">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#09090b] to-[#09090b]"></div>
-        
-        <div className="relative w-full max-w-md p-8 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl shadow-2xl backdrop-blur-xl">
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0807] font-sans selection:bg-orange-500/30">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-600/15 via-[#0a0807] to-[#0a0807]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-orange-900/10 via-transparent to-transparent"></div>
+
+        <div className="relative w-full max-w-md p-8 bg-white/[0.03] border border-white/[0.08] rounded-2xl shadow-2xl backdrop-blur-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] flex items-center justify-center mb-4">
-              <Lock size={24} className="text-white" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_28px_rgba(249,115,22,0.55)] flex items-center justify-center mb-4">
+              <Lock className="text-white" size={24}/>
             </div>
-            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Influencer OS</h1>
-            <p className="text-sm text-zinc-500 mt-2">Sign in to access your workspace</p>
+            <h1 className="text-2xl font-bold text-stone-100 tracking-tight">Influencer OS</h1>
+            <p className="text-sm text-stone-500 mt-2">Sign in to access your workspace</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Email Address</label>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={16} className="text-zinc-500" />
+                  <Mail className="text-stone-500" size={16}/>
                 </div>
                 <input 
                   type="email" 
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-black/50 border border-zinc-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors" 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-10 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 transition-colors" 
                   placeholder="name@company.com"
                   required 
                 />
@@ -556,16 +558,16 @@ export default function InfluencerOS() {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Password</label>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={16} className="text-zinc-500" />
+                  <Lock className="text-stone-500" size={16}/>
                 </div>
                 <input 
                   type="password" 
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-black/50 border border-zinc-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors" 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-10 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 transition-colors" 
                   placeholder="••••••••"
                   required 
                 />
@@ -574,13 +576,13 @@ export default function InfluencerOS() {
 
             {loginError && (
               <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 p-3 rounded-md border border-red-400/20">
-                <AlertCircle size={14} /> {loginError}
+                <AlertCircle size={14}/> {loginError}
               </div>
             )}
 
             <button 
               type="submit" 
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-all shadow-lg hover:shadow-indigo-500/25 mt-2"
+              className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-lg transition-all shadow-[0_0_24px_-4px_rgba(249,115,22,0.6)] hover:shadow-[0_0_30px_-2px_rgba(249,115,22,0.75)] mt-2"
             >
               Sign In
             </button>
@@ -591,41 +593,41 @@ export default function InfluencerOS() {
   }
 
   return (
-    <div className="flex h-screen bg-[#09090b] font-sans text-zinc-300 selection:bg-indigo-500/30">
-      <aside className="w-64 border-r border-zinc-800/60 bg-[#09090b] flex flex-col p-4 z-20">
+    <div className="flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30">
+      <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
         <div className="flex items-center gap-3 mb-10 px-2 mt-2">
-          <div className="w-6 h-6 rounded bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-[0_0_12px_rgba(79,70,229,0.4)]"></div>
-          <span className="font-semibold text-zinc-100 tracking-tight text-lg">Influencer OS</span>
+          <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
+          <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>
         </div>
         <nav className="flex flex-col gap-1.5 flex-1">
-          <NavItem id="campaigns" icon={FolderKanban} label="Campaigns" />
-          <div className="h-px w-full bg-zinc-800/50 my-2"></div>
-          <NavItem id="finance_vs_ops" icon={ArrowRightLeft} label="Finance vs Ops" />
-          <NavItem id="payments" icon={CreditCard} label="Payments" />
-          <NavItem id="bills" icon={Receipt} label="Bills" />
-          <div className="h-px w-full bg-zinc-800/50 my-2"></div>
-          <NavItem id="timeline" icon={CalendarDays} label="Timeline" />
-          <NavItem id="reports" icon={BarChart3} label="Reports" />
+          <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
+          <div className="h-px w-full bg-white/[0.06] my-2"></div>
+          <NavItem icon={ArrowRightLeft} id="finance_vs_ops" label="Finance vs Ops"/>
+          <NavItem icon={CreditCard} id="payments" label="Payments"/>
+          <NavItem icon={Receipt} id="bills" label="Bills"/>
+          <div className="h-px w-full bg-white/[0.06] my-2"></div>
+          <NavItem icon={CalendarDays} id="timeline" label="Timeline"/>
+          <NavItem icon={BarChart3} id="reports" label="Reports"/>
         </nav>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#09090b] to-[#09090b]">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
         
-        <header className="h-16 border-b border-zinc-800/60 flex items-center justify-between px-8 backdrop-blur-md bg-[#09090b]/80 z-10 sticky top-0">
+        <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-10 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
           <div className="flex items-center gap-6">
-            <h1 className="text-lg font-medium text-zinc-100 tracking-tight capitalize">
+            <h1 className="text-lg font-medium text-stone-100 tracking-tight capitalize">
               {activeCampaignId ? 'Campaign Workspace' : activeTab.replace(/_/g, ' ')}
             </h1>
-            <div className="h-4 w-px bg-zinc-800"></div>
-            <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-md p-1 shadow-sm">
-              <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest pl-2">Filter Month:</span>
+            <div className="h-4 w-px bg-white/10"></div>
+            <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-md p-1 shadow-sm">
+              <span className="text-[10px] font-medium text-stone-500 uppercase tracking-[0.2em] pl-2">Filter Month:</span>
               <select 
                 value={targetMonth}
                 onChange={(e) => setTargetMonth(e.target.value)}
-                className="bg-transparent text-sm font-medium text-indigo-400 outline-none cursor-pointer pr-2"
+                className="bg-transparent text-sm font-medium text-orange-400 outline-none cursor-pointer pr-2"
               >
                 {ALL_MONTHS.map(m => (
-                  <option key={m} value={m}>{m} 2026</option>
+                  <option key={m} value={m} className="bg-[#0a0807] text-stone-200">{m} 2026</option>
                 ))}
               </select>
             </div>
@@ -640,12 +642,12 @@ export default function InfluencerOS() {
                 }
               }}
             >
-              <div className={`flex items-center bg-zinc-900/80 border ${isSearchFocused ? 'border-indigo-500' : 'border-zinc-800'} rounded-md px-3 py-1.5 transition-colors`}>
-                <Search size={16} className="text-zinc-500" />
+              <div className={`flex items-center bg-white/[0.03] border ${isSearchFocused ? 'border-orange-500/70' : 'border-white/[0.08]'} rounded-md px-3 py-1.5 transition-colors`}>
+                <Search className="text-stone-500" size={16}/>
                 <input 
                   type="text"
                   placeholder="Search campaigns or creators..."
-                  className="bg-transparent border-none outline-none text-sm text-zinc-200 ml-2 w-56 placeholder-zinc-600"
+                  className="bg-transparent border-none outline-none text-sm text-stone-200 ml-2 w-56 placeholder-stone-600"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
@@ -653,21 +655,21 @@ export default function InfluencerOS() {
               </div>
 
               {isSearchFocused && searchQuery.trim() !== '' && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-[#09090b] border border-zinc-800 rounded-lg shadow-2xl overflow-hidden z-50">
+                <div className="absolute top-full right-0 mt-2 w-80 bg-[#0c0a08] border border-white/[0.08] rounded-lg shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
                   <div className="max-h-80 overflow-y-auto">
                     {searchResults.campaigns.length > 0 && (
                       <div className="p-2">
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Campaigns</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold mb-1 px-2">Campaigns</p>
                         {searchResults.campaigns.map(camp => (
                           <button
                             key={camp.ip_id}
                             onMouseDown={() => handleSearchResultClick('campaign', camp)}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 transition-colors"
+                            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                           >
-                            <FolderKanban size={14} className="text-indigo-400" />
+                            <FolderKanban className="text-orange-400" size={14}/>
                             <div>
-                              <p className="text-sm font-medium text-zinc-200">{camp.ip_name}</p>
-                              <p className="text-xs text-zinc-500">Owner: {camp.owner}</p>
+                              <p className="text-sm font-medium text-stone-200">{camp.ip_name}</p>
+                              <p className="text-xs text-stone-500">Owner: {camp.owner}</p>
                             </div>
                           </button>
                         ))}
@@ -675,20 +677,20 @@ export default function InfluencerOS() {
                     )}
                     
                     {searchResults.creators.length > 0 && (
-                      <div className="p-2 border-t border-zinc-800/50">
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Creators</p>
+                      <div className="p-2 border-t border-white/[0.06]">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold mb-1 px-2">Creators</p>
                         {searchResults.creators.map(creator => {
                           const parentCamp = campaigns.find(c => c.ip_id === creator.ip_id);
                           return (
                             <button
                               key={creator.creator_deal_id}
                               onMouseDown={() => handleSearchResultClick('creator', creator)}
-                              className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 transition-colors"
+                              className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                             >
-                              <Users size={14} className="text-emerald-400" />
+                              <Users className="text-cyan-400" size={14}/>
                               <div>
-                                <p className="text-sm font-medium text-zinc-200">{creator.creator_name}</p>
-                                <p className="text-xs text-zinc-500">in {parentCamp?.ip_name || 'Campaign'}</p>
+                                <p className="text-sm font-medium text-stone-200">{creator.creator_name}</p>
+                                <p className="text-xs text-stone-500">in {parentCamp?.ip_name || 'Campaign'}</p>
                               </div>
                             </button>
                           );
@@ -697,7 +699,7 @@ export default function InfluencerOS() {
                     )}
 
                     {searchResults.campaigns.length === 0 && searchResults.creators.length === 0 && (
-                      <div className="p-4 text-center text-sm text-zinc-500">
+                      <div className="p-4 text-center text-sm text-stone-500">
                         No results found for "{searchQuery}"
                       </div>
                     )}
@@ -706,47 +708,44 @@ export default function InfluencerOS() {
               )}
             </div>
 
-            <div className="h-4 w-px bg-zinc-800"></div>
-            <Bell size={18} className="text-zinc-500 hover:text-zinc-300 cursor-pointer" />
-            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-medium text-zinc-300">TR</div>
+            <div className="h-4 w-px bg-white/10"></div>
+            <Bell className="text-stone-500 hover:text-stone-300 cursor-pointer" size={18}/>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/30 to-amber-600/20 border border-orange-500/30 flex items-center justify-center text-xs font-medium text-orange-200">TR</div>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           
-          {/* CAMPAIGNS GRID VIEW */}
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-4">
+                <h2 className="text-2xl font-semibold text-stone-100 tracking-tight flex items-center gap-4">
                   Active Campaigns
                   {selectedCampaigns.length > 0 && (
                     <button 
                       onClick={handleExportCampaigns}
-                      className="text-xs flex items-center gap-1.5 bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors"
+                      className="text-xs flex items-center gap-1.5 bg-orange-500/15 text-orange-300 px-3 py-1.5 rounded-full border border-orange-500/30 hover:bg-orange-500/25 transition-colors"
                     >
-                      <Download size={12} /> Export Selected ({selectedCampaigns.length})
+                      <Download size={12}/> Export Selected ({selectedCampaigns.length})
                     </button>
                   )}
                 </h2>
                 
-                {/* HEADERS ACTION CONTAINERS */}
                 <div className="flex items-center gap-3">
-                  {/* Master Bulk Auto Sync Control Trigger */}
                   <button 
                     onClick={handleBulkAutoSync}
                     disabled={isBulkSyncing}
-                    className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+                    className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
                   >
-                    <RefreshCw size={16} className={isBulkSyncing ? "animate-spin text-indigo-400" : ""} />
+                    <RefreshCw className={isBulkSyncing ? "animate-spin text-orange-400" : "text-orange-400"} size={16}/>
                     {isBulkSyncing ? "Bulk Syncing Data..." : "Bulk Sync All IPs"}
                   </button>
 
                   <button 
                     onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
-                    className="bg-zinc-100 text-zinc-900 hover:bg-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
+                    className="bg-orange-500 text-white hover:bg-orange-400 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
                   >
-                    <Plus size={16} /> New Campaign
+                    <Plus size={16}/> New Campaign
                   </button>
                 </div>
               </div>
@@ -770,51 +769,51 @@ export default function InfluencerOS() {
                     <div 
                       key={camp.ip_id} 
                       onClick={() => setActiveCampaignId(camp.ip_id)}
-                      className={`bg-zinc-900/40 border p-5 rounded-xl transition-colors cursor-pointer group flex flex-col relative overflow-hidden ${isSelected ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-zinc-800/80 hover:border-zinc-700'}`}
+                      className={`bg-white/[0.025] border p-5 rounded-xl transition-all cursor-pointer group flex flex-col relative overflow-hidden backdrop-blur-sm ${isSelected ? 'border-orange-500/50 shadow-[0_0_24px_-6px_rgba(249,115,22,0.45)]' : 'border-white/[0.07] hover:border-orange-500/30 hover:shadow-[0_0_24px_-10px_rgba(249,115,22,0.4)]'}`}
                     >
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedCampaigns(prev => prev.includes(camp.ip_id) ? prev.filter(id => id !== camp.ip_id) : [...prev, camp.ip_id]);
                         }}
-                        className={`absolute top-4 left-4 z-10 p-1 rounded-md transition-opacity ${isSelected ? 'opacity-100 text-indigo-400' : 'opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300'}`}
+                        className={`absolute top-4 left-4 z-10 p-1 rounded-md transition-opacity ${isSelected ? 'opacity-100 text-orange-400' : 'opacity-0 group-hover:opacity-100 text-stone-500 hover:text-stone-300'}`}
                       >
-                        {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                        {isSelected ? <CheckSquare size={20}/> : <Square size={20}/>}
                       </button>
 
                       <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => openCampaignEdit(e, camp)} className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded shadow-md transition-colors"><Edit2 size={14}/></button>
-                        <button onClick={(e) => requestDelete(e, 'campaign', camp.ip_id, camp.ip_name)} className="p-1.5 bg-zinc-800 hover:bg-red-900/50 text-zinc-300 hover:text-red-400 rounded shadow-md transition-colors"><Trash2 size={14}/></button>
+                        <button onClick={(e) => openCampaignEdit(e, camp)} className="p-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-stone-300 rounded shadow-md transition-colors"><Edit2 size={14}/></button>
+                        <button onClick={(e) => requestDelete(e, 'campaign', camp.ip_id, camp.ip_name)} className="p-1.5 bg-white/[0.05] hover:bg-red-900/50 text-stone-300 hover:text-red-400 rounded shadow-md transition-colors"><Trash2 size={14}/></button>
                       </div>
 
                       <div className="flex justify-between items-start mb-4 pl-8">
-                        <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-indigo-400 transition-colors">
-                          <FolderKanban size={20} />
+                        <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-orange-400 group-hover:border-orange-500/30 transition-colors">
+                          <FolderKanban size={20}/>
                         </div>
                       </div>
-                      <h3 className="text-lg font-medium text-zinc-200">{camp.ip_name}</h3>
-                      <p className="text-sm text-zinc-500 mt-1">Owner: {camp.owner}</p>
+                      <h3 className="text-lg font-medium text-stone-200">{camp.ip_name}</h3>
+                      <p className="text-sm text-stone-500 mt-1">Owner: {camp.owner}</p>
                       
-                      <div className="mt-5 pt-4 border-t border-zinc-800/50 grid grid-cols-2 gap-4">
+                      <div className="mt-5 pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-xs text-zinc-500 mb-1">Booked Value</p>
-                          <p className="text-sm font-medium text-zinc-200">{formatMoney(bookedValue)}</p>
+                          <p className="text-xs text-stone-500 mb-1">Booked Value</p>
+                          <p className="text-sm font-medium text-stone-100 tabular-nums">{formatMoney(bookedValue)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-zinc-500 mb-1">Total Views</p>
-                          <p className="text-sm font-medium text-zinc-200">{formatNumber(campViews)}</p>
+                          <p className="text-xs text-stone-500 mb-1">Total Views</p>
+                          <p className="text-sm font-medium text-stone-100 tabular-nums">{formatNumber(campViews)}</p>
                         </div>
                       </div>
                       
-                      <div className="mt-4 flex items-center gap-4 bg-zinc-950 rounded-lg p-2.5 border border-zinc-800/50">
+                      <div className="mt-4 flex items-center gap-4 bg-black/40 rounded-lg p-2.5 border border-white/[0.06]">
                         <div className="flex-1">
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Avg CPV</p>
-                          <p className="text-xs font-semibold text-indigo-400">{formatMicroMoney(campCpv)}</p>
+                          <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] mb-0.5">Avg CPV</p>
+                          <p className="text-xs font-semibold text-orange-400 tabular-nums">{formatMicroMoney(campCpv)}</p>
                         </div>
-                        <div className="w-px h-6 bg-zinc-800"></div>
+                        <div className="w-px h-6 bg-white/10"></div>
                         <div className="flex-1">
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Avg CPE</p>
-                          <p className="text-xs font-semibold text-emerald-400">{formatMicroMoney(campCpe)}</p>
+                          <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] mb-0.5">Avg CPE</p>
+                          <p className="text-xs font-semibold text-cyan-400 tabular-nums">{formatMicroMoney(campCpe)}</p>
                         </div>
                       </div>
                     </div>
@@ -824,67 +823,66 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {/* SINGLE CAMPAIGN WORKSPACE DETAIL VIEW */}
           {activeTab === 'campaigns' && activeCampaignId && (
              <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col gap-4 mb-6">
                 <button 
                   onClick={() => setActiveCampaignId(null)}
-                  className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors w-fit"
+                  className="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-300 transition-colors w-fit"
                 >
-                  <ArrowLeft size={16} /> Back to Campaigns
+                  <ArrowLeft size={16}/> Back to Campaigns
                 </button>
                 <div className="flex justify-between items-end">
                   <div>
-                    <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">
+                    <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">
                       {campaigns.find(c => c.ip_id === activeCampaignId)?.ip_name}
                     </h2>
-                    <p className="text-sm text-zinc-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
+                    <p className="text-sm text-stone-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
                       onClick={() => setExportModal({ isOpen: true, type: 'ops' })}
-                      className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
+                      className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
                     >
-                      <Download size={16} /> Export Report
+                      <Download size={16}/> Export Report
                     </button>
                     <button 
                       onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-lg"
+                      className="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
                     >
-                      <Plus size={16} /> Book Creator
+                      <Plus size={16}/> Book Creator
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#09090b] rounded-xl border border-zinc-800/80 overflow-x-auto shadow-xl pb-16">
+              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl pb-16">
                  <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-zinc-900/50 text-zinc-500 border-b border-zinc-800/80">
+                  <thead className="bg-white/[0.02] text-stone-500 border-b border-white/[0.07]">
                     <tr>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Creator</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Deliverable</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Target Date</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Performance</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Efficiency</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Spend (Fee)</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest">Finance Bill</th>
-                      <th className="px-5 py-4 font-medium text-xs uppercase tracking-widest text-right">Actions</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Creator</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Deliverable</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Target Date</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Performance</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Efficiency</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Spend (Fee)</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Finance Bill</th>
+                      <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em] text-right">Actions</th>
                     </tr>
                   </thead>
                   
                   {creators.filter(c => c.ip_id === activeCampaignId).length === 0 ? (
                     <tbody>
-                      <tr><td colSpan="8" className="px-5 py-12 text-center text-zinc-600">No creators booked for this campaign yet.</td></tr>
+                      <tr><td colSpan="8" className="px-5 py-12 text-center text-stone-600">No creators booked for this campaign yet.</td></tr>
                     </tbody>
                   ) : (
-                    <tbody className="divide-y divide-zinc-800/50">
+                    <tbody className="divide-y divide-white/[0.05]">
                       {Object.entries(getGroupedCreators()).map(([month, monthCreators]) => {
                         return (
                           <React.Fragment key={month}>
-                            <tr className="bg-zinc-900/30">
-                              <td colSpan="8" className="px-5 py-2.5">
-                                <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                            <tr className="bg-orange-500/[0.04]">
+                              <td colSpan="8" className="px-5 py-2.5 border-l-2 border-orange-500/60">
+                                <div className="flex justify-between items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300/80">
                                   <span>{month} Delivery Target</span>
                                 </div>
                               </td>
@@ -894,60 +892,60 @@ export default function InfluencerOS() {
                               const metrics = calculateCreatorMetrics(c);
 
                               return (
-                                <tr key={c.creator_deal_id} className="hover:bg-zinc-800/20 transition-colors group">
+                                <tr key={c.creator_deal_id} className="hover:bg-white/[0.025] transition-colors group">
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
-                                      <span className="font-medium text-zinc-200">{c.creator_name}</span>
-                                      <span className="text-xs text-zinc-500 mt-0.5">{formatNumber(c.followers)} foll</span>
+                                      <span className="font-medium text-stone-200">{c.creator_name}</span>
+                                      <span className="text-xs text-stone-500 mt-0.5 tabular-nums">{formatNumber(c.followers)} foll</span>
                                     </div>
                                   </td>
                                   
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
-                                      <span className="text-zinc-300">{c.content_type}</span>
+                                      <span className="text-stone-300">{c.content_type}</span>
                                       {c.deliverable_link ? (
-                                        <a href={c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-1">
-                                          <LinkIcon size={12} /> View Live Post
+                                        <a href={c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`} target="_blank" rel="noreferrer" className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 mt-1">
+                                          <LinkIcon size={12}/> View Live Post
                                         </a>
                                       ) : (
-                                        <span className="text-xs text-zinc-600 italic mt-1">No link provided</span>
+                                        <span className="text-xs text-stone-600 italic mt-1">No link provided</span>
                                       )}
                                     </div>
                                   </td>
 
-                                  <td className="px-5 py-4 text-zinc-400">{c.planned_go_live_date}</td>
+                                  <td className="px-5 py-4 text-stone-400 tabular-nums">{c.planned_go_live_date}</td>
                                   
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col gap-1">
-                                      <span className="text-zinc-200 font-medium">{formatNumber(c.views || 0)} <span className="text-zinc-600 text-xs font-normal">views</span></span>
-                                      <span className="text-zinc-400 text-xs">{formatNumber(metrics.engagement)} <span className="text-zinc-600">engagements</span></span>
+                                      <span className="text-stone-200 font-medium tabular-nums">{formatNumber(c.views || 0)} <span className="text-stone-600 text-xs font-normal">views</span></span>
+                                      <span className="text-stone-400 text-xs tabular-nums">{formatNumber(metrics.engagement)} <span className="text-stone-600">engagements</span></span>
                                     </div>
                                   </td>
 
                                   <td className="px-5 py-4">
                                      <div className="flex flex-col gap-1">
-                                      <span className="text-indigo-400 font-medium">{formatMicroMoney(metrics.cpv)} <span className="text-zinc-600 text-xs font-normal">CPV</span></span>
-                                      <span className="text-emerald-400 text-xs font-medium">{formatMicroMoney(metrics.cpe)} <span className="text-zinc-600 font-normal">CPE</span></span>
+                                      <span className="text-orange-400 font-medium tabular-nums">{formatMicroMoney(metrics.cpv)} <span className="text-stone-600 text-xs font-normal">CPV</span></span>
+                                      <span className="text-cyan-400 text-xs font-medium tabular-nums">{formatMicroMoney(metrics.cpe)} <span className="text-stone-600 font-normal">CPE</span></span>
                                     </div>
                                   </td>
 
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
-                                      <span className="font-medium text-zinc-200">{formatMoney(c.deal_value)}</span>
-                                      <span className="text-[10px] uppercase tracking-widest text-zinc-500 mt-1">
+                                      <span className="font-medium text-stone-200 tabular-nums">{formatMoney(c.deal_value)}</span>
+                                      <span className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mt-1">
                                         {c.payment_model.replace('_', ' ')}
                                       </span>
                                     </div>
                                   </td>
 
-                                  <td className="px-5 py-4 text-zinc-400">
-                                    {creatorBill ? creatorBill.invoice_date : <span className="text-zinc-600 italic">Pending</span>}
+                                  <td className="px-5 py-4 text-stone-400 tabular-nums">
+                                    {creatorBill ? creatorBill.invoice_date : <span className="text-stone-600 italic">Pending</span>}
                                   </td>
                                   
                                   <td className="px-5 py-4 text-right">
                                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-zinc-500 hover:text-zinc-200"><Edit2 size={16} /></button>
-                                      <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-zinc-500 hover:text-red-400"><Trash2 size={16} /></button>
+                                      <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-stone-500 hover:text-orange-400"><Edit2 size={16}/></button>
+                                      <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-stone-500 hover:text-red-400"><Trash2 size={16}/></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -963,84 +961,84 @@ export default function InfluencerOS() {
              </div>
           )}
 
-          {/* FINANCE VS OPS VIEW */}
           {activeTab === 'finance_vs_ops' && (
              <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight">Finance vs Ops Mismatch</h2>
-                  <p className="text-sm text-zinc-500 mt-1 font-light">Resolving the timing gap between campaign execution and cash flow for {targetMonth}.</p>
+                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Finance vs Ops Mismatch</h2>
+                  <p className="text-sm text-stone-500 mt-1 font-light">Resolving the timing gap between campaign execution and cash flow for {targetMonth}.</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={() => setExportModal({ isOpen: true, type: 'finance' })}
-                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                    className="bg-orange-500/15 text-orange-300 hover:bg-orange-500/25 border border-orange-500/30 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
                   >
-                    <Download size={16} /> Export Financials
+                    <Download size={16}/> Export Financials
                   </button>
                   {computations.variance !== 0 && (
-                    <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-lg backdrop-blur-sm">
-                      <AlertCircle size={16} className="text-indigo-400" />
-                      Variance Detected: {formatMoney(Math.abs(computations.variance))}
+                    <div className="bg-orange-500/10 border border-orange-500/25 text-orange-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-[0_0_24px_-8px_rgba(249,115,22,0.5)] backdrop-blur-sm">
+                      <AlertCircle className="text-orange-400" size={16}/>
+                      Variance Detected: <span className="tabular-nums">{formatMoney(Math.abs(computations.variance))}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
+                
+                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
+                  <div className="p-5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.02]">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-zinc-500"></div>
-                      <h3 className="font-medium text-zinc-200">Ops Budget ({targetMonth})</h3>
+                      <div className="w-2 h-2 rounded-full bg-stone-500"></div>
+                      <h3 className="font-medium text-stone-200">Ops Budget ({targetMonth})</h3>
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500 border border-zinc-800 px-2 py-1 rounded bg-zinc-950">Counted by Go-Live</span>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-stone-500 border border-white/10 px-2 py-1 rounded bg-black/40">Counted by Go-Live</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-4xl font-light tracking-tight text-zinc-100 mb-5">{formatMoney(computations.opsTotal)}</p>
+                    <p className="text-4xl font-normal tracking-tight text-stone-100 mb-5 tabular-nums">{formatMoney(computations.opsTotal)}</p>
                     
                     {Object.keys(computations.opsBreakdown).length > 0 ? (
-                      <div className="space-y-2 border-t border-zinc-800/50 pt-4">
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-3">IP Breakdown</p>
+                      <div className="space-y-2 border-t border-white/[0.06] pt-4">
+                        <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] font-semibold mb-3">IP Breakdown</p>
                         {Object.entries(computations.opsBreakdown).map(([campName, amount]) => (
                           <div key={campName} className="flex justify-between items-center text-sm">
-                            <span className="text-zinc-400 truncate pr-4">{campName}</span>
-                            <span className="text-zinc-200 font-medium">{formatMoney(amount)}</span>
+                            <span className="text-stone-400 truncate pr-4">{campName}</span>
+                            <span className="text-stone-200 font-medium tabular-nums">{formatMoney(amount)}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                       <div className="border-t border-zinc-800/50 pt-4">
-                          <p className="text-sm text-zinc-600 italic">No go-lives scheduled for {targetMonth}</p>
+                       <div className="border-t border-white/[0.06] pt-4">
+                          <p className="text-sm text-stone-600 italic">No go-lives scheduled for {targetMonth}</p>
                        </div>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
-                  <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
+                <div className="bg-white/[0.025] border border-orange-500/20 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group shadow-[0_0_30px_-14px_rgba(249,115,22,0.5)]">
+                  <div className="p-5 border-b border-white/[0.06] flex justify-between items-center bg-orange-500/[0.04]">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                      <h3 className="font-medium text-zinc-200">Finance Expense ({targetMonth})</h3>
+                      <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_2px_rgba(249,115,22,0.7)]"></div>
+                      <h3 className="font-medium text-stone-200">Finance Expense ({targetMonth})</h3>
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded bg-indigo-500/10">Counted by Bill Date</span>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-orange-400 border border-orange-500/30 px-2 py-1 rounded bg-orange-500/10">Counted by Bill Date</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-4xl font-light tracking-tight text-zinc-100 mb-5">{formatMoney(computations.financeTotal)}</p>
+                    <p className="text-4xl font-normal tracking-tight text-stone-100 mb-5 tabular-nums [text-shadow:0_0_30px_rgba(249,115,22,0.3)]">{formatMoney(computations.financeTotal)}</p>
                     
                     {Object.keys(computations.financeBreakdown).length > 0 ? (
-                      <div className="space-y-2 border-t border-zinc-800/50 pt-4">
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-3">IP Breakdown</p>
+                      <div className="space-y-2 border-t border-white/[0.06] pt-4">
+                        <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] font-semibold mb-3">IP Breakdown</p>
                         {Object.entries(computations.financeBreakdown).map(([campName, amount]) => (
                           <div key={campName} className="flex justify-between items-center text-sm">
-                            <span className="text-zinc-400 truncate pr-4">{campName}</span>
-                            <span className="text-zinc-200 font-medium">{formatMoney(amount)}</span>
+                            <span className="text-stone-400 truncate pr-4">{campName}</span>
+                            <span className="text-stone-200 font-medium tabular-nums">{formatMoney(amount)}</span>
                           </div>
                         ))}
                       </div>
                      ) : (
-                       <div className="border-t border-zinc-800/50 pt-4">
-                          <p className="text-sm text-zinc-600 italic">No invoices billed in {targetMonth}</p>
+                       <div className="border-t border-white/[0.06] pt-4">
+                          <p className="text-sm text-stone-600 italic">No invoices billed in {targetMonth}</p>
                        </div>
                     )}
                   </div>
@@ -1048,28 +1046,28 @@ export default function InfluencerOS() {
 
               </div>
 
-              <div className="bg-[#09090b] rounded-xl border border-zinc-800/80 overflow-hidden shadow-2xl">
-                <div className="p-5 border-b border-zinc-800/80 bg-zinc-900/50">
-                  <h3 className="font-medium text-zinc-200">System Mismatch Intelligence</h3>
+              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-hidden shadow-2xl">
+                <div className="p-5 border-b border-white/[0.07] bg-white/[0.02]">
+                  <h3 className="font-medium text-stone-200">System Mismatch Intelligence</h3>
                 </div>
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-zinc-900/30 text-zinc-500 border-b border-zinc-800/50">
+                  <thead className="bg-white/[0.015] text-stone-500 border-b border-white/[0.06]">
                     <tr>
-                      <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest">Creator Booking</th>
-                      <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest">Mismatch Reason</th>
-                      <th className="px-6 py-4 font-medium text-xs uppercase tracking-widest text-right">Impact for {targetMonth}</th>
+                      <th className="px-6 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Creator Booking</th>
+                      <th className="px-6 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Mismatch Reason</th>
+                      <th className="px-6 py-4 font-medium text-[10px] uppercase tracking-[0.2em] text-right">Impact for {targetMonth}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/50">
+                  <tbody className="divide-y divide-white/[0.05]">
                     {computations.mismatchReasons.length > 0 ? computations.mismatchReasons.map((mr, i) => (
-                      <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="px-6 py-4 font-medium text-zinc-200">{mr.creator}</td>
-                        <td className="px-6 py-4 text-zinc-400">{mr.reason}</td>
-                        <td className="px-6 py-4 text-right font-medium text-indigo-400">{mr.impact}</td>
+                      <tr key={i} className="hover:bg-white/[0.025] transition-colors">
+                        <td className="px-6 py-4 font-medium text-stone-200">{mr.creator}</td>
+                        <td className="px-6 py-4 text-stone-400">{mr.reason}</td>
+                        <td className="px-6 py-4 text-right font-medium text-orange-400 tabular-nums">{mr.impact}</td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="3" className="px-6 py-12 text-center text-zinc-600 font-light">Data is aligned. No timing gaps detected.</td>
+                        <td colSpan="3" className="px-6 py-12 text-center text-stone-600 font-light">Data is aligned. No timing gaps detected.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1080,51 +1078,49 @@ export default function InfluencerOS() {
         </div>
       </main>
 
-      {/* --- OVERLAY MODALS --- */}
-
       {/* Date Range Export Modal */}
       {exportModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
-              <h3 className="font-medium text-zinc-100 flex items-center gap-2">
-                <Download size={18} className={exportModal.type === 'finance' ? 'text-emerald-400' : 'text-indigo-400'}/> 
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
+              <h3 className="font-medium text-stone-100 flex items-center gap-2">
+                <Download className={exportModal.type === 'finance' ? 'text-orange-400' : 'text-orange-400'} size={18}/> 
                 Export {exportModal.type === 'finance' ? 'Finance' : 'Ops'} Report
               </h3>
-              <button type="button" onClick={() => setExportModal({ isOpen: false, type: '' })} className="text-zinc-500 hover:text-zinc-300">Close</button>
+              <button type="button" onClick={() => setExportModal({ isOpen: false, type: '' })} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             <form onSubmit={executeAdvancedExport} className="p-6 space-y-5">
               
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
-                <p className="text-xs text-zinc-400 mb-3">
+              <div className="bg-white/[0.02] border border-white/[0.07] rounded-lg p-4">
+                <p className="text-xs text-stone-400 mb-3">
                   {exportModal.type === 'finance' 
                     ? 'Finance reports filter creators strictly by their Invoice Bill Date, regardless of when they post.' 
                     : 'Ops reports filter creators strictly by their Target Go-Live Date, regardless of when they are billed.'}
                 </p>
                 
-                <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-2 font-medium">Select Range Type</label>
-                <select name="filter_type" defaultValue="month" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 mb-4" onChange={(e) => {
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Select Range Type</label>
+                <select name="filter_type" defaultValue="month" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 mb-4" onChange={(e) => {
                   document.getElementById('custom-date-row').style.display = e.target.value === 'custom' ? 'grid' : 'none';
                 }}>
-                  <option value="month">Current Filtered Month ({targetMonth})</option>
-                  <option value="custom">Custom Date Range</option>
-                  <option value="all">All Available Data</option>
+                  <option value="month" className="bg-[#0c0a08]">Current Filtered Month ({targetMonth})</option>
+                  <option value="custom" className="bg-[#0c0a08]">Custom Date Range</option>
+                  <option value="all" className="bg-[#0c0a08]">All Available Data</option>
                 </select>
 
                 <div id="custom-date-row" className="grid-cols-2 gap-4 hidden">
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Start Date</label>
-                    <input name="start_date" type="date" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Start Date</label>
+                    <input name="start_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
                   </div>
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">End Date</label>
-                    <input name="end_date" type="date" className="w-full bg-black/50 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">End Date</label>
+                    <input name="end_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 flex justify-end gap-3">
-                <button type="submit" className={`px-6 py-2.5 text-white text-sm font-semibold rounded-md transition-colors shadow-lg ${exportModal.type === 'finance' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                <button type="submit" className="px-6 py-2.5 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)] bg-orange-500 hover:bg-orange-400">
                   Download CSV
                 </button>
               </div>
@@ -1135,26 +1131,26 @@ export default function InfluencerOS() {
 
       {isCampaignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
-              <h3 className="font-medium text-zinc-100">{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</h3>
-              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); }} className="text-zinc-500 hover:text-zinc-300">Close</button>
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
+              <h3 className="font-medium text-stone-100">{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</h3>
+              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); }} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             <form onSubmit={handleSaveCampaign} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Campaign Name</label>
-                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Name</label>
+                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div>
-                <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Owner</label>
-                <input name="owner" defaultValue={editingCampaign?.owner} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner</label>
+                <input name="owner" defaultValue={editingCampaign?.owner} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div>
-                <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Total Budget</label>
-                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Total Budget</label>
+                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="submit" className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-900 text-sm font-medium rounded-md transition-colors">
+                <button type="submit" className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
                   {editingCampaign ? 'Update Campaign' : 'Create Campaign'}
                 </button>
               </div>
@@ -1165,128 +1161,128 @@ export default function InfluencerOS() {
 
       {isCreatorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#09090b] border border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30 shrink-0">
-              <h3 className="font-medium text-zinc-100">{editingCreator ? 'Edit Creator Booking' : 'Book Creator'}</h3>
-              <button type="button" onClick={() => {setCreatorModalOpen(false); setEditingCreator(null);}} className="text-zinc-500 hover:text-zinc-300">Close</button>
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
+              <h3 className="font-medium text-stone-100">{editingCreator ? 'Edit Creator Booking' : 'Book Creator'}</h3>
+              <button type="button" onClick={() => {setCreatorModalOpen(false); setEditingCreator(null);}} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             
             <form onSubmit={handleSaveCreator} className="flex flex-col overflow-hidden">
               <div className="p-6 space-y-6 overflow-y-auto">
                 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Core Profile</h4>
+                  <h4 className="text-[10px] font-semibold text-stone-300 uppercase tracking-[0.2em] border-b border-white/[0.07] pb-2 mb-4">Core Profile</h4>
                   <div className="grid grid-cols-3 gap-5">
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Creator Name</label>
-                      <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Creator Name</label>
+                      <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Platform</label>
-                      <select name="platform" defaultValue={editingCreator?.platform || 'Instagram'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                        <option>Instagram</option>
-                        <option>YouTube</option>
-                        <option>TikTok</option>
-                        <option>LinkedIn</option>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Platform</label>
+                      <select name="platform" defaultValue={editingCreator?.platform || 'Instagram'} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                        <option className="bg-[#0c0a08]">Instagram</option>
+                        <option className="bg-[#0c0a08]">YouTube</option>
+                        <option className="bg-[#0c0a08]">TikTok</option>
+                        <option className="bg-[#0c0a08]">LinkedIn</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Profile Link</label>
-                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="instagram.com/username" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Profile Link</label>
+                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder="instagram.com/username" />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-4">Deal Details</h4>
+                  <h4 className="text-[10px] font-semibold text-stone-300 uppercase tracking-[0.2em] border-b border-white/[0.07] pb-2 mb-4">Deal Details</h4>
                   <div className="grid grid-cols-4 gap-5">
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Spend / Fee</label>
-                      <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Spend / Fee</label>
+                      <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Payment Model</label>
-                      <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                        <option value="100_advance">100% Advance</option>
-                        <option value="50_50">50-50 Split</option>
-                        <option value="full_later">Full Post-Live</option>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Payment Model</label>
+                      <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                        <option value="100_advance" className="bg-[#0c0a08]">100% Advance</option>
+                        <option value="50_50" className="bg-[#0c0a08]">50-50 Split</option>
+                        <option value="full_later" className="bg-[#0c0a08]">Full Post-Live</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Target Go-Live Date</label>
-                      <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Target Go-Live Date</label>
+                      <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Finance Bill Date</label>
-                      <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Finance Bill Date</label>
+                      <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-zinc-900/30 p-5 rounded-xl border border-zinc-800/50">
-                  <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
-                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-widest">Live Performance Tracking</h4>
+                <div className="bg-white/[0.02] p-5 rounded-xl border border-white/[0.06]">
+                  <div className="flex justify-between items-center mb-4 border-b border-white/[0.07] pb-3">
+                    <h4 className="text-[10px] font-semibold text-stone-300 uppercase tracking-[0.2em]">Live Performance Tracking</h4>
                     <button 
                       type="button" 
                       onClick={handleAutoSync}
                       disabled={isSyncing}
-                      className="flex items-center gap-2 text-[10px] uppercase tracking-widest bg-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 hover:bg-indigo-600/30 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] bg-orange-500/15 text-orange-400 px-3 py-1.5 rounded-full border border-orange-500/30 hover:bg-orange-500/25 transition-colors disabled:opacity-50"
                     >
-                      <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+                      <RefreshCw className={isSyncing ? "animate-spin" : ""} size={12}/>
                       {isSyncing ? "Fetching Live Data..." : "Auto-Sync Live Metrics"}
                     </button>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-5 mb-5">
                      <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Deliverable Link (URL)</label>
-                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" placeholder="https://instagram.com/p/..." />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Deliverable Link (URL)</label>
+                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder="https://instagram.com/p/..." />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Content Type</label>
-                        <select name="content_type" defaultValue={editingCreator?.content_type || 'Reel Collab'} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
-                          <option>Reel Collab</option>
-                          <option>Story (Set of 3)</option>
-                          <option>Dedicated Video</option>
-                          <option>YT Integration</option>
-                          <option>Shorts</option>
+                        <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Content Type</label>
+                        <select name="content_type" defaultValue={editingCreator?.content_type || 'Reel Collab'} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                          <option className="bg-[#0c0a08]">Reel Collab</option>
+                          <option className="bg-[#0c0a08]">Story (Set of 3)</option>
+                          <option className="bg-[#0c0a08]">Dedicated Video</option>
+                          <option className="bg-[#0c0a08]">YT Integration</option>
+                          <option className="bg-[#0c0a08]">Shorts</option>
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Followers</label>
-                        <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                        <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Followers</label>
+                        <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-5 gap-4">
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium text-indigo-300">Views</label>
-                      <input name="views" type="number" defaultValue={editingCreator?.views} className="w-full bg-indigo-950/20 border border-indigo-900/50 rounded-md px-3 py-2 text-sm text-indigo-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-orange-300 mb-1.5 font-medium">Views</label>
+                      <input name="views" type="number" defaultValue={editingCreator?.views} className="w-full bg-orange-950/30 border border-orange-500/30 rounded-md px-3 py-2 text-sm text-orange-100 focus:outline-none focus:border-orange-500" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Likes</label>
-                      <input name="likes" type="number" defaultValue={editingCreator?.likes} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Likes</label>
+                      <input name="likes" type="number" defaultValue={editingCreator?.likes} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Comments</label>
-                      <input name="comments" type="number" defaultValue={editingCreator?.comments} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Comments</label>
+                      <input name="comments" type="number" defaultValue={editingCreator?.comments} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Shares</label>
-                      <input name="shares" type="number" defaultValue={editingCreator?.shares} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Shares</label>
+                      <input name="shares" type="number" defaultValue={editingCreator?.shares} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-medium">Saves</label>
-                      <input name="saves" type="number" defaultValue={editingCreator?.saves} className="w-full bg-black/40 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Saves</label>
+                      <input name="saves" type="number" defaultValue={editingCreator?.saves} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                     </div>
                   </div>
                 </div>
 
               </div>
-              <div className="p-5 border-t border-zinc-800 flex justify-end shrink-0 bg-zinc-900/30">
-                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-md transition-colors shadow-lg">
+              <div className="p-5 border-t border-white/[0.07] flex justify-end shrink-0 bg-white/[0.02]">
+                <button type="submit" className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
                   {editingCreator ? 'Update Creator Booking' : 'Save Booking'}
                 </button>
               </div>
@@ -1297,17 +1293,17 @@ export default function InfluencerOS() {
 
       {deletePrompt.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#09090b] border border-red-900/50 rounded-2xl w-full max-w-sm shadow-[0_0_40px_rgba(220,38,38,0.15)] overflow-hidden">
+          <div className="bg-[#0c0a08] border border-red-900/50 rounded-2xl w-full max-w-sm shadow-[0_0_40px_rgba(220,38,38,0.15)] overflow-hidden">
             <div className="p-6 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4">
-                <AlertTriangle size={24} />
+                <AlertTriangle size={24}/>
               </div>
-              <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Campaign' : 'Creator'}?</h3>
-              <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+              <h3 className="text-lg font-medium text-stone-100 mb-2">Delete {deletePrompt.type === 'campaign' ? 'Campaign' : 'Creator'}?</h3>
+              <p className="text-sm text-stone-400 mb-6 leading-relaxed">
                 You are about to delete <strong>{deletePrompt.name}</strong>. This action will permanently remove all associated data, including financial records and billing history. This cannot be undone.
               </p>
               <div className="flex gap-3 w-full">
-                <button onClick={() => setDeletePrompt({ isOpen: false, type: '', id: '', name: '' })} className="flex-1 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-sm font-medium rounded-md transition-colors">
+                <button onClick={() => setDeletePrompt({ isOpen: false, type: '', id: '', name: '' })} className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">
                   Cancel
                 </button>
                 <button onClick={executeDelete} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-md transition-colors shadow-lg">
