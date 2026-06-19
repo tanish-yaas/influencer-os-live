@@ -19,16 +19,13 @@ const ALL_MONTHS = [
 ];
 
 export default function InfluencerOS() {
-  // --- AUTHENTICATION STATE ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // --- DASHBOARD STATE ---
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
-  
   const [targetMonth, setTargetMonth] = useState('May');
   
   const [campaigns, setCampaigns] = useState([]);
@@ -49,7 +46,6 @@ export default function InfluencerOS() {
   const [isMounted, setIsMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); 
 
-  // --- SMART SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -68,7 +64,6 @@ export default function InfluencerOS() {
     if (billData) setBills(billData);
   };
 
-  // --- AUTHENTICATION HANDLER ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginEmail === 'collab@yaas.studio' && loginPassword === 'influencermarketing@yaas') {
@@ -79,7 +74,6 @@ export default function InfluencerOS() {
     }
   };
 
-  // --- CSV GENERATOR ENGINE ---
   const downloadCSV = (filename, rows) => {
     if (!rows || !rows.length) {
       alert("No data available to export for this selection.");
@@ -217,7 +211,6 @@ export default function InfluencerOS() {
     setExportModal({ isOpen: false, type: '' });
   };
 
-  // --- FORMATTING & MATH HELPERS (Hardcoded to INR) ---
   const formatMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
   const formatMicroMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount);
   const formatNumber = (num) => new Intl.NumberFormat('en-IN').format(num);
@@ -231,7 +224,6 @@ export default function InfluencerOS() {
     return { engagement, cpv: views > 0 ? (cost / views) : 0, cpe: engagement > 0 ? (cost / engagement) : 0 };
   };
 
-  // --- SMART SEARCH ENGINE ---
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return { campaigns: [], creators: [] };
     const q = searchQuery.toLowerCase();
@@ -246,13 +238,12 @@ export default function InfluencerOS() {
     if (type === 'campaign') {
       setActiveCampaignId(item.ip_id);
     } else if (type === 'creator') {
-      setActiveCampaignId(item.ip_id); // Route to the campaign the creator belongs to
+      setActiveCampaignId(item.ip_id);
     }
     setSearchQuery('');
     setIsSearchFocused(false);
   };
 
-  // --- CORE LOGIC ENGINE ---
   const computations = useMemo(() => {
     let opsTotal = 0;
     let financeTotal = 0;
@@ -306,7 +297,6 @@ export default function InfluencerOS() {
     return { opsTotal, financeTotal, variance, mismatchReasons, opsBreakdown, financeBreakdown };
   }, [creators, bills, campaigns, targetMonth]);
 
-  // --- CRUD ACTIONS ---
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -430,11 +420,17 @@ export default function InfluencerOS() {
       });
       const data = await res.json();
       if (data.success) {
+        // Updated payload injection correctly targeting views, shares, saves, and followers
         document.querySelector('input[name="views"]').value = data.metrics.views;
         document.querySelector('input[name="likes"]').value = data.metrics.likes;
         document.querySelector('input[name="comments"]').value = data.metrics.comments;
         document.querySelector('input[name="shares"]').value = data.metrics.shares;
         document.querySelector('input[name="saves"]').value = data.metrics.saves;
+        
+        if (data.metrics.followers && data.metrics.followers > 0) {
+          document.querySelector('input[name="followers"]').value = data.metrics.followers;
+        }
+
         setEditingCreator({ ...editingCreator, ...data.metrics });
       } else {
         alert("Failed to sync metrics: " + data.error);
@@ -474,7 +470,6 @@ export default function InfluencerOS() {
 
   if (!isMounted) return <div className="h-screen w-full bg-[#09090b]"></div>;
 
-  // --- LOGIN GATEKEEPER ---
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#09090b] font-sans selection:bg-indigo-500/30">
@@ -542,11 +537,8 @@ export default function InfluencerOS() {
     );
   }
 
-  // --- MAIN DASHBOARD RENDER ---
   return (
     <div className="flex h-screen bg-[#09090b] font-sans text-zinc-300 selection:bg-indigo-500/30">
-      
-      {/* SIDEBAR */}
       <aside className="w-64 border-r border-zinc-800/60 bg-[#09090b] flex flex-col p-4 z-20">
         <div className="flex items-center gap-3 mb-10 px-2 mt-2">
           <div className="w-6 h-6 rounded bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-[0_0_12px_rgba(79,70,229,0.4)]"></div>
@@ -564,7 +556,6 @@ export default function InfluencerOS() {
         </nav>
       </aside>
 
-      {/* MAIN CANVAS */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#09090b] to-[#09090b]">
         
         <header className="h-16 border-b border-zinc-800/60 flex items-center justify-between px-8 backdrop-blur-md bg-[#09090b]/80 z-10 sticky top-0">
@@ -588,7 +579,6 @@ export default function InfluencerOS() {
           </div>
 
           <div className="flex items-center gap-5">
-            {/* --- SMART SEARCH UI --- */}
             <div 
               className="relative"
               onBlur={(e) => {
@@ -609,11 +599,9 @@ export default function InfluencerOS() {
                 />
               </div>
 
-              {/* SEARCH DROPDOWN */}
               {isSearchFocused && searchQuery.trim() !== '' && (
                 <div className="absolute top-full right-0 mt-2 w-80 bg-[#09090b] border border-zinc-800 rounded-lg shadow-2xl overflow-hidden z-50">
                   <div className="max-h-80 overflow-y-auto">
-                    {/* Campaigns Results */}
                     {searchResults.campaigns.length > 0 && (
                       <div className="p-2">
                         <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Campaigns</p>
@@ -633,7 +621,6 @@ export default function InfluencerOS() {
                       </div>
                     )}
                     
-                    {/* Creators Results */}
                     {searchResults.creators.length > 0 && (
                       <div className="p-2 border-t border-zinc-800/50">
                         <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1 px-2">Creators</p>
@@ -674,7 +661,6 @@ export default function InfluencerOS() {
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           
-          {/* CAMPAIGNS GRID */}
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
@@ -717,7 +703,6 @@ export default function InfluencerOS() {
                       onClick={() => setActiveCampaignId(camp.ip_id)}
                       className={`bg-zinc-900/40 border p-5 rounded-xl transition-colors cursor-pointer group flex flex-col relative overflow-hidden ${isSelected ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-zinc-800/80 hover:border-zinc-700'}`}
                     >
-                      {/* Selection Checkbox */}
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -770,7 +755,6 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {/* SINGLE CAMPAIGN DETAIL */}
           {activeTab === 'campaigns' && activeCampaignId && (
              <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col gap-4 mb-6">
@@ -909,7 +893,6 @@ export default function InfluencerOS() {
              </div>
           )}
 
-          {/* FINANCE VS OPS */}
           {activeTab === 'finance_vs_ops' && (
              <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
               <div className="flex items-center justify-between">
@@ -935,7 +918,6 @@ export default function InfluencerOS() {
 
               <div className="grid grid-cols-2 gap-6">
                 
-                {/* Ops Card with Breakdown */}
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
                     <div className="flex items-center gap-2">
@@ -965,7 +947,6 @@ export default function InfluencerOS() {
                   </div>
                 </div>
 
-                {/* Finance Card with Breakdown */}
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group">
                   <div className="p-5 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/50">
                     <div className="flex items-center gap-2">
@@ -1028,8 +1009,6 @@ export default function InfluencerOS() {
           )}
         </div>
       </main>
-
-      {/* --- OVERLAY MODALS --- */}
 
       {/* Date Range Export Modal */}
       {exportModal.isOpen && (

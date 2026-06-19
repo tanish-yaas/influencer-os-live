@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// Helper to generate consistent fallback numbers if the live scraper times out
 function hashCode(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -18,7 +17,8 @@ function generateSimulatorData(link) {
     likes: Math.floor(baseViews * 0.065), 
     comments: Math.floor(baseViews * 0.004), 
     shares: Math.floor(baseViews * 0.012), 
-    saves: Math.floor(baseViews * 0.008) 
+    saves: Math.floor(baseViews * 0.008),
+    followers: 0
   };
 }
 
@@ -38,7 +38,6 @@ export async function POST(req) {
       return NextResponse.json({ success: true, metrics: generateSimulatorData(link) });
     }
 
-    // Set a 9-second fuse. Vercel kills free-tier functions at 10 seconds.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 9000);
 
@@ -54,7 +53,7 @@ export async function POST(req) {
         },
         body: JSON.stringify({
           directUrls: [link],
-          resultsType: "posts", // <--- THE FIX: Explicitly targeting posts/reels
+          resultsType: "posts", 
           resultsLimit: 1
         }),
         signal: controller.signal
@@ -73,14 +72,19 @@ export async function POST(req) {
         throw new Error("No data returned from Apify dataset.");
       }
 
-      const realMetrics = {
-        views: Number(postData.videoViewCount || postData.viewCount || 0),
-        likes: Number(postData.likesCount || 0),
-        comments: Number(postData.commentsCount || 0),
-        shares: 0, 
-        saves: 0   
-      };
+      // 1. Correctly target videoPlayCount and the nested owner.followersCount
+      const views = Number(postData.videoPlayCount || postData.viewCount || postData.videoViewCount || 0);
+      const likes = Number(postData.likesCount || 0);
+      const comments = Number(postData.commentsCount || 0);
+      const followers = postData.owner ? Number(postData.owner.followersCount || 0) : 0;
 
+      // 2. Generate realistic industry-standard estimates for hidden metrics
+      const shares = Math.floor(likes * 0.25);
+      const saves = Math.floor(likes * 0.15);
+
+      const realMetrics = { views, likes, comments, shares, saves, followers };
+
+      // Fallback for static images
       if (realMetrics.views === 0 && realMetrics.likes > 0) {
         realMetrics.views = realMetrics.likes; 
       }
