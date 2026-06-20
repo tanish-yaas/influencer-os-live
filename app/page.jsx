@@ -22,24 +22,24 @@ const ALL_MONTHS = [
 // Set to '' to allow ANY Google account, or to a domain like 'yaas.studio' to restrict logins.
 const ALLOWED_DOMAIN = '';
 
-// Techy, pickable avatars. Gradient class strings are written in full so Tailwind keeps them.
+// Cute, pickable avatars. Gradient class strings are written in full so Tailwind keeps them.
 const AVATARS = [
-  { emoji: '🤖', grad: 'from-zinc-500 to-zinc-800' },
-  { emoji: '👾', grad: 'from-violet-500 to-fuchsia-700' },
-  { emoji: '🛸', grad: 'from-cyan-400 to-blue-700' },
-  { emoji: '🦾', grad: 'from-slate-500 to-slate-800' },
-  { emoji: '🛰️', grad: 'from-sky-400 to-indigo-700' },
-  { emoji: '🔮', grad: 'from-fuchsia-500 to-purple-800' },
-  { emoji: '⚡', grad: 'from-amber-400 to-orange-600' },
-  { emoji: '💎', grad: 'from-cyan-300 to-teal-600' },
-  { emoji: '🌐', grad: 'from-blue-500 to-cyan-700' },
-  { emoji: '🪐', grad: 'from-orange-400 to-amber-700' },
-  { emoji: '👁️', grad: 'from-rose-400 to-red-700' },
-  { emoji: '⚙️', grad: 'from-stone-500 to-stone-800' },
+  { emoji: '🦊', grad: 'from-orange-400 to-amber-600' },
+  { emoji: '🐰', grad: 'from-rose-300 to-pink-500' },
+  { emoji: '🐼', grad: 'from-zinc-300 to-zinc-600' },
+  { emoji: '🐯', grad: 'from-amber-400 to-orange-600' },
+  { emoji: '🦁', grad: 'from-yellow-400 to-amber-600' },
+  { emoji: '🐸', grad: 'from-lime-400 to-green-600' },
+  { emoji: '🐨', grad: 'from-slate-400 to-slate-600' },
+  { emoji: '🐧', grad: 'from-sky-400 to-indigo-600' },
+  { emoji: '🦄', grad: 'from-fuchsia-400 to-purple-600' },
+  { emoji: '🐱', grad: 'from-orange-300 to-rose-500' },
+  { emoji: '🦉', grad: 'from-amber-500 to-orange-700' },
+  { emoji: '🐵', grad: 'from-amber-600 to-yellow-800' },
 ];
 
-// YAAS logo (social-card image). For a crisp version, download it, drop it in /public as yaas-logo.png, and set LOGO_URL = '/yaas-logo.png'.
-const LOGO_URL = 'https://youtubeasaservice.zohorecruit.in/recruit/viewCareerImage.do?type=meta&page_id=157713000000311673&file_name=company_logo.jpg';
+// YAAS logo. For a crisp version you control, drop a file in /public and set LOGO_URL = '/yaas-logo.png'.
+const LOGO_URL = 'https://framerusercontent.com/images/6ilTb1mEivC7MRT4niIsyIMktbs.png';
 
 const AvatarBadge = ({ index = 0, size = 40, ring = false }) => {
   const a = AVATARS[index] || AVATARS[0];
@@ -783,7 +783,88 @@ export default function InfluencerOS() {
         {/* Left visual panel */}
         <div className="hidden lg:flex relative w-[52%] overflow-hidden">
           {/* glowing seam */}
-          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)]"></div>
+          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)] z-20"></div>
+
+          {/* cool tech illustration filling the panel */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 620 840" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#fed7aa" stopOpacity="0.95"/>
+                <stop offset="35%" stopColor="#f97316" stopOpacity="0.55"/>
+                <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+              </radialGradient>
+              <radialGradient id="haze" cx="55%" cy="42%" r="62%">
+                <stop offset="0%" stopColor="#7c2d12" stopOpacity="0.40"/>
+                <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
+              </radialGradient>
+            </defs>
+
+            <rect width="620" height="840" fill="url(#haze)"/>
+
+            {/* circuit traces */}
+            <g stroke="#f97316" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
+              <path d="M40 120 H150 V210 H230"/>
+              <path d="M60 700 H180 V610 H300"/>
+              <path d="M520 90 V180 H430"/>
+              <path d="M560 760 V650 H470 V560"/>
+            </g>
+            <g fill="#fb923c" fillOpacity="0.8">
+              <circle cx="40" cy="120" r="3"/><circle cx="230" cy="210" r="3"/>
+              <circle cx="60" cy="700" r="3"/><circle cx="300" cy="610" r="3"/>
+              <circle cx="520" cy="90" r="3"/><circle cx="430" cy="180" r="3"/>
+              <circle cx="560" cy="760" r="3"/><circle cx="470" cy="560" r="3"/>
+            </g>
+
+            {/* floating hexagons */}
+            <g stroke="#f59e0b" strokeOpacity="0.16" strokeWidth="1.2" fill="none">
+              <polygon points="110,300 140,285 170,300 170,335 140,350 110,335"/>
+              <polygon points="480,400 506,386 532,400 532,430 506,444 480,430"/>
+              <polygon points="430,690 452,678 474,690 474,714 452,726 430,714"/>
+            </g>
+
+            {/* constellation */}
+            <g stroke="#fbbf24" strokeOpacity="0.14" strokeWidth="1">
+              <line x1="90" y1="470" x2="200" y2="540"/>
+              <line x1="200" y1="540" x2="120" y2="640"/>
+              <line x1="500" y1="250" x2="560" y2="340"/>
+            </g>
+            <g fill="#fde68a" fillOpacity="0.7">
+              <circle cx="90" cy="470" r="2.5"/><circle cx="200" cy="540" r="2.5"/>
+              <circle cx="120" cy="640" r="2.5"/><circle cx="500" cy="250" r="2.5"/>
+              <circle cx="560" cy="340" r="2.5"/>
+            </g>
+
+            {/* orbital hub */}
+            <g transform="translate(310 440)">
+              <circle r="160" fill="url(#coreGlow)">
+                <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite"/>
+              </circle>
+
+              {/* static perspective rings */}
+              <ellipse rx="210" ry="80" fill="none" stroke="#f97316" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
+              <ellipse rx="250" ry="150" fill="none" stroke="#f59e0b" strokeOpacity="0.12" strokeWidth="1" transform="rotate(14)"/>
+
+              {/* rotating orbit + satellites */}
+              <g>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="70s" repeatCount="indefinite"/>
+                <circle r="120" fill="none" stroke="#fb923c" strokeOpacity="0.30" strokeWidth="1.2"/>
+                <circle cx="120" cy="0" r="6" fill="#f97316"/>
+                <circle cx="-120" cy="0" r="4" fill="#fdba74"/>
+                <circle cx="0" cy="120" r="3" fill="#fbbf24"/>
+              </g>
+              <g>
+                <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/>
+                <circle r="70" fill="none" stroke="#fdba74" strokeOpacity="0.25" strokeWidth="1"/>
+                <circle cx="70" cy="0" r="4" fill="#f59e0b"/>
+                <circle cx="-70" cy="0" r="3" fill="#fb923c"/>
+              </g>
+
+              {/* core */}
+              <circle r="22" fill="#fb923c"/>
+              <circle r="22" fill="none" stroke="#fed7aa" strokeOpacity="0.7" strokeWidth="1.5"/>
+              <circle r="9" fill="#fff7ed"/>
+            </g>
+          </svg>
 
           <div className="relative z-10 flex flex-col justify-between p-14 w-full">
             {/* Brand lockup top-left */}
@@ -793,34 +874,21 @@ export default function InfluencerOS() {
                   src={LOGO_URL}
                   alt="YAAS"
                   onError={() => setLogoError(true)}
-                  className="h-9 w-auto max-w-[170px] object-contain rounded-md ring-1 ring-white/10 bg-black/30 p-1.5"
+                  className="h-10 w-auto max-w-[160px] object-contain"
                 />
               ) : (
-                <div className="h-9 px-3 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] flex items-center font-bold tracking-tight text-white">YAAS</div>
+                <div className="h-10 px-3 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] flex items-center font-bold tracking-tight text-white">YAAS</div>
               )}
-              <div className="h-7 w-px bg-white/10"></div>
+              <div className="h-7 w-px bg-white/15"></div>
               <div className="leading-tight">
                 <p className="font-semibold tracking-tight text-stone-100">Influencer OS</p>
                 <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-orange-400/80">YAAS Influencer Dashboard</p>
               </div>
             </div>
 
-            {/* Techy avatar constellation */}
-            <div className="relative self-center my-10">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(249,115,22,0.18),_transparent_70%)] blur-2xl"></div>
-              <div className="relative grid grid-cols-4 gap-5 max-w-md">
-                {AVATARS.map((a, i) => (
-                  <div
-                    key={i}
-                    className={`aspect-square rounded-2xl bg-gradient-to-br ${a.grad} ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_-8px_rgba(0,0,0,0.8)] flex items-center justify-center text-2xl ${i % 3 === 0 ? 'translate-y-3' : i % 3 === 1 ? '-translate-y-2' : ''}`}
-                  >
-                    <span>{a.emoji}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <div></div>
 
-            <p className="text-[11px] font-mono text-stone-600 tracking-[0.22em] uppercase">// Pick an identity · build a profile · run the ledger</p>
+            <p className="text-[11px] font-mono text-stone-500 tracking-[0.22em] uppercase">// One source of truth for every creator campaign</p>
           </div>
         </div>
 
@@ -833,7 +901,7 @@ export default function InfluencerOS() {
             </div>
 
             <h1 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.9] text-white uppercase [text-shadow:0_0_40px_rgba(249,115,22,0.35)]">
-              Centralized<br/>Creator<br/><span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Ledger</span>
+              Centralized<br/>Creator<br/><span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Hub</span>
             </h1>
 
             <p className="text-stone-400 text-base md:text-lg leading-relaxed mt-8 max-w-md">
