@@ -22,28 +22,31 @@ const ALL_MONTHS = [
 // Set to '' to allow ANY Google account, or to a domain like 'yaas.studio' to restrict logins.
 const ALLOWED_DOMAIN = '';
 
-// Fun, pickable avatars. Gradient class strings are written in full so Tailwind keeps them.
+// Techy, pickable avatars. Gradient class strings are written in full so Tailwind keeps them.
 const AVATARS = [
-  { emoji: '🦊', grad: 'from-orange-500 to-amber-600' },
-  { emoji: '🐯', grad: 'from-amber-500 to-orange-700' },
-  { emoji: '🦁', grad: 'from-yellow-500 to-orange-600' },
-  { emoji: '🐲', grad: 'from-emerald-500 to-teal-600' },
-  { emoji: '🦄', grad: 'from-fuchsia-500 to-purple-600' },
-  { emoji: '🐙', grad: 'from-pink-500 to-rose-600' },
-  { emoji: '🐸', grad: 'from-lime-500 to-green-600' },
-  { emoji: '🐼', grad: 'from-stone-400 to-stone-700' },
-  { emoji: '🐵', grad: 'from-amber-600 to-yellow-800' },
-  { emoji: '🐧', grad: 'from-sky-500 to-indigo-600' },
-  { emoji: '🦉', grad: 'from-orange-400 to-rose-500' },
-  { emoji: '🐝', grad: 'from-yellow-400 to-amber-600' },
+  { emoji: '🤖', grad: 'from-zinc-500 to-zinc-800' },
+  { emoji: '👾', grad: 'from-violet-500 to-fuchsia-700' },
+  { emoji: '🛸', grad: 'from-cyan-400 to-blue-700' },
+  { emoji: '🦾', grad: 'from-slate-500 to-slate-800' },
+  { emoji: '🛰️', grad: 'from-sky-400 to-indigo-700' },
+  { emoji: '🔮', grad: 'from-fuchsia-500 to-purple-800' },
+  { emoji: '⚡', grad: 'from-amber-400 to-orange-600' },
+  { emoji: '💎', grad: 'from-cyan-300 to-teal-600' },
+  { emoji: '🌐', grad: 'from-blue-500 to-cyan-700' },
+  { emoji: '🪐', grad: 'from-orange-400 to-amber-700' },
+  { emoji: '👁️', grad: 'from-rose-400 to-red-700' },
+  { emoji: '⚙️', grad: 'from-stone-500 to-stone-800' },
 ];
+
+// YAAS logo (social-card image). For a crisp version, download it, drop it in /public as yaas-logo.png, and set LOGO_URL = '/yaas-logo.png'.
+const LOGO_URL = 'https://youtubeasaservice.zohorecruit.in/recruit/viewCareerImage.do?type=meta&page_id=157713000000311673&file_name=company_logo.jpg';
 
 const AvatarBadge = ({ index = 0, size = 40, ring = false }) => {
   const a = AVATARS[index] || AVATARS[0];
   return (
     <div
-      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ${ring ? 'ring-2 ring-orange-500/70 ring-offset-2 ring-offset-[#0a0807]' : ''}`}
-      style={{ width: size, height: size, fontSize: size * 0.52, lineHeight: 1 }}
+      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${ring ? 'outline outline-2 outline-offset-2 outline-orange-500/70' : ''}`}
+      style={{ width: size, height: size, fontSize: size * 0.5, lineHeight: 1 }}
     >
       <span>{a.emoji}</span>
     </div>
@@ -85,6 +88,7 @@ export default function InfluencerOS() {
   const [profileAvatar, setProfileAvatar] = useState(0);
   const [isProfileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -770,106 +774,129 @@ export default function InfluencerOS() {
   // ============ LOGIN SCREEN ============
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen bg-[#0a0807] font-sans text-stone-200 selection:bg-orange-500/30">
+      <div className="flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden">
+        {/* Ambient techy backdrop across the whole screen */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
+        <div className="pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
+
         {/* Left visual panel */}
-        <div className="hidden lg:flex relative w-[55%] overflow-hidden border-r border-white/[0.06]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,_var(--tw-gradient-stops))] from-orange-700/20 via-[#0a0807] to-[#0a0807]"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_90%,_var(--tw-gradient-stops))] from-amber-900/20 via-transparent to-transparent"></div>
+        <div className="hidden lg:flex relative w-[52%] overflow-hidden">
+          {/* glowing seam */}
+          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)]"></div>
 
           <div className="relative z-10 flex flex-col justify-between p-14 w-full">
+            {/* Brand lockup top-left */}
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
-              <span className="font-semibold tracking-tight text-lg text-stone-100">Influencer OS</span>
+              {!logoError ? (
+                <img
+                  src={LOGO_URL}
+                  alt="YAAS"
+                  onError={() => setLogoError(true)}
+                  className="h-9 w-auto max-w-[170px] object-contain rounded-md ring-1 ring-white/10 bg-black/30 p-1.5"
+                />
+              ) : (
+                <div className="h-9 px-3 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] flex items-center font-bold tracking-tight text-white">YAAS</div>
+              )}
+              <div className="h-7 w-px bg-white/10"></div>
+              <div className="leading-tight">
+                <p className="font-semibold tracking-tight text-stone-100">Influencer OS</p>
+                <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-orange-400/80">YAAS Influencer Dashboard</p>
+              </div>
             </div>
 
-            {/* Avatar mosaic teaser */}
-            <div className="grid grid-cols-4 gap-5 max-w-md self-center my-10">
-              {AVATARS.map((a, i) => (
-                <div
-                  key={i}
-                  className={`aspect-square rounded-2xl bg-gradient-to-br ${a.grad} flex items-center justify-center text-2xl shadow-xl ${i % 3 === 0 ? 'translate-y-3' : i % 3 === 1 ? '-translate-y-2' : ''}`}
-                  style={{ opacity: 0.92 }}
-                >
-                  <span>{a.emoji}</span>
-                </div>
-              ))}
+            {/* Techy avatar constellation */}
+            <div className="relative self-center my-10">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(249,115,22,0.18),_transparent_70%)] blur-2xl"></div>
+              <div className="relative grid grid-cols-4 gap-5 max-w-md">
+                {AVATARS.map((a, i) => (
+                  <div
+                    key={i}
+                    className={`aspect-square rounded-2xl bg-gradient-to-br ${a.grad} ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_-8px_rgba(0,0,0,0.8)] flex items-center justify-center text-2xl ${i % 3 === 0 ? 'translate-y-3' : i % 3 === 1 ? '-translate-y-2' : ''}`}
+                  >
+                    <span>{a.emoji}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <p className="text-xs font-mono text-stone-600 tracking-widest uppercase">Pick a face, build a profile, run the ledger.</p>
+            <p className="text-[11px] font-mono text-stone-600 tracking-[0.22em] uppercase">// Pick an identity · build a profile · run the ledger</p>
           </div>
         </div>
 
-        {/* Right brand / sign-in panel */}
-        <div className="relative flex-1 flex items-center bg-gradient-to-br from-orange-600 via-orange-700 to-[#3a1505] overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.07] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:42px_42px]"></div>
-
+        {/* Right sign-in panel */}
+        <div className="relative flex-1 flex items-center">
           <div className="relative z-10 w-full max-w-xl px-10 md:px-16 py-12">
-            <p className="text-sm font-bold tracking-[0.18em] text-white/80 uppercase mb-6">Influencer OS</p>
-            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.92] text-white uppercase">
-              Centralized<br/>Creator<br/>Ledger
+            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/[0.06] backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_2px_rgba(249,115,22,0.8)]"></span>
+              <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-orange-300">YAAS // Influencer OS</span>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.9] text-white uppercase [text-shadow:0_0_40px_rgba(249,115,22,0.35)]">
+              Centralized<br/>Creator<br/><span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Ledger</span>
             </h1>
 
-            <p className="text-white/85 text-base md:text-lg leading-relaxed mt-8 max-w-md">
-              Welcome back. Reconcile go-live timelines against billing periods, track live performance, and keep every campaign honest down to the rupee.
+            <p className="text-stone-400 text-base md:text-lg leading-relaxed mt-8 max-w-md">
+              YAAS's internal influencer dashboard. Reconcile go-live timelines against billing periods, track live performance, and keep every campaign honest down to the rupee.
             </p>
 
             {loginMode === 'google' ? (
               <>
-                <p className="text-white/70 text-sm leading-relaxed mt-5 max-w-md">
-                  Sign in with your {ALLOWED_DOMAIN ? <><span className="font-semibold text-white">@{ALLOWED_DOMAIN}</span> </> : ''}Google account. Single sign-on — no extra password to remember.
+                <p className="text-stone-500 text-sm leading-relaxed mt-5 max-w-md">
+                  Sign in with your {ALLOWED_DOMAIN ? <><span className="font-semibold text-stone-300">@{ALLOWED_DOMAIN}</span> </> : ''}Google account. Single sign-on — no extra password to remember.
                 </p>
 
                 <button
                   onClick={handleGoogleLogin}
-                  className="group mt-9 w-full max-w-md flex items-center justify-center gap-3 bg-white hover:bg-stone-100 text-stone-900 font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-colors shadow-2xl"
+                  className="group mt-9 w-full max-w-md flex items-center justify-center gap-3 bg-white hover:bg-stone-100 text-stone-900 font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-all shadow-[0_0_30px_-8px_rgba(255,255,255,0.4)]"
                 >
                   <GoogleG size={20}/> Sign in with Google
                 </button>
 
                 <button
                   onClick={() => { setLoginMode('admin'); setLoginError(''); }}
-                  className="mt-5 inline-flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors"
+                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-orange-300 text-sm font-medium transition-colors"
                 >
                   <Shield size={15}/> Sign in as admin
                 </button>
               </>
             ) : (
               <>
-                <p className="text-white/70 text-sm leading-relaxed mt-5 max-w-md">
+                <p className="text-stone-500 text-sm leading-relaxed mt-5 max-w-md">
                   Admin access. Enter your operator credentials.
                 </p>
 
                 <form onSubmit={handleAdminLogin} className="mt-7 w-full max-w-md space-y-4">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Mail className="text-white/50" size={16}/>
+                      <Mail className="text-stone-500" size={16}/>
                     </div>
                     <input
                       type="text"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
                       placeholder="admin@yaas"
-                      className="w-full bg-black/25 border border-white/20 rounded-xl pl-10 pr-3 py-3.5 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/60 transition-colors"
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70 backdrop-blur-sm transition-colors"
                       required
                     />
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Lock className="text-white/50" size={16}/>
+                      <Lock className="text-stone-500" size={16}/>
                     </div>
                     <input
                       type="password"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-black/25 border border-white/20 rounded-xl pl-10 pr-3 py-3.5 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/60 transition-colors"
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70 backdrop-blur-sm transition-colors"
                       required
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2 bg-black/40 hover:bg-black/60 border border-white/30 text-white font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-colors"
+                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-colors shadow-[0_0_30px_-8px_rgba(249,115,22,0.8)]"
                   >
                     <Shield size={16}/> Sign in as admin
                   </button>
@@ -877,7 +904,7 @@ export default function InfluencerOS() {
 
                 <button
                   onClick={() => { setLoginMode('google'); setLoginError(''); }}
-                  className="mt-5 inline-flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors"
+                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-orange-300 text-sm font-medium transition-colors"
                 >
                   <ArrowLeft size={15}/> Back to Google sign-in
                 </button>
@@ -885,13 +912,13 @@ export default function InfluencerOS() {
             )}
 
             {loginError && (
-              <div className="mt-6 max-w-md flex items-start gap-2 text-white bg-black/30 border border-white/20 px-4 py-3 rounded-lg text-sm">
+              <div className="mt-6 max-w-md flex items-start gap-2 text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
                 <AlertCircle size={16} className="mt-0.5 shrink-0"/> <span>{loginError}</span>
               </div>
             )}
 
-            <p className="mt-10 text-[11px] font-mono text-white/50 tracking-widest uppercase">
-              Influencer OS v6.0.0 // {loginMode === 'admin' ? 'Admin Access' : 'Google SSO'}
+            <p className="mt-10 text-[11px] font-mono text-stone-600 tracking-[0.2em] uppercase">
+              Influencer OS v6.0.0 // {loginMode === 'admin' ? 'Admin Access' : 'Google SSO'} · A YAAS Product
             </p>
           </div>
         </div>
