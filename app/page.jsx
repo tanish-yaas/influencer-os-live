@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -231,6 +231,47 @@ const parseCampaignCSV = (text) => {
 
 const campaignNameFromFile = (filename) => String(filename || 'Imported Campaign').replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').trim();
 
+const getCreatorHandle = (url) => {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (u.hostname.includes('youtube') || u.hostname.includes('youtu.be')) {
+      const at = parts.find(p => p.startsWith('@'));
+      return at || (parts[0] ? '@' + parts[0] : '');
+    }
+    const skip = new Set(['reel', 'reels', 'p', 'tv', 'stories']);
+    const seg = parts.find(p => !skip.has(p.toLowerCase()));
+    return seg ? '@' + seg : '';
+  } catch { return ''; }
+};
+
+// Build an embeddable URL for a deliverable link (Instagram post/reel or YouTube video).
+const getEmbedInfo = (link) => {
+  if (!link) return { url: '', kind: '' };
+  try {
+    const u = new URL(link);
+    const host = u.hostname.toLowerCase();
+    if (host.includes('instagram.com')) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      const idx = parts.findIndex(p => ['p', 'reel', 'reels', 'tv'].includes(p.toLowerCase()));
+      if (idx >= 0 && parts[idx + 1]) return { url: `https://www.instagram.com/p/${parts[idx + 1]}/embed`, kind: 'instagram' };
+      return { url: '', kind: '' };
+    }
+    if (host.includes('youtube.com') || host.includes('youtu.be')) {
+      let id = '';
+      if (host.includes('youtu.be')) id = u.pathname.split('/').filter(Boolean)[0];
+      else {
+        const parts = u.pathname.split('/').filter(Boolean);
+        const si = parts.findIndex(p => p.toLowerCase() === 'shorts');
+        if (si >= 0 && parts[si + 1]) id = parts[si + 1];
+        else id = u.searchParams.get('v') || '';
+      }
+      return id ? { url: `https://www.youtube.com/embed/${id}`, kind: 'youtube' } : { url: '', kind: '' };
+    }
+  } catch {}
+  return { url: '', kind: '' };
+};
+
 const CHART_PALETTE = ['#f97316', '#22d3ee', '#f59e0b', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb7185', '#fbbf24', '#4ade80'];
 
 const ChartPanel = ({ title, children, className = '' }) => (
@@ -417,6 +458,7 @@ export default function InfluencerOS() {
   const [commentModal, setCommentModal] = useState({ isOpen: false, creator: null });
   const [commentFrom, setCommentFrom] = useState('');
   const [commentBody, setCommentBody] = useState('');
+  const [profileCardCreator, setProfileCardCreator] = useState(null);
 
   // ---- Auth helpers ----
   const loadProfile = async (email) => {
@@ -1908,7 +1950,26 @@ export default function InfluencerOS() {
                                 <tr key={c.creator_deal_id} className="hover:bg-white/[0.025] transition-colors group">
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
-                                      <span className="font-medium text-stone-200">{c.creator_name}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                                        <span className="relative group/info inline-flex">
+                                          <Info size={13} className="text-stone-500 hover:text-orange-400 cursor-help"/>
+                                          <div className="pointer-events-none absolute left-0 top-full mt-2 w-56 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-150 z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3">
+                                            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2">Engagement breakdown</p>
+                                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                                              <div className="flex justify-between"><span className="text-stone-500">Likes</span><span className="text-stone-200 tabular-nums">{formatNumber(c.likes || 0)}</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">Comments</span><span className="text-stone-200 tabular-nums">{formatNumber(c.comments || 0)}</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">Shares</span><span className="text-stone-200 tabular-nums">{formatNumber(c.shares || 0)}</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">Saves</span><span className="text-stone-200 tabular-nums">{formatNumber(c.saves || 0)}</span></div>
+                                            </div>
+                                            <div className="border-t border-white/10 mt-2 pt-2 space-y-1.5 text-xs">
+                                              <div className="flex justify-between"><span className="text-stone-500">Total engagement</span><span className="text-stone-200 tabular-nums">{formatNumber(metrics.engagement)}</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">Eng. rate</span><span className="text-orange-300 tabular-nums">{c.views > 0 ? ((metrics.engagement / c.views) * 100).toFixed(1) : '0.0'}%</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">CPV / CPE</span><span className="text-cyan-300 tabular-nums">{formatMicroMoney(metrics.cpv)} / {formatMicroMoney(metrics.cpe)}</span></div>
+                                            </div>
+                                          </div>
+                                        </span>
+                                      </div>
                                       <span className="text-xs text-stone-500 mt-0.5 tabular-nums">{formatNumber(c.followers)} foll</span>
                                     </div>
                                   </td>
@@ -2189,6 +2250,77 @@ export default function InfluencerOS() {
           )}
         </div>
       </main>
+
+      {/* Creator Profile Card */}
+      {profileCardCreator && (() => {
+        const c = profileCardCreator;
+        const m = calculateCreatorMetrics(c);
+        const handle = getCreatorHandle(c.profile_link) || c.creator_name;
+        const embed = getEmbedInfo(c.deliverable_link);
+        const gIdx = hashIndex(c.creator_name, AVATARS.length);
+        const grad = AVATARS[gIdx].grad;
+        const profileHref = c.profile_link ? (c.profile_link.startsWith('http') ? c.profile_link : `https://${c.profile_link}`) : '';
+        return (
+          <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setProfileCardCreator(null)}>
+            <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
+              <div className="p-5 border-b border-white/[0.07] bg-white/[0.02] shrink-0">
+                <div className="flex items-start gap-4">
+                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${grad} ring-2 ring-white/10 flex items-center justify-center text-2xl font-bold text-white shrink-0`}>
+                    {(c.creator_name || '?').trim().charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-stone-100 truncate">{c.creator_name}</h3>
+                      <span className="text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400 shrink-0">{c.platform}</span>
+                    </div>
+                    {handle && <p className="text-sm text-orange-300/90 truncate">{handle}</p>}
+                    <div className="flex gap-4 mt-2 text-xs">
+                      <div><span className="text-stone-200 font-semibold tabular-nums">{formatNumber(c.followers)}</span> <span className="text-stone-500">followers</span></div>
+                      <div><span className="text-stone-200 font-semibold tabular-nums">{formatNumber(c.views || 0)}</span> <span className="text-stone-500">views</span></div>
+                      <div><span className="text-stone-200 font-semibold tabular-nums">{formatNumber(m.engagement)}</span> <span className="text-stone-500">eng.</span></div>
+                    </div>
+                  </div>
+                  <button onClick={() => setProfileCardCreator(null)} className="text-stone-500 hover:text-stone-300 shrink-0"><X size={18}/></button>
+                </div>
+              </div>
+
+              <div className="overflow-y-auto p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Deliverable</p><p className="text-stone-200">{c.content_type}</p></div>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Fee</p><p className="text-stone-200 tabular-nums">{formatMoney(c.deal_value)}</p></div>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Go-Live</p><p className="text-stone-200 tabular-nums">{c.planned_go_live_date || '—'}</p></div>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Eng. Rate</p><p className="text-orange-300 tabular-nums">{c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(1) : '0.0'}%</p></div>
+                </div>
+
+                {embed.url ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2">Latest deliverable</p>
+                    <iframe
+                      src={embed.url}
+                      title="deliverable"
+                      className="w-full rounded-lg border border-white/10 bg-black"
+                      style={{ height: embed.kind === 'youtube' ? 230 : 560 }}
+                      loading="lazy"
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                ) : (
+                  <div className="text-center text-sm text-stone-600 bg-white/[0.02] border border-white/[0.06] rounded-lg py-6 px-4">
+                    No embeddable deliverable post yet.
+                  </div>
+                )}
+
+                {profileHref && (
+                  <a href={profileHref} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold py-2.5 rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                    <ExternalLink size={15}/> Open full profile on {c.platform}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Comments Modal */}
       {commentModal.isOpen && (
