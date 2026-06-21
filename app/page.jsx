@@ -142,6 +142,95 @@ const OrbitalScene = ({ className = '' }) => (
   </svg>
 );
 
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const parseCSVText = (text) => {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\r') { /* skip */ }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += ch;
+    }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+};
+
+const parseFollowers = (s) => {
+  if (!s) return 0;
+  const t = String(s).trim().replace(/,/g, '');
+  const m = t.match(/^([\d.]+)\s*([kKmM]?)/);
+  if (!m) return parseInt(t) || 0;
+  let n = parseFloat(m[1]) || 0;
+  const u = (m[2] || '').toLowerCase();
+  if (u === 'm') n *= 1e6; else if (u === 'k') n *= 1e3;
+  return Math.round(n);
+};
+
+const parseIntSafe = (s) => parseInt(String(s == null ? '' : s).replace(/[^0-9.]/g, '')) || 0;
+
+const parseDMY = (s) => {
+  const t = String(s || '').trim();
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return '';
+  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+};
+
+const detectPlatform = (a, b) => {
+  const s = `${a || ''} ${b || ''}`.toLowerCase();
+  if (s.includes('youtube.com') || s.includes('youtu.be')) return 'YouTube';
+  if (s.includes('tiktok.com')) return 'TikTok';
+  if (s.includes('linkedin.com')) return 'LinkedIn';
+  return 'Instagram';
+};
+
+// Parse a campaign CSV (month-sectioned) into creator rows.
+const parseCampaignCSV = (text) => {
+  const rows = parseCSVText(text);
+  const monthRe = new RegExp(`^\\s*(${MONTH_NAMES.join('|')})\\s*-\\s*(\\d{4})\\s*$`, 'i');
+  let curMonth = '', curYear = '';
+  const out = [];
+  for (const r of rows) {
+    const c0 = (r[0] || '').trim();
+    const mh = c0.match(monthRe);
+    if (mh) { curMonth = MONTH_NAMES.find(m => m.toLowerCase() === mh[1].toLowerCase()) || ''; curYear = mh[2]; continue; }
+    const name = (r[1] || '').trim();
+    const profile = (r[2] || '').trim();
+    if (!name || !/^https?:\/\//i.test(profile)) continue; // skip headers, totals, notes
+    const deliverableRaw = (r[8] || '').trim();
+    let date = parseDMY(r[5]);
+    if (!date && curMonth && curYear) {
+      const mNum = String(MONTH_NAMES.indexOf(curMonth) + 1).padStart(2, '0');
+      date = `${curYear}-${mNum}-01`;
+    }
+    out.push({
+      name,
+      profile,
+      followers: parseFollowers(r[3]),
+      spend: parseIntSafe(r[4]),
+      date,
+      views: parseIntSafe(r[6]),
+      deliverable: /^https?:\/\//i.test(deliverableRaw) ? deliverableRaw : '',
+      type: (r[9] || '').trim() || 'Reel Collab',
+      platform: detectPlatform(profile, deliverableRaw),
+      month: curMonth
+    });
+  }
+  return out;
+};
+
+const campaignNameFromFile = (filename) => String(filename || 'Imported Campaign').replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').trim();
+
 const CHART_PALETTE = ['#f97316', '#22d3ee', '#f59e0b', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb7185', '#fbbf24', '#4ade80'];
 
 const ChartPanel = ({ title, children, className = '' }) => (
@@ -287,6 +376,15 @@ export default function InfluencerOS() {
   const [analyticsCampaign, setAnalyticsCampaign] = useState('all');
   const [analyticsPlatform, setAnalyticsPlatform] = useState('all');
   const [analyticsMonth, setAnalyticsMonth] = useState('all');
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importRows, setImportRows] = useState([]);
+  const [importName, setImportName] = useState('');
+  const [importOwner, setImportOwner] = useState('');
+  const [importEditorsList, setImportEditorsList] = useState([]);
+  const [importEditorInput, setImportEditorInput] = useState('');
+  const [importAutoSync, setImportAutoSync] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -858,6 +956,118 @@ export default function InfluencerOS() {
   };
 
   const removeEditor = (email) => setEditorsList(editorsList.filter(x => x !== email));
+
+  const handleImportFile = (file) => {
+    if (!file) return;
+    setImportError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = parseCampaignCSV(String(ev.target.result || ''));
+        if (parsed.length === 0) {
+          setImportError('No creator rows found in that CSV. Make sure it has Name + profile link columns.');
+          return;
+        }
+        setImportRows(parsed);
+        setImportName(campaignNameFromFile(file.name));
+        setImportOwner('');
+        setImportEditorsList([]);
+        setImportEditorInput('');
+        setImportAutoSync(false);
+        setImportModalOpen(true);
+      } catch (e) {
+        setImportError('Could not read that CSV: ' + (e.message || 'unknown error'));
+      }
+    };
+    reader.onerror = () => setImportError('Could not read that file.');
+    reader.readAsText(file);
+  };
+
+  const addImportEditor = () => {
+    const v = importEditorInput.trim().toLowerCase();
+    if (!v) return;
+    if (!v.includes('@')) { alert('Please enter a valid email address.'); return; }
+    if (!importEditorsList.map(x => x.toLowerCase()).includes(v)) setImportEditorsList([...importEditorsList, v]);
+    setImportEditorInput('');
+  };
+
+  const executeImport = async () => {
+    if (!isAdmin) { alert('Only an admin can import campaigns.'); return; }
+    if (!importName.trim()) { setImportError('Please give the campaign a name.'); return; }
+    if (!importOwner.trim() || !importOwner.includes('@')) { setImportError('Please enter a valid owner email.'); return; }
+    setImporting(true);
+    setImportError('');
+
+    const newId = `ip_${Date.now()}`;
+    const totalSpend = importRows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    const campData = {
+      ip_id: newId,
+      ip_name: importName.trim(),
+      owner: importOwner.trim().toLowerCase(),
+      status: 'active',
+      budget: totalSpend,
+      editors: importEditorsList.map(x => x.toLowerCase()),
+      image_url: null
+    };
+
+    const newCreators = importRows.map((r, i) => ({
+      creator_deal_id: `cd_${Date.now()}_${i}`,
+      ip_id: newId,
+      creator_name: r.name,
+      platform: r.platform,
+      profile_link: r.profile,
+      followers: r.followers,
+      content_type: r.type,
+      deal_value: r.spend,
+      closed_month: r.month || null,
+      planned_go_live_date: r.date || null,
+      planned_go_live_month: r.month || null,
+      payment_model: '100_advance',
+      creator_status: 'booked',
+      deliverable_link: r.deliverable,
+      views: r.views,
+      likes: 0, comments: 0, shares: 0, saves: 0
+    }));
+
+    try {
+      const { error: campErr } = await supabase.from('campaigns').insert([campData]);
+      if (campErr) throw campErr;
+      const { error: crErr } = await supabase.from('creators').insert(newCreators);
+      if (crErr) throw crErr;
+    } catch (e) {
+      setImporting(false);
+      setImportError('Import failed while saving: ' + (e.message || 'unknown error'));
+      return;
+    }
+
+    setCampaigns(prev => [...prev, campData]);
+    setCreators(prev => [...prev, ...newCreators]);
+    setImportModalOpen(false);
+    setImporting(false);
+    setActiveTab('campaigns');
+    setActiveCampaignId(newId);
+
+    if (importAutoSync) {
+      setIsCampaignSyncing(true);
+      let updated = [...newCreators];
+      for (const cr of newCreators.filter(c => c.deliverable_link)) {
+        try {
+          const res = await fetch('/api/sync-instagram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ link: cr.deliverable_link }) });
+          const data = await res.json();
+          if (data.success) {
+            updated = updated.map(c => c.creator_deal_id === cr.creator_deal_id ? { ...c, ...data.metrics } : c);
+            await supabase.from('creators').update({
+              views: data.metrics.views, likes: data.metrics.likes, comments: data.metrics.comments,
+              shares: data.metrics.shares, saves: data.metrics.saves,
+              followers: data.metrics.followers > 0 ? data.metrics.followers : cr.followers
+            }).eq('creator_deal_id', cr.creator_deal_id);
+          }
+        } catch (err) { console.error(err); }
+      }
+      setCreators(prev => prev.map(c => updated.find(x => x.creator_deal_id === c.creator_deal_id) || c));
+      setIsCampaignSyncing(false);
+    }
+  };
 
   const openCampaignEdit = (e, camp) => {
     e.stopPropagation();
@@ -1499,6 +1709,12 @@ export default function InfluencerOS() {
                 
                 <div className="flex items-center gap-3">
                   {isAdmin && (
+                  <label className="cursor-pointer bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-200 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
+                    <Download size={16} className="rotate-180"/> Import CSV
+                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { handleImportFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  </label>
+                  )}
+                  {isAdmin && (
                   <button 
                     onClick={() => openCampaignModal(null)}
                     className="bg-orange-500 text-white hover:bg-orange-400 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
@@ -1508,6 +1724,12 @@ export default function InfluencerOS() {
                   )}
                 </div>
               </div>
+
+              {importError && !importModalOpen && (
+                <div className="flex items-center gap-2 text-sm text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-2.5 rounded-lg">
+                  <AlertCircle size={16}/> {importError}
+                </div>
+              )}
               
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                 {campaigns.map(camp => {
@@ -2205,6 +2427,101 @@ export default function InfluencerOS() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Download size={16} className="text-orange-400 rotate-180"/> Import Campaign from CSV</h3>
+              <button type="button" onClick={() => setImportModalOpen(false)} className="text-stone-500 hover:text-stone-300">Close</button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <div className="bg-orange-500/[0.06] border border-orange-500/20 rounded-lg px-4 py-3 text-sm text-orange-200 flex items-center gap-2">
+                <Check size={16}/> Found <strong>{importRows.length}</strong> creator{importRows.length === 1 ? '' : 's'} across the sheet. Invoice details are skipped — add bill dates later by editing each creator.
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Name</label>
+                  <input value={importName} onChange={(e) => setImportName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(required)</span></label>
+                  <input type="email" value={importOwner} onChange={(e) => setImportOwner(e.target.value)} placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional)</span></label>
+                <div className="flex gap-2">
+                  <input type="email" value={importEditorInput} onChange={(e) => setImportEditorInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImportEditor(); } }} placeholder="editor@yaas.studio" className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                  <button type="button" onClick={addImportEditor} className="px-3 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-stone-200 text-sm rounded-md transition-colors">Add</button>
+                </div>
+                {importEditorsList.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {importEditorsList.map((em) => (
+                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-200 text-xs">
+                        {em}
+                        <button type="button" onClick={() => setImportEditorsList(importEditorsList.filter(x => x !== em))} className="text-orange-300/70 hover:text-orange-100">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Preview (first 5)</p>
+                <div className="border border-white/[0.07] rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/[0.02] text-stone-500">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Creator</th>
+                        <th className="px-3 py-2 font-medium">Platform</th>
+                        <th className="px-3 py-2 font-medium">Month</th>
+                        <th className="px-3 py-2 font-medium">Spend</th>
+                        <th className="px-3 py-2 font-medium">Views</th>
+                        <th className="px-3 py-2 font-medium">Link</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.05]">
+                      {importRows.slice(0, 5).map((r, i) => (
+                        <tr key={i} className="text-stone-300">
+                          <td className="px-3 py-2 truncate max-w-[140px]">{r.name}</td>
+                          <td className="px-3 py-2">{r.platform}</td>
+                          <td className="px-3 py-2">{r.month || '—'}</td>
+                          <td className="px-3 py-2 tabular-nums">{formatMoney(r.spend)}</td>
+                          <td className="px-3 py-2 tabular-nums">{formatNumber(r.views)}</td>
+                          <td className="px-3 py-2">{r.deliverable ? <Check size={13} className="text-orange-400"/> : <span className="text-stone-600">—</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2.5 text-sm text-stone-300 cursor-pointer">
+                <input type="checkbox" checked={importAutoSync} onChange={(e) => setImportAutoSync(e.target.checked)} className="accent-orange-500 w-4 h-4" />
+                Auto-sync live metrics from deliverable links after import
+                <span className="text-stone-600 text-xs">(slower — pulls each link)</span>
+              </label>
+
+              {importError && (
+                <div className="flex items-center gap-2 text-sm text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-2.5 rounded-lg">
+                  <AlertCircle size={16}/> {importError}
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-white/[0.07] flex justify-end gap-3 shrink-0 bg-white/[0.02]">
+              <button type="button" onClick={() => setImportModalOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
+              <button type="button" onClick={executeImport} disabled={importing} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                {importing ? 'Importing…' : `Import ${importRows.length} creator${importRows.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
           </div>
         </div>
       )}
