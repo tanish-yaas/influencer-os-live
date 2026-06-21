@@ -62,6 +62,86 @@ const GoogleG = ({ size = 18 }) => (
   </svg>
 );
 
+// Animated orbital "atom" scene. Reused on the login art and as a faint backdrop in the app.
+const OrbitalScene = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 620 840" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#fed7aa" stopOpacity="0.95"/>
+        <stop offset="35%" stopColor="#f97316" stopOpacity="0.55"/>
+        <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+      </radialGradient>
+      <radialGradient id="haze" cx="55%" cy="42%" r="62%">
+        <stop offset="0%" stopColor="#7c2d12" stopOpacity="0.40"/>
+        <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <rect width="620" height="840" fill="url(#haze)"/>
+
+    {/* circuit traces */}
+    <g stroke="#f97316" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
+      <path d="M40 120 H150 V210 H230"/>
+      <path d="M60 700 H180 V610 H300"/>
+      <path d="M520 90 V180 H430"/>
+      <path d="M560 760 V650 H470 V560"/>
+    </g>
+    <g fill="#fb923c" fillOpacity="0.8">
+      <circle cx="40" cy="120" r="3"/><circle cx="230" cy="210" r="3"/>
+      <circle cx="60" cy="700" r="3"/><circle cx="300" cy="610" r="3"/>
+      <circle cx="520" cy="90" r="3"/><circle cx="430" cy="180" r="3"/>
+      <circle cx="560" cy="760" r="3"/><circle cx="470" cy="560" r="3"/>
+    </g>
+
+    {/* floating hexagons */}
+    <g stroke="#f59e0b" strokeOpacity="0.16" strokeWidth="1.2" fill="none">
+      <polygon points="110,300 140,285 170,300 170,335 140,350 110,335"/>
+      <polygon points="480,400 506,386 532,400 532,430 506,444 480,430"/>
+      <polygon points="430,690 452,678 474,690 474,714 452,726 430,714"/>
+    </g>
+
+    {/* constellation */}
+    <g stroke="#fbbf24" strokeOpacity="0.14" strokeWidth="1">
+      <line x1="90" y1="470" x2="200" y2="540"/>
+      <line x1="200" y1="540" x2="120" y2="640"/>
+      <line x1="500" y1="250" x2="560" y2="340"/>
+    </g>
+    <g fill="#fde68a" fillOpacity="0.7">
+      <circle cx="90" cy="470" r="2.5"/><circle cx="200" cy="540" r="2.5"/>
+      <circle cx="120" cy="640" r="2.5"/><circle cx="500" cy="250" r="2.5"/>
+      <circle cx="560" cy="340" r="2.5"/>
+    </g>
+
+    {/* orbital hub */}
+    <g transform="translate(310 440)">
+      <circle r="160" fill="url(#coreGlow)">
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite"/>
+      </circle>
+
+      <ellipse rx="210" ry="80" fill="none" stroke="#f97316" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
+      <ellipse rx="250" ry="150" fill="none" stroke="#f59e0b" strokeOpacity="0.12" strokeWidth="1" transform="rotate(14)"/>
+
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="70s" repeatCount="indefinite"/>
+        <circle r="120" fill="none" stroke="#fb923c" strokeOpacity="0.30" strokeWidth="1.2"/>
+        <circle cx="120" cy="0" r="6" fill="#f97316"/>
+        <circle cx="-120" cy="0" r="4" fill="#fdba74"/>
+        <circle cx="0" cy="120" r="3" fill="#fbbf24"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/>
+        <circle r="70" fill="none" stroke="#fdba74" strokeOpacity="0.25" strokeWidth="1"/>
+        <circle cx="70" cy="0" r="4" fill="#f59e0b"/>
+        <circle cx="-70" cy="0" r="3" fill="#fb923c"/>
+      </g>
+
+      <circle r="22" fill="#fb923c"/>
+      <circle r="22" fill="none" stroke="#fed7aa" strokeOpacity="0.7" strokeWidth="1.5"/>
+      <circle r="9" fill="#fff7ed"/>
+    </g>
+  </svg>
+);
+
 const defaultNameFromEmail = (email) => {
   const handle = (email || '').split('@')[0] || 'New User';
   return handle.replace(/[._-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -89,6 +169,8 @@ export default function InfluencerOS() {
   const [isProfileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [editorsList, setEditorsList] = useState([]);
+  const [editorInput, setEditorInput] = useState('');
 
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -519,13 +601,16 @@ export default function InfluencerOS() {
 
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
+    if (!isAdmin) { alert('Only an admin can create or edit campaigns.'); return; }
     const formData = new FormData(e.target);
+    const cleanEditors = editorsList.map(x => String(x).trim().toLowerCase()).filter(Boolean);
     const campData = {
       ip_id: editingCampaign ? editingCampaign.ip_id : `ip_${Date.now()}`,
       ip_name: formData.get('campaign_name'),
-      owner: formData.get('owner'),
+      owner: (formData.get('owner') || '').trim().toLowerCase(),
       status: editingCampaign ? editingCampaign.status : 'active',
-      budget: parseInt(formData.get('budget')) || 0
+      budget: parseInt(formData.get('budget')) || 0,
+      editors: cleanEditors
     };
 
     if (editingCampaign) {
@@ -537,16 +622,35 @@ export default function InfluencerOS() {
     }
     setCampaignModalOpen(false);
     setEditingCampaign(null);
+    setEditorsList([]);
+    setEditorInput('');
   };
 
-  const openCampaignEdit = (e, camp) => {
-    e.stopPropagation(); 
+  const openCampaignModal = (camp) => {
     setEditingCampaign(camp);
+    setEditorsList(Array.isArray(camp?.editors) ? camp.editors : []);
+    setEditorInput('');
     setCampaignModalOpen(true);
+  };
+
+  const addEditor = () => {
+    const v = editorInput.trim().toLowerCase();
+    if (!v) return;
+    if (!v.includes('@')) { alert('Please enter a valid email address.'); return; }
+    if (!editorsList.map(x => x.toLowerCase()).includes(v)) setEditorsList([...editorsList, v]);
+    setEditorInput('');
+  };
+
+  const removeEditor = (email) => setEditorsList(editorsList.filter(x => x !== email));
+
+  const openCampaignEdit = (e, camp) => {
+    e.stopPropagation();
+    openCampaignModal(camp);
   };
 
   const handleSaveCreator = async (e) => {
     e.preventDefault();
+    if (!canManageCampaign(activeCampaign)) { alert('You do not have edit access to this campaign.'); return; }
     const formData = new FormData(e.target);
     
     const goLiveDate = formData.get('planned_go_live_date');
@@ -616,10 +720,12 @@ export default function InfluencerOS() {
 
   const executeDelete = async () => {
     if (deletePrompt.type === 'campaign') {
+      if (!isAdmin) { alert('Only an admin can delete a campaign.'); return; }
       setCampaigns(campaigns.filter(c => c.ip_id !== deletePrompt.id));
       await supabase.from('campaigns').delete().eq('ip_id', deletePrompt.id);
       if (activeCampaignId === deletePrompt.id) setActiveCampaignId(null);
     } else if (deletePrompt.type === 'creator') {
+      if (!canManageCampaign(activeCampaign)) { alert('You do not have edit access to this campaign.'); return; }
       setCreators(creators.filter(c => c.creator_deal_id !== deletePrompt.id));
       setBills(bills.filter(b => b.creator_deal_id !== deletePrompt.id));
       await supabase.from('creators').delete().eq('creator_deal_id', deletePrompt.id);
@@ -664,6 +770,7 @@ export default function InfluencerOS() {
 
   // Per-campaign sync: only syncs creators inside the given campaign.
   const handleCampaignSync = async (campaignId) => {
+    if (!canManageCampaign(campaigns.find(c => c.ip_id === campaignId))) { alert('You do not have edit access to this campaign.'); return; }
     const creatorsWithLinks = creators.filter(c => c.ip_id === campaignId && c.deliverable_link && c.deliverable_link.trim() !== '');
     if (creatorsWithLinks.length === 0) {
       alert("No creators in this campaign have a live deliverable link to sync.");
@@ -763,6 +870,18 @@ export default function InfluencerOS() {
     </div>
   );
 
+  const isAdmin = !!currentUser?.isAdmin;
+  const myEmail = (currentUser?.email || '').toLowerCase();
+  const canManageCampaign = (camp) => {
+    if (isAdmin) return true;
+    if (!camp) return false;
+    const allowed = [String(camp.owner || '').toLowerCase()];
+    if (Array.isArray(camp.editors)) camp.editors.forEach(e => allowed.push(String(e).toLowerCase()));
+    return allowed.includes(myEmail);
+  };
+  const activeCampaign = campaigns.find(c => c.ip_id === activeCampaignId);
+  const canManageActive = canManageCampaign(activeCampaign);
+
   if (!isMounted || !authChecked) {
     return (
       <div className="h-screen w-full bg-[#0a0807] flex items-center justify-center">
@@ -786,85 +905,7 @@ export default function InfluencerOS() {
           <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)] z-20"></div>
 
           {/* cool tech illustration filling the panel */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 620 840" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-            <defs>
-              <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#fed7aa" stopOpacity="0.95"/>
-                <stop offset="35%" stopColor="#f97316" stopOpacity="0.55"/>
-                <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
-              </radialGradient>
-              <radialGradient id="haze" cx="55%" cy="42%" r="62%">
-                <stop offset="0%" stopColor="#7c2d12" stopOpacity="0.40"/>
-                <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
-              </radialGradient>
-            </defs>
-
-            <rect width="620" height="840" fill="url(#haze)"/>
-
-            {/* circuit traces */}
-            <g stroke="#f97316" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
-              <path d="M40 120 H150 V210 H230"/>
-              <path d="M60 700 H180 V610 H300"/>
-              <path d="M520 90 V180 H430"/>
-              <path d="M560 760 V650 H470 V560"/>
-            </g>
-            <g fill="#fb923c" fillOpacity="0.8">
-              <circle cx="40" cy="120" r="3"/><circle cx="230" cy="210" r="3"/>
-              <circle cx="60" cy="700" r="3"/><circle cx="300" cy="610" r="3"/>
-              <circle cx="520" cy="90" r="3"/><circle cx="430" cy="180" r="3"/>
-              <circle cx="560" cy="760" r="3"/><circle cx="470" cy="560" r="3"/>
-            </g>
-
-            {/* floating hexagons */}
-            <g stroke="#f59e0b" strokeOpacity="0.16" strokeWidth="1.2" fill="none">
-              <polygon points="110,300 140,285 170,300 170,335 140,350 110,335"/>
-              <polygon points="480,400 506,386 532,400 532,430 506,444 480,430"/>
-              <polygon points="430,690 452,678 474,690 474,714 452,726 430,714"/>
-            </g>
-
-            {/* constellation */}
-            <g stroke="#fbbf24" strokeOpacity="0.14" strokeWidth="1">
-              <line x1="90" y1="470" x2="200" y2="540"/>
-              <line x1="200" y1="540" x2="120" y2="640"/>
-              <line x1="500" y1="250" x2="560" y2="340"/>
-            </g>
-            <g fill="#fde68a" fillOpacity="0.7">
-              <circle cx="90" cy="470" r="2.5"/><circle cx="200" cy="540" r="2.5"/>
-              <circle cx="120" cy="640" r="2.5"/><circle cx="500" cy="250" r="2.5"/>
-              <circle cx="560" cy="340" r="2.5"/>
-            </g>
-
-            {/* orbital hub */}
-            <g transform="translate(310 440)">
-              <circle r="160" fill="url(#coreGlow)">
-                <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite"/>
-              </circle>
-
-              {/* static perspective rings */}
-              <ellipse rx="210" ry="80" fill="none" stroke="#f97316" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
-              <ellipse rx="250" ry="150" fill="none" stroke="#f59e0b" strokeOpacity="0.12" strokeWidth="1" transform="rotate(14)"/>
-
-              {/* rotating orbit + satellites */}
-              <g>
-                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="70s" repeatCount="indefinite"/>
-                <circle r="120" fill="none" stroke="#fb923c" strokeOpacity="0.30" strokeWidth="1.2"/>
-                <circle cx="120" cy="0" r="6" fill="#f97316"/>
-                <circle cx="-120" cy="0" r="4" fill="#fdba74"/>
-                <circle cx="0" cy="120" r="3" fill="#fbbf24"/>
-              </g>
-              <g>
-                <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/>
-                <circle r="70" fill="none" stroke="#fdba74" strokeOpacity="0.25" strokeWidth="1"/>
-                <circle cx="70" cy="0" r="4" fill="#f59e0b"/>
-                <circle cx="-70" cy="0" r="3" fill="#fb923c"/>
-              </g>
-
-              {/* core */}
-              <circle r="22" fill="#fb923c"/>
-              <circle r="22" fill="none" stroke="#fed7aa" strokeOpacity="0.7" strokeWidth="1.5"/>
-              <circle r="9" fill="#fff7ed"/>
-            </g>
-          </svg>
+          <OrbitalScene className="absolute inset-0 w-full h-full" />
 
           <div className="relative z-10 flex flex-col justify-between p-14 w-full">
             {/* Brand lockup top-left */}
@@ -999,6 +1040,7 @@ export default function InfluencerOS() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0807] font-sans text-stone-200 selection:bg-orange-500/30 p-4">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-700/15 via-[#0a0807] to-[#0a0807]"></div>
+        <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" />
 
         <div className="relative w-full max-w-lg p-8 bg-white/[0.03] border border-white/[0.08] rounded-2xl shadow-2xl backdrop-blur-2xl">
           <div className="flex items-center gap-2 mb-2 text-orange-400">
@@ -1057,8 +1099,12 @@ export default function InfluencerOS() {
   return (
     <div className="flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30">
       <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
-        <div className="flex items-center gap-3 mb-10 px-2 mt-2">
-          <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
+        <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
+          {!logoError ? (
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-7 w-auto max-w-[92px] object-contain"/>
+          ) : (
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
+          )}
           <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>
         </div>
         <nav className="flex flex-col gap-1.5 flex-1">
@@ -1073,7 +1119,9 @@ export default function InfluencerOS() {
         </nav>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
+      <main className="relative flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
+        {/* faint animated orbital backdrop */}
+        <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
         
         <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-10 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
           <div className="flex items-center gap-6">
@@ -1216,7 +1264,7 @@ export default function InfluencerOS() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 relative">
+        <div className="flex-1 overflow-y-auto p-8 relative z-10">
           
           {activeTab === 'campaigns' && !activeCampaignId && (
             <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -1234,12 +1282,14 @@ export default function InfluencerOS() {
                 </h2>
                 
                 <div className="flex items-center gap-3">
+                  {isAdmin && (
                   <button 
-                    onClick={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
+                    onClick={() => openCampaignModal(null)}
                     className="bg-orange-500 text-white hover:bg-orange-400 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
                   >
                     <Plus size={16}/> New Campaign
                   </button>
+                  )}
                 </div>
               </div>
               
@@ -1274,10 +1324,12 @@ export default function InfluencerOS() {
                         {isSelected ? <CheckSquare size={20}/> : <Square size={20}/>}
                       </button>
 
+                      {isAdmin && (
                       <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => openCampaignEdit(e, camp)} className="p-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-stone-300 rounded shadow-md transition-colors"><Edit2 size={14}/></button>
                         <button onClick={(e) => requestDelete(e, 'campaign', camp.ip_id, camp.ip_name)} className="p-1.5 bg-white/[0.05] hover:bg-red-900/50 text-stone-300 hover:text-red-400 rounded shadow-md transition-colors"><Trash2 size={14}/></button>
                       </div>
+                      )}
 
                       <div className="flex justify-between items-start mb-4 pl-8">
                         <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-orange-400 group-hover:border-orange-500/30 transition-colors">
@@ -1333,6 +1385,7 @@ export default function InfluencerOS() {
                     <p className="text-sm text-stone-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {canManageActive && (
                     <button 
                       onClick={() => handleCampaignSync(activeCampaignId)}
                       disabled={isCampaignSyncing}
@@ -1341,18 +1394,25 @@ export default function InfluencerOS() {
                       <RefreshCw className={isCampaignSyncing ? "animate-spin text-orange-400" : "text-orange-400"} size={16}/>
                       {isCampaignSyncing ? "Syncing Campaign..." : "Sync Instagram"}
                     </button>
+                    )}
                     <button 
                       onClick={() => setExportModal({ isOpen: true, type: 'ops' })}
                       className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"
                     >
                       <Download size={16}/> Export Report
                     </button>
+                    {canManageActive ? (
                     <button 
                       onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
                       className="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
                     >
                       <Plus size={16}/> Book Creator
                     </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-stone-400 border border-white/10 bg-white/[0.02]">
+                        <Lock size={13}/> View only
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1456,9 +1516,11 @@ export default function InfluencerOS() {
                                           <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{cCount}</span>
                                         )}
                                       </button>
+                                      {canManageActive && (<>
                                       <span className="w-px h-4 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></span>
                                       <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-stone-500 hover:text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity"><Edit2 size={16}/></button>
                                       <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-stone-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                                      </>)}
                                     </div>
                                   </td>
                                 </tr>
@@ -1759,7 +1821,7 @@ export default function InfluencerOS() {
           <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
               <h3 className="font-medium text-stone-100">{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</h3>
-              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); }} className="text-stone-500 hover:text-stone-300">Close</button>
+              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); setEditorsList([]); setEditorInput(''); }} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             <form onSubmit={handleSaveCampaign} className="p-6 space-y-4">
               <div>
@@ -1767,8 +1829,33 @@ export default function InfluencerOS() {
                 <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner</label>
-                <input name="owner" defaultValue={editingCampaign?.owner} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(responsible — gets edit access)</span></label>
+                <input name="owner" type="email" defaultValue={editingCampaign?.owner} required placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional — can also edit, sync &amp; delete)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={editorInput}
+                    onChange={(e) => setEditorInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditor(); } }}
+                    placeholder="editor@yaas.studio"
+                    className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                  />
+                  <button type="button" onClick={addEditor} className="px-3 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-stone-200 text-sm rounded-md transition-colors">Add</button>
+                </div>
+                {editorsList.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {editorsList.map((em) => (
+                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-200 text-xs">
+                        {em}
+                        <button type="button" onClick={() => removeEditor(em)} className="text-orange-300/70 hover:text-orange-100">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] text-stone-600 mt-2">Everyone else who logs in can view this campaign but can't edit it.</p>
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Total Budget</label>
