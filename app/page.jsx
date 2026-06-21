@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -171,6 +171,8 @@ export default function InfluencerOS() {
   const [logoError, setLogoError] = useState(false);
   const [editorsList, setEditorsList] = useState([]);
   const [editorInput, setEditorInput] = useState('');
+  const [campaignImage, setCampaignImage] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -610,7 +612,8 @@ export default function InfluencerOS() {
       owner: (formData.get('owner') || '').trim().toLowerCase(),
       status: editingCampaign ? editingCampaign.status : 'active',
       budget: parseInt(formData.get('budget')) || 0,
-      editors: cleanEditors
+      editors: cleanEditors,
+      image_url: campaignImage || null
     };
 
     if (editingCampaign) {
@@ -624,13 +627,44 @@ export default function InfluencerOS() {
     setEditingCampaign(null);
     setEditorsList([]);
     setEditorInput('');
+    setCampaignImage('');
   };
 
   const openCampaignModal = (camp) => {
     setEditingCampaign(camp);
     setEditorsList(Array.isArray(camp?.editors) ? camp.editors : []);
     setEditorInput('');
+    setCampaignImage(camp?.image_url || '');
     setCampaignModalOpen(true);
+  };
+
+  // Downscale an image in-browser to a small data URL (no storage bucket needed).
+  const handleCampaignImageFile = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); return; }
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const max = 360;
+        let w = img.width, h = img.height;
+        if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
+        else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0c0a08';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        setCampaignImage(canvas.toDataURL('image/jpeg', 0.82));
+        setUploadingImage(false);
+      };
+      img.onerror = () => { setUploadingImage(false); alert('Could not read that image.'); };
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => { setUploadingImage(false); alert('Could not read that file.'); };
+    reader.readAsDataURL(file);
   };
 
   const addEditor = () => {
@@ -1123,7 +1157,7 @@ export default function InfluencerOS() {
         {/* faint animated orbital backdrop */}
         <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
         
-        <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-10 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
+        <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-30 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-medium text-stone-100 tracking-tight capitalize">
               {activeCampaignId ? 'Campaign Workspace' : activeTab.replace(/_/g, ' ')}
@@ -1332,9 +1366,15 @@ export default function InfluencerOS() {
                       )}
 
                       <div className="flex justify-between items-start mb-4 pl-8">
-                        <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-orange-400 group-hover:border-orange-500/30 transition-colors">
-                          <FolderKanban size={20}/>
-                        </div>
+                        {camp.image_url ? (
+                          <div className="w-10 h-10 rounded overflow-hidden border border-white/[0.06] group-hover:border-orange-500/30 transition-colors">
+                            <img src={camp.image_url} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-orange-400 group-hover:border-orange-500/30 transition-colors">
+                            <FolderKanban size={20}/>
+                          </div>
+                        )}
                       </div>
                       <h3 className="text-lg font-medium text-stone-200">{camp.ip_name}</h3>
                       <p className="text-sm text-stone-500 mt-1">Owner: {camp.owner}</p>
@@ -1378,11 +1418,18 @@ export default function InfluencerOS() {
                   <ArrowLeft size={16}/> Back to Campaigns
                 </button>
                 <div className="flex justify-between items-end">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">
-                      {campaigns.find(c => c.ip_id === activeCampaignId)?.ip_name}
-                    </h2>
-                    <p className="text-sm text-stone-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
+                  <div className="flex items-center gap-4">
+                    {activeCampaign?.image_url && (
+                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
+                        <img src={activeCampaign.image_url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">
+                        {activeCampaign?.ip_name}
+                      </h2>
+                      <p className="text-sm text-stone-500 mt-1">Manage creator bookings, deliverables, and performance tracking.</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     {canManageActive && (
@@ -1821,9 +1868,32 @@ export default function InfluencerOS() {
           <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
               <h3 className="font-medium text-stone-100">{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</h3>
-              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); setEditorsList([]); setEditorInput(''); }} className="text-stone-500 hover:text-stone-300">Close</button>
+              <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); setEditorsList([]); setEditorInput(''); setCampaignImage(''); }} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             <form onSubmit={handleSaveCampaign} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Photo <span className="text-stone-600 normal-case tracking-normal">(optional)</span></label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-white/10 bg-white/[0.03] flex items-center justify-center shrink-0">
+                    {campaignImage ? (
+                      <img src={campaignImage} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImagePlus size={22} className="text-stone-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer px-3 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-stone-200 text-sm rounded-md transition-colors inline-flex items-center gap-2">
+                      <ImagePlus size={14}/> {uploadingImage ? 'Processing…' : (campaignImage ? 'Change photo' : 'Upload photo')}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { handleCampaignImageFile(e.target.files?.[0]); e.target.value = ''; }} />
+                    </label>
+                    {campaignImage && (
+                      <button type="button" onClick={() => setCampaignImage('')} className="px-2.5 py-2 text-stone-500 hover:text-red-400 text-sm rounded-md transition-colors inline-flex items-center gap-1">
+                        <X size={14}/> Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Name</label>
                 <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
