@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -142,6 +142,117 @@ const OrbitalScene = ({ className = '' }) => (
   </svg>
 );
 
+const CHART_PALETTE = ['#f97316', '#22d3ee', '#f59e0b', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb7185', '#fbbf24', '#4ade80'];
+
+const ChartPanel = ({ title, children, className = '' }) => (
+  <div className={`bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm ${className}`}>
+    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-4">{title}</p>
+    {children}
+  </div>
+);
+
+const StatCard = ({ label, value, sub, dot = '#f97316' }) => (
+  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-4 backdrop-blur-sm">
+    <div className="flex items-center gap-2">
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot, boxShadow: `0 0 8px ${dot}99` }}></span>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium truncate">{label}</p>
+    </div>
+    <p className="text-2xl font-semibold mt-2 tabular-nums text-stone-100">{value}</p>
+    {sub && <p className="text-xs text-stone-500 mt-1 truncate">{sub}</p>}
+  </div>
+);
+
+const VBarChart = ({ data = [], color = '#f97316', format = (v) => String(v) }) => {
+  if (!data.length) return <div className="h-44 flex items-center justify-center text-sm text-stone-600">No data</div>;
+  const max = Math.max(1, ...data.map(d => d.value));
+  return (
+    <div>
+      <div className="flex items-end gap-2 h-44">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 h-full flex items-end" title={`${d.label}: ${format(d.value)}`}>
+            <div className="w-full rounded-t-md transition-all hover:opacity-80" style={{ height: `${Math.max(2, (d.value / max) * 100)}%`, background: `linear-gradient(to top, ${color}, ${color}88)` }}></div>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2 mt-2">
+        {data.map((d, i) => (<div key={i} className="flex-1 text-center text-[10px] text-stone-500 truncate" title={d.label}>{d.label}</div>))}
+      </div>
+    </div>
+  );
+};
+
+const HBarChart = ({ data = [], color = '#22d3ee', format = (v) => String(v) }) => {
+  if (!data.length) return <div className="h-44 flex items-center justify-center text-sm text-stone-600">No data</div>;
+  const max = Math.max(1, ...data.map(d => d.value));
+  return (
+    <div className="space-y-3 py-1">
+      {data.map((d, i) => (
+        <div key={i}>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-stone-400 truncate pr-2">{d.label}</span>
+            <span className="text-stone-300 tabular-nums shrink-0">{format(d.value)}</span>
+          </div>
+          <div className="h-2 rounded-full bg-white/[0.05] overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${(d.value / max) * 100}%`, background: color }}></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DonutChart = ({ data = [] }) => {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!total) return <div className="h-44 flex items-center justify-center text-sm text-stone-600">No data</div>;
+  const size = 140, thickness = 22, r = (size - thickness) / 2, circ = 2 * Math.PI * r, cx = size / 2, cy = size / 2;
+  let offset = 0;
+  return (
+    <div className="flex items-center gap-5">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+        <g transform={`rotate(-90 ${cx} ${cy})`}>
+          {data.map((d, i) => {
+            const len = (d.value / total) * circ;
+            const el = (<circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={d.color} strokeWidth={thickness} strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-offset} />);
+            offset += len;
+            return el;
+          })}
+        </g>
+      </svg>
+      <div className="space-y-1.5 min-w-0 flex-1">
+        {data.map((d, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: d.color }}></span>
+            <span className="text-stone-400 truncate">{d.label}</span>
+            <span className="text-stone-300 tabular-nums ml-auto pl-2 shrink-0">{Math.round((d.value / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const TrendChart = ({ data = [], color = '#f97316' }) => {
+  if (!data.length) return <div className="h-40 flex items-center justify-center text-sm text-stone-600">No data</div>;
+  const w = 600, h = 150, top = 12, bot = 12;
+  const max = Math.max(1, ...data.map(d => d.value));
+  const n = data.length;
+  const X = (i) => n <= 1 ? w / 2 : (i * w) / (n - 1);
+  const Y = (v) => (h - bot) - (v / max) * (h - top - bot);
+  const line = data.map((d, i) => `${X(i)},${Y(d.value)}`).join(' ');
+  const area = `0,${h - bot} ${line} ${w},${h - bot}`;
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height: h }}>
+        <polygon points={area} fill={color} fillOpacity="0.14" />
+        <polyline points={line} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="flex justify-between mt-1.5">
+        {data.map((d, i) => (<span key={i} className="text-[10px] text-stone-500">{d.label}</span>))}
+      </div>
+    </div>
+  );
+};
+
 const defaultNameFromEmail = (email) => {
   const handle = (email || '').split('@')[0] || 'New User';
   return handle.replace(/[._-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -173,6 +284,9 @@ export default function InfluencerOS() {
   const [editorInput, setEditorInput] = useState('');
   const [campaignImage, setCampaignImage] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [analyticsCampaign, setAnalyticsCampaign] = useState('all');
+  const [analyticsPlatform, setAnalyticsPlatform] = useState('all');
+  const [analyticsMonth, setAnalyticsMonth] = useState('all');
 
   const [activeTab, setActiveTab] = useState('campaigns');
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -600,6 +714,74 @@ export default function InfluencerOS() {
 
     return { opsTotal, financeTotal, variance, mismatchReasons, opsBreakdown, financeBreakdown };
   }, [creators, bills, campaigns, targetMonth]);
+
+  const allPlatforms = useMemo(() => [...new Set(creators.map(c => c.platform).filter(Boolean))], [creators]);
+
+  const analytics = useMemo(() => {
+    const num = (v) => Number(v) || 0;
+    let cr = creators;
+    if (analyticsCampaign !== 'all') cr = cr.filter(c => c.ip_id === analyticsCampaign);
+    if (analyticsPlatform !== 'all') cr = cr.filter(c => c.platform === analyticsPlatform);
+    if (analyticsMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === analyticsMonth);
+
+    const totalSpend = cr.reduce((s, c) => s + num(c.deal_value), 0);
+    const totalViews = cr.reduce((s, c) => s + num(c.views), 0);
+    const likes = cr.reduce((s, c) => s + num(c.likes), 0);
+    const comments = cr.reduce((s, c) => s + num(c.comments), 0);
+    const shares = cr.reduce((s, c) => s + num(c.shares), 0);
+    const saves = cr.reduce((s, c) => s + num(c.saves), 0);
+    const totalEng = likes + comments + shares + saves;
+    const totalFollowers = cr.reduce((s, c) => s + num(c.followers), 0);
+    const creatorCount = cr.length;
+    const campaignCount = new Set(cr.map(c => c.ip_id)).size;
+    const avgCpv = totalViews > 0 ? totalSpend / totalViews : 0;
+    const avgCpe = totalEng > 0 ? totalSpend / totalEng : 0;
+    const engRate = totalViews > 0 ? (totalEng / totalViews) * 100 : 0;
+
+    const byCampaign = {};
+    cr.forEach(c => {
+      const name = campaigns.find(x => x.ip_id === c.ip_id)?.ip_name || 'Unassigned';
+      if (!byCampaign[name]) byCampaign[name] = { spend: 0, views: 0 };
+      byCampaign[name].spend += num(c.deal_value);
+      byCampaign[name].views += num(c.views);
+    });
+    const campNames = Object.keys(byCampaign);
+    const spendByCampaign = campNames.map(name => ({ label: name.length > 10 ? name.slice(0, 9) + '…' : name, value: byCampaign[name].spend }));
+    const viewsByCampaign = campNames.map(name => ({ label: name.length > 10 ? name.slice(0, 9) + '…' : name, value: byCampaign[name].views }));
+
+    const platMap = {};
+    cr.forEach(c => { const p = c.platform || 'Other'; if (!platMap[p]) platMap[p] = { spend: 0, count: 0 }; platMap[p].spend += num(c.deal_value); platMap[p].count += 1; });
+    const spendByPlatform = Object.keys(platMap).map((p, i) => ({ label: p, value: platMap[p].spend, color: CHART_PALETTE[i % CHART_PALETTE.length] }));
+    const creatorsByPlatform = Object.keys(platMap).map((p, i) => ({ label: p, value: platMap[p].count, color: CHART_PALETTE[i % CHART_PALETTE.length] }));
+
+    const engMix = [
+      { label: 'Likes', value: likes, color: CHART_PALETTE[0] },
+      { label: 'Comments', value: comments, color: CHART_PALETTE[1] },
+      { label: 'Shares', value: shares, color: CHART_PALETTE[3] },
+      { label: 'Saves', value: saves, color: CHART_PALETTE[4] },
+    ].filter(d => d.value > 0);
+
+    const payMap = {};
+    cr.forEach(c => { const m = (c.payment_model || 'other').replace(/_/g, ' '); payMap[m] = (payMap[m] || 0) + 1; });
+    const paymentSplit = Object.keys(payMap).map((m, i) => ({ label: m, value: payMap[m], color: CHART_PALETTE[i % CHART_PALETTE.length] }));
+
+    const contentMap = {};
+    cr.forEach(c => { const t = c.content_type || 'Other'; contentMap[t] = (contentMap[t] || 0) + 1; });
+    const contentDist = Object.keys(contentMap).map(t => ({ label: t, value: contentMap[t] })).sort((a, b) => b.value - a.value);
+
+    const topCreators = [...cr].sort((a, b) => num(b.views) - num(a.views)).slice(0, 6).map(c => ({ label: c.creator_name, value: num(c.views) }));
+
+    const monthMap = {};
+    cr.forEach(c => { const m = c.planned_go_live_month; if (!m) return; if (!monthMap[m]) monthMap[m] = { spend: 0, views: 0 }; monthMap[m].spend += num(c.deal_value); monthMap[m].views += num(c.views); });
+    const orderedMonths = ALL_MONTHS.filter(m => monthMap[m]);
+    const spendTrend = orderedMonths.map(m => ({ label: m.slice(0, 3), value: monthMap[m].spend }));
+    const viewsTrend = orderedMonths.map(m => ({ label: m.slice(0, 3), value: monthMap[m].views }));
+
+    return {
+      totalSpend, totalViews, totalEng, totalFollowers, creatorCount, campaignCount, avgCpv, avgCpe, engRate,
+      spendByCampaign, viewsByCampaign, spendByPlatform, creatorsByPlatform, engMix, paymentSplit, contentDist, topCreators, spendTrend, viewsTrend
+    };
+  }, [creators, campaigns, analyticsCampaign, analyticsPlatform, analyticsMonth]);
 
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
@@ -1145,8 +1327,8 @@ export default function InfluencerOS() {
           <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={ArrowRightLeft} id="finance_vs_ops" label="Finance vs Ops"/>
+          <NavItem icon={PieChart} id="analytics" label="Analytics"/>
           <NavItem icon={CreditCard} id="payments" label="Payments"/>
-          <NavItem icon={Receipt} id="bills" label="Bills"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={CalendarDays} id="timeline" label="Timeline"/>
           <NavItem icon={BarChart3} id="reports" label="Reports"/>
@@ -1694,6 +1876,92 @@ export default function InfluencerOS() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Analytics Overview</h2>
+                  <p className="text-sm text-stone-500 mt-1">A visual snapshot across all campaigns and creators.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={analyticsCampaign} onChange={(e) => setAnalyticsCampaign(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                    <option value="all" className="bg-[#0c0a08]">All campaigns</option>
+                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                  </select>
+                  <select value={analyticsPlatform} onChange={(e) => setAnalyticsPlatform(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                    <option value="all" className="bg-[#0c0a08]">All platforms</option>
+                    {allPlatforms.map(p => <option key={p} value={p} className="bg-[#0c0a08]">{p}</option>)}
+                  </select>
+                  <select value={analyticsMonth} onChange={(e) => setAnalyticsMonth(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                    <option value="all" className="bg-[#0c0a08]">All months</option>
+                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0c0a08]">{m}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <StatCard label="Total Spend" value={formatMoney(analytics.totalSpend)} dot={CHART_PALETTE[0]} />
+                <StatCard label="Total Views" value={formatNumber(analytics.totalViews)} dot={CHART_PALETTE[1]} />
+                <StatCard label="Engagement" value={formatNumber(analytics.totalEng)} dot={CHART_PALETTE[4]} />
+                <StatCard label="Creators" value={formatNumber(analytics.creatorCount)} sub={`${analytics.campaignCount} campaign${analytics.campaignCount === 1 ? '' : 's'}`} dot={CHART_PALETTE[3]} />
+                <StatCard label="Avg CPV" value={formatMicroMoney(analytics.avgCpv)} dot={CHART_PALETTE[2]} />
+                <StatCard label="Eng. Rate" value={`${analytics.engRate.toFixed(1)}%`} sub={`${formatNumber(analytics.totalFollowers)} reach`} dot={CHART_PALETTE[5]} />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ChartPanel title="Spend by Campaign">
+                  <VBarChart data={analytics.spendByCampaign} color={CHART_PALETTE[0]} format={formatMoney} />
+                </ChartPanel>
+                <ChartPanel title="Views by Campaign">
+                  <VBarChart data={analytics.viewsByCampaign} color={CHART_PALETTE[1]} format={formatNumber} />
+                </ChartPanel>
+
+                <ChartPanel title="Spend by Platform">
+                  <DonutChart data={analytics.spendByPlatform} />
+                </ChartPanel>
+                <ChartPanel title="Creators by Platform">
+                  <DonutChart data={analytics.creatorsByPlatform} />
+                </ChartPanel>
+
+                <ChartPanel title="Engagement Mix">
+                  <DonutChart data={analytics.engMix} />
+                </ChartPanel>
+                <ChartPanel title="Payment Model Split">
+                  <DonutChart data={analytics.paymentSplit} />
+                </ChartPanel>
+
+                <ChartPanel title="Content Type Distribution">
+                  <HBarChart data={analytics.contentDist} color={CHART_PALETTE[2]} format={formatNumber} />
+                </ChartPanel>
+                <ChartPanel title="Top Creators by Views">
+                  <HBarChart data={analytics.topCreators} color={CHART_PALETTE[1]} format={formatNumber} />
+                </ChartPanel>
+
+                <ChartPanel title="Spend Trend by Go-Live Month" className="lg:col-span-2">
+                  <TrendChart data={analytics.spendTrend} color={CHART_PALETTE[0]} />
+                </ChartPanel>
+                <ChartPanel title="Views Trend by Go-Live Month" className="lg:col-span-2">
+                  <TrendChart data={analytics.viewsTrend} color={CHART_PALETTE[1]} />
+                </ChartPanel>
+              </div>
+            </div>
+          )}
+
+          {['payments', 'reports', 'timeline'].includes(activeTab) && (
+            <div className="h-full flex items-center justify-center animate-in fade-in duration-500">
+              <div className="text-center max-w-md px-6">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center bg-orange-500/10 border border-orange-500/20 text-orange-400 shadow-[0_0_30px_-8px_rgba(249,115,22,0.6)]">
+                  {activeTab === 'payments' ? <CreditCard size={28}/> : activeTab === 'reports' ? <BarChart3 size={28}/> : <CalendarDays size={28}/>}
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400/80 font-semibold mb-2">Coming soon</p>
+                <h2 className="text-2xl font-semibold text-stone-100 tracking-tight capitalize">{activeTab}</h2>
+                <p className="text-sm text-stone-500 mt-3 leading-relaxed">
+                  We're still building this out. {activeTab === 'payments' ? 'Payment tracking and payout schedules' : activeTab === 'reports' ? 'Custom exportable reports' : 'A visual delivery timeline'} will land here soon.
+                </p>
               </div>
             </div>
           )}
