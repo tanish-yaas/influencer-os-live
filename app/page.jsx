@@ -383,6 +383,83 @@ const TrendChart = ({ data = [], color = '#f97316' }) => {
   );
 };
 
+const PLATFORM_COLORS = { instagram: '#ec4899', youtube: '#f97316', facebook: '#3b82f6', tiktok: '#22d3ee', linkedin: '#60a5fa' };
+const getPlatformColor = (p) => PLATFORM_COLORS[(p || '').toLowerCase()] || '#a78bfa';
+
+const fmtDateShort = (d) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); } catch { return d; } };
+const fmtDateFull = (d) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }); } catch { return d; } };
+
+// Multi-series overlaid area chart (Views/Likes/Comments by platform), cumulative or daily.
+const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative' }) => {
+  if (!dates.length || !series.length) return <div className="h-48 flex items-center justify-center text-sm text-stone-600">No data in range</div>;
+  const plotted = series.map(s => {
+    let run = 0;
+    return { ...s, vals: s.values.map(v => { if (mode === 'cumulative') { run += v; return run; } return v; }) };
+  });
+  const max = Math.max(1, ...plotted.flatMap(s => s.vals));
+  const w = 600, h = 200, top = 10, bot = 10;
+  const n = dates.length;
+  const X = (i) => n <= 1 ? w / 2 : (i * w) / (n - 1);
+  const Y = (v) => (h - bot) - (v / max) * (h - top - bot);
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height: h }}>
+        {plotted.map((s, si) => {
+          const line = s.vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+          const area = `0,${h - bot} ${line} ${w},${h - bot}`;
+          return (
+            <g key={si}>
+              <polygon points={area} fill={s.color} fillOpacity="0.10" />
+              <polyline points={line} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex justify-between mt-1.5 text-[10px] text-stone-500">
+        <span>{fmtDateShort(dates[0])}</span>
+        {n > 2 && <span>{fmtDateShort(dates[Math.floor(n / 2)])}</span>}
+        <span>{fmtDateShort(dates[n - 1])}</span>
+      </div>
+      <div className="flex flex-wrap gap-3 mt-3 justify-center">
+        {series.map((s, i) => (<div key={i} className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }}></span><span className="text-stone-400">{s.name}</span></div>))}
+      </div>
+    </div>
+  );
+};
+
+// Stacked bar timeline of post frequency by date + platform, with a hover tooltip listing creators.
+const StackedBarTimeline = ({ items = [] }) => {
+  if (!items.length) return <div className="h-56 flex items-center justify-center text-sm text-stone-600">No posts in range</div>;
+  const totals = items.map(it => Object.values(it.platforms).reduce((a, b) => a + b, 0));
+  const max = Math.max(1, ...totals);
+  const platformsSeen = [...new Set(items.flatMap(it => Object.keys(it.platforms)))];
+  return (
+    <div>
+      <div className="flex items-end gap-1 h-56">
+        {items.map((it, i) => (
+          <div key={i} className="flex-1 h-full flex flex-col justify-end items-stretch relative group/bar min-w-0">
+            <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 opacity-0 invisible group-hover/bar:opacity-100 group-hover/bar:visible transition-all z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3 text-left">
+              <p className="text-xs font-semibold text-stone-200 mb-2">{fmtDateFull(it.date)}</p>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {it.names.map((nm, j) => (<p key={j} className="text-xs text-stone-400 truncate">• {nm}</p>))}
+              </div>
+            </div>
+            {Object.entries(it.platforms).map(([p, cnt], j) => (
+              <div key={j} style={{ height: `${(cnt / max) * 100}%`, background: getPlatformColor(p) }} className="w-full first:rounded-t-sm" title={`${p}: ${cnt}`}></div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1 mt-2">
+        {items.map((it, i) => (<div key={i} className="flex-1 text-center text-[9px] text-stone-500 truncate" title={fmtDateFull(it.date)}>{fmtDateShort(it.date)}</div>))}
+      </div>
+      <div className="flex flex-wrap gap-3 mt-3 justify-center">
+        {platformsSeen.map((p, i) => (<div key={i} className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: getPlatformColor(p) }}></span><span className="text-stone-400">{p}</span></div>))}
+      </div>
+    </div>
+  );
+};
+
 const defaultNameFromEmail = (email) => {
   const handle = (email || '').split('@')[0] || 'New User';
   return handle.replace(/[._-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -459,6 +536,14 @@ export default function InfluencerOS() {
   const [commentFrom, setCommentFrom] = useState('');
   const [commentBody, setCommentBody] = useState('');
   const [profileCardCreator, setProfileCardCreator] = useState(null);
+  const [reportCampaign, setReportCampaign] = useState('all');
+  const [reportDateMode, setReportDateMode] = useState('month');
+  const [reportMonth, setReportMonth] = useState('all');
+  const [reportStart, setReportStart] = useState('');
+  const [reportEnd, setReportEnd] = useState('');
+  const [viewsMode, setViewsMode] = useState('cumulative');
+  const [likesMode, setLikesMode] = useState('cumulative');
+  const [commentsMode, setCommentsMode] = useState('cumulative');
 
   // ---- Auth helpers ----
   const loadProfile = async (email) => {
@@ -922,6 +1007,110 @@ export default function InfluencerOS() {
       spendByCampaign, viewsByCampaign, spendByPlatform, creatorsByPlatform, engMix, paymentSplit, contentDist, topCreators, spendTrend, viewsTrend
     };
   }, [creators, campaigns, analyticsCampaign, analyticsPlatform, analyticsMonth]);
+
+  const report = useMemo(() => {
+    const num = (v) => Number(v) || 0;
+    let cr = creators;
+    if (reportCampaign !== 'all') cr = cr.filter(c => c.ip_id === reportCampaign);
+    if (reportDateMode === 'month' && reportMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === reportMonth);
+    if (reportDateMode === 'custom' && reportStart && reportEnd) cr = cr.filter(c => c.planned_go_live_date && c.planned_go_live_date >= reportStart && c.planned_go_live_date <= reportEnd);
+
+    const sum = (k, arr = cr) => arr.reduce((s, c) => s + num(c[k]), 0);
+    const views = sum('views'), likes = sum('likes'), comments = sum('comments'), shares = sum('shares'), saves = sum('saves');
+    const eng = likes + comments + shares + saves;
+    const spend = sum('deal_value');
+    const erAvg = views > 0 ? (eng / views) * 100 : 0;
+    const isVideo = (t) => /reel|video|short|yt|integration|collab/i.test(t || '');
+    const vid = cr.filter(c => isVideo(c.content_type));
+    const stat = cr.filter(c => !isVideo(c.content_type));
+    const engOf = (arr) => sum('likes', arr) + sum('comments', arr) + sum('shares', arr) + sum('saves', arr);
+    const erVideo = sum('views', vid) > 0 ? (engOf(vid) / sum('views', vid)) * 100 : null;
+    const erStatic = sum('views', stat) > 0 ? (engOf(stat) / sum('views', stat)) * 100 : null;
+    const cpe = eng > 0 ? spend / eng : 0;
+    const cpv = views > 0 ? spend / views : 0;
+
+    const dateSet = [...new Set(cr.filter(c => c.planned_go_live_date).map(c => c.planned_go_live_date))].sort();
+    const platforms = [...new Set(cr.map(c => c.platform).filter(Boolean))];
+    const seriesFor = (metric) => platforms.map(p => ({
+      name: p, color: getPlatformColor(p),
+      values: dateSet.map(d => cr.filter(c => c.planned_go_live_date === d && c.platform === p).reduce((s, c) => s + num(c[metric]), 0))
+    }));
+    const timeline = dateSet.map(d => {
+      const day = cr.filter(c => c.planned_go_live_date === d);
+      const plat = {};
+      day.forEach(c => { const p = c.platform || 'Other'; plat[p] = (plat[p] || 0) + 1; });
+      return { date: d, platforms: plat, names: day.map(c => c.creator_name) };
+    });
+
+    return {
+      count: cr.length, views, likes, comments, shares, saves, eng, spend, erAvg, erVideo, erStatic, cpe, cpv,
+      dateSet, platforms, timeline, rows: cr,
+      viewsSeries: seriesFor('views'), likesSeries: seriesFor('likes'), commentsSeries: seriesFor('comments')
+    };
+  }, [creators, reportCampaign, reportDateMode, reportMonth, reportStart, reportEnd]);
+
+  const reportScope = () => {
+    const camp = reportCampaign === 'all' ? 'All Campaigns' : (campaigns.find(c => c.ip_id === reportCampaign)?.ip_name || 'Campaign');
+    const range = reportDateMode === 'month' ? (reportMonth === 'all' ? 'All months' : `${reportMonth} 2026`) : `${reportStart || '…'} to ${reportEnd || '…'}`;
+    return { camp, range };
+  };
+
+  const downloadReportCSV = () => {
+    const rows = report.rows.map(c => {
+      const m = calculateCreatorMetrics(c);
+      return {
+        Creator: c.creator_name, Platform: c.platform, 'Content Type': c.content_type,
+        'Go-Live Date': c.planned_go_live_date || '', Spend: c.deal_value, Views: c.views || 0,
+        Likes: c.likes || 0, Comments: c.comments || 0, Shares: c.shares || 0, Saves: c.saves || 0,
+        Engagement: m.engagement, 'ER %': c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0',
+        CPV: m.cpv.toFixed(3), CPE: m.cpe.toFixed(3)
+      };
+    });
+    const { camp, range } = reportScope();
+    downloadCSV(`Report_${camp}_${range}.csv`.replace(/[^a-z0-9]+/gi, '_'), rows);
+  };
+
+  const downloadReportPDF = () => {
+    const { camp, range } = reportScope();
+    const r = report;
+    const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const stats = [
+      ['Views', formatNumber(r.views)], ['Likes', formatNumber(r.likes)], ['Comments', formatNumber(r.comments)],
+      ['Shares', formatNumber(r.shares)], ['E.R. (Avg)', r.erAvg.toFixed(3) + '%'],
+      ['E.R. (Video)', r.erVideo == null ? '-' : r.erVideo.toFixed(3) + '%'], ['E.R. (Static)', r.erStatic == null ? '-' : r.erStatic.toFixed(3) + '%'],
+      ['CPE', formatMicroMoney(r.cpe)], ['CPV', formatMicroMoney(r.cpv)], ['Total Spend', formatMoney(r.spend)]
+    ];
+    const statCards = stats.map(([k, v]) => `<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');
+    const rowsHtml = r.rows.map(c => {
+      const m = calculateCreatorMetrics(c);
+      return `<tr><td>${esc(c.creator_name)}</td><td>${esc(c.platform)}</td><td>${esc(c.content_type)}</td><td>${esc(c.planned_go_live_date || '')}</td><td class="n">${formatMoney(c.deal_value)}</td><td class="n">${formatNumber(c.views || 0)}</td><td class="n">${formatNumber(m.engagement)}</td><td class="n">${c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0'}%</td></tr>`;
+    }).join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(camp)} Report</title><style>
+      *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c1917;margin:32px;}
+      h1{font-size:22px;margin:0 0 2px}.sub{color:#78716c;font-size:13px;margin-bottom:20px}
+      .brand{display:flex;align-items:center;gap:8px;margin-bottom:16px}.dot{width:14px;height:14px;border-radius:4px;background:#f97316}
+      .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}
+      .card{border:1px solid #e7e5e4;border-radius:10px;padding:12px}.k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}.v{font-size:18px;font-weight:600;margin-top:4px}
+      h2{font-size:14px;margin:18px 0 8px}table{width:100%;border-collapse:collapse;font-size:11px}
+      th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #eee}th{color:#78716c;text-transform:uppercase;letter-spacing:.08em;font-size:9px}
+      td.n,th.n{text-align:right}.foot{margin-top:18px;color:#a8a29e;font-size:10px}
+      @media print{body{margin:14px}}
+    </style></head><body>
+      <div class="brand"><div class="dot"></div><strong>Influencer OS — YAAS</strong></div>
+      <h1>${esc(camp)} — Campaign Report</h1>
+      <div class="sub">Scope: ${esc(range)} &middot; ${r.count} creators &middot; Generated ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+      <div class="grid">${statCards}</div>
+      <h2>Creator Breakdown</h2>
+      <table><thead><tr><th>Creator</th><th>Platform</th><th>Deliverable</th><th>Go-Live</th><th class="n">Spend</th><th class="n">Views</th><th class="n">Engagement</th><th class="n">ER</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+      <div class="foot">Generated by Influencer OS · YAAS</div>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { alert('Please allow pop-ups to download the PDF report.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+  };
 
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
@@ -2234,16 +2423,119 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {['payments', 'reports', 'timeline'].includes(activeTab) && (
+          {activeTab === 'reports' && (
+            <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Reports</h2>
+                  <p className="text-sm text-stone-500 mt-1">{reportScope().camp} · {reportScope().range} · {report.count} creators</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={downloadReportCSV} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-200 px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
+                    <Download size={15}/> CSV
+                  </button>
+                  <button onClick={downloadReportPDF} className="bg-orange-500 hover:bg-orange-400 text-white px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                    <Download size={15}/> PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 bg-white/[0.025] border border-white/[0.07] rounded-xl p-3">
+                <select value={reportCampaign} onChange={(e) => setReportCampaign(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                  <option value="all" className="bg-[#0c0a08]">All campaigns</option>
+                  {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                </select>
+                <div className="flex items-center rounded-md border border-white/10 overflow-hidden">
+                  <button onClick={() => setReportDateMode('month')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'month' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Month</button>
+                  <button onClick={() => setReportDateMode('custom')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'custom' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Custom</button>
+                </div>
+                {reportDateMode === 'month' ? (
+                  <select value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                    <option value="all" className="bg-[#0c0a08]">All months</option>
+                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0c0a08]">{m}</option>)}
+                  </select>
+                ) : (
+                  <>
+                    <input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                    <span className="text-stone-500 text-sm">to</span>
+                    <input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                  </>
+                )}
+              </div>
+
+              {/* Statistics Overview */}
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-3">Statistics Overview</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <StatCard label="Views" value={formatNumber(report.views)} dot={CHART_PALETTE[1]} />
+                  <StatCard label="Likes" value={formatNumber(report.likes)} dot={CHART_PALETTE[0]} />
+                  <StatCard label="Comments" value={formatNumber(report.comments)} dot={CHART_PALETTE[3]} />
+                  <StatCard label="E.R. (Avg)" value={`${report.erAvg.toFixed(3)}%`} dot={CHART_PALETTE[4]} />
+                  <StatCard label="E.R. (Video)" value={report.erVideo == null ? '—' : `${report.erVideo.toFixed(3)}%`} dot={CHART_PALETTE[5]} />
+                  <StatCard label="E.R. (Static)" value={report.erStatic == null ? '—' : `${report.erStatic.toFixed(3)}%`} dot={CHART_PALETTE[6]} />
+                  <StatCard label="CPE" value={formatMicroMoney(report.cpe)} dot={CHART_PALETTE[2]} />
+                  <StatCard label="CPV" value={formatMicroMoney(report.cpv)} dot={CHART_PALETTE[7]} />
+                  <StatCard label="Shares" value={formatNumber(report.shares)} dot={CHART_PALETTE[8]} />
+                  <StatCard label="Total Spend" value={formatMoney(report.spend)} dot={CHART_PALETTE[0]} />
+                </div>
+              </div>
+
+              {/* Stats Graphs */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Views</p>
+                    <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
+                      <button onClick={() => setViewsMode('cumulative')} className={`px-2.5 py-1 ${viewsMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setViewsMode('daily')} className={`px-2.5 py-1 ${viewsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                    </div>
+                  </div>
+                  <MultiSeriesChart dates={report.dateSet} series={report.viewsSeries} mode={viewsMode} />
+                </div>
+                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Likes</p>
+                    <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
+                      <button onClick={() => setLikesMode('cumulative')} className={`px-2.5 py-1 ${likesMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setLikesMode('daily')} className={`px-2.5 py-1 ${likesMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                    </div>
+                  </div>
+                  <MultiSeriesChart dates={report.dateSet} series={report.likesSeries} mode={likesMode} />
+                </div>
+                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Comments</p>
+                    <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
+                      <button onClick={() => setCommentsMode('cumulative')} className={`px-2.5 py-1 ${commentsMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setCommentsMode('daily')} className={`px-2.5 py-1 ${commentsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                    </div>
+                  </div>
+                  <MultiSeriesChart dates={report.dateSet} series={report.commentsSeries} mode={commentsMode} />
+                </div>
+                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-4">Spend by Platform</p>
+                  <DonutChart data={report.platforms.map((p, i) => ({ label: p, value: report.rows.filter(c => c.platform === p).reduce((s, c) => s + (Number(c.deal_value) || 0), 0), color: getPlatformColor(p) }))} />
+                </div>
+              </div>
+
+              {/* Timeline Frequency */}
+              <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-4">Campaign Timeline Frequency</p>
+                <StackedBarTimeline items={report.timeline} />
+              </div>
+            </div>
+          )}
+
+          {['payments', 'timeline'].includes(activeTab) && (
             <div className="h-full flex items-center justify-center animate-in fade-in duration-500">
               <div className="text-center max-w-md px-6">
                 <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center bg-orange-500/10 border border-orange-500/20 text-orange-400 shadow-[0_0_30px_-8px_rgba(249,115,22,0.6)]">
-                  {activeTab === 'payments' ? <CreditCard size={28}/> : activeTab === 'reports' ? <BarChart3 size={28}/> : <CalendarDays size={28}/>}
+                  {activeTab === 'payments' ? <CreditCard size={28}/> : <CalendarDays size={28}/>}
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400/80 font-semibold mb-2">Coming soon</p>
                 <h2 className="text-2xl font-semibold text-stone-100 tracking-tight capitalize">{activeTab}</h2>
                 <p className="text-sm text-stone-500 mt-3 leading-relaxed">
-                  We're still building this out. {activeTab === 'payments' ? 'Payment tracking and payout schedules' : activeTab === 'reports' ? 'Custom exportable reports' : 'A visual delivery timeline'} will land here soon.
+                  We're still building this out. {activeTab === 'payments' ? 'Payment tracking and payout schedules' : 'A visual delivery timeline'} will land here soon.
                 </p>
               </div>
             </div>
