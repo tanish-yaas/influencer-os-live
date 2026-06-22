@@ -985,7 +985,8 @@ export default function InfluencerOS() {
 
   const analytics = useMemo(() => {
     const num = (v) => Number(v) || 0;
-    let cr = creators;
+    const liveIds = new Set(campaigns.map(c => c.ip_id));
+    let cr = creators.filter(c => liveIds.has(c.ip_id));
     if (analyticsCampaign !== 'all') cr = cr.filter(c => c.ip_id === analyticsCampaign);
     if (analyticsPlatform !== 'all') cr = cr.filter(c => c.platform === analyticsPlatform);
     if (analyticsMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === analyticsMonth);
@@ -1051,7 +1052,8 @@ export default function InfluencerOS() {
 
   const report = useMemo(() => {
     const num = (v) => Number(v) || 0;
-    let cr = creators;
+    const liveIds = new Set(campaigns.map(c => c.ip_id));
+    let cr = creators.filter(c => liveIds.has(c.ip_id));
     if (reportCampaign !== 'all') cr = cr.filter(c => c.ip_id === reportCampaign);
     if (reportDateMode === 'month' && reportMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === reportMonth);
     if (reportDateMode === 'custom' && reportStart && reportEnd) cr = cr.filter(c => c.planned_go_live_date && c.planned_go_live_date >= reportStart && c.planned_go_live_date <= reportEnd);
@@ -1088,7 +1090,7 @@ export default function InfluencerOS() {
       dateSet, platforms, timeline, rows: cr,
       viewsSeries: seriesFor('views'), likesSeries: seriesFor('likes'), commentsSeries: seriesFor('comments')
     };
-  }, [creators, reportCampaign, reportDateMode, reportMonth, reportStart, reportEnd]);
+  }, [creators, campaigns, reportCampaign, reportDateMode, reportMonth, reportStart, reportEnd]);
 
   const reportScope = () => {
     const camp = reportCampaign === 'all' ? 'All Campaigns' : (campaigns.find(c => c.ip_id === reportCampaign)?.ip_name || 'Campaign');
@@ -1419,9 +1421,16 @@ export default function InfluencerOS() {
   const executeDelete = async () => {
     if (deletePrompt.type === 'campaign') {
       if (!isAdmin) { alert('Only an admin can delete a campaign.'); return; }
-      setCampaigns(campaigns.filter(c => c.ip_id !== deletePrompt.id));
-      await supabase.from('campaigns').delete().eq('ip_id', deletePrompt.id);
-      if (activeCampaignId === deletePrompt.id) setActiveCampaignId(null);
+      const campId = deletePrompt.id;
+      const childCreatorIds = creators.filter(c => c.ip_id === campId).map(c => c.creator_deal_id);
+      // Remove the campaign and everything under it so it stops counting in analytics/reports.
+      setCampaigns(campaigns.filter(c => c.ip_id !== campId));
+      setCreators(creators.filter(c => c.ip_id !== campId));
+      setBills(bills.filter(b => !childCreatorIds.includes(b.creator_deal_id)));
+      await supabase.from('campaigns').delete().eq('ip_id', campId);
+      await supabase.from('creators').delete().eq('ip_id', campId);
+      if (childCreatorIds.length) await supabase.from('bills').delete().in('creator_deal_id', childCreatorIds);
+      if (activeCampaignId === campId) setActiveCampaignId(null);
     } else if (deletePrompt.type === 'creator') {
       if (!canManageCampaign(activeCampaign)) { alert('You do not have edit access to this campaign.'); return; }
       setCreators(creators.filter(c => c.creator_deal_id !== deletePrompt.id));
