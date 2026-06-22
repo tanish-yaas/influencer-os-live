@@ -389,37 +389,55 @@ const getPlatformColor = (p) => PLATFORM_COLORS[(p || '').toLowerCase()] || '#a7
 const fmtDateShort = (d) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); } catch { return d; } };
 const fmtDateFull = (d) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }); } catch { return d; } };
 
-// Multi-series overlaid area chart (Views/Likes/Comments by platform), cumulative or daily.
-const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative' }) => {
+// Multi-series overlaid area chart with hover tooltip + zoom (Views/Likes/Comments by platform).
+const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative', format = (v) => v }) => {
+  const [hover, setHover] = useState(null);
+  const [zoom, setZoom] = useState(1);
   if (!dates.length || !series.length) return <div className="h-48 flex items-center justify-center text-sm text-stone-600">No data in range</div>;
-  const plotted = series.map(s => {
-    let run = 0;
-    return { ...s, vals: s.values.map(v => { if (mode === 'cumulative') { run += v; return run; } return v; }) };
-  });
+  const plotted = series.map(s => { let run = 0; return { ...s, vals: s.values.map(v => mode === 'cumulative' ? (run += v) : v) }; });
   const max = Math.max(1, ...plotted.flatMap(s => s.vals));
-  const w = 600, h = 200, top = 10, bot = 10;
   const n = dates.length;
-  const X = (i) => n <= 1 ? w / 2 : (i * w) / (n - 1);
-  const Y = (v) => (h - bot) - (v / max) * (h - top - bot);
+  const H = 220, padT = 14, padB = 26, padL = 6, padR = 6;
+  const pxPer = 16 * zoom;
+  const W = Math.max(620, padL + padR + Math.max(1, n - 1) * pxPer);
+  const plotW = W - padL - padR;
+  const X = (i) => n <= 1 ? padL + plotW / 2 : padL + (i * plotW) / (n - 1);
+  const Y = (v) => (H - padB) - (v / max) * (H - padT - padB);
+  const labelStep = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(W / 88))));
+  const onMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (W / rect.width);
+    let i = n <= 1 ? 0 : Math.round((x - padL) / (plotW / (n - 1)));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
   return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height: h }}>
-        {plotted.map((s, si) => {
-          const line = s.vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
-          const area = `0,${h - bot} ${line} ${w},${h - bot}`;
-          return (
-            <g key={si}>
-              <polygon points={area} fill={s.color} fillOpacity="0.10" />
-              <polyline points={line} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
-            </g>
-          );
-        })}
-      </svg>
-      <div className="flex justify-between mt-1.5 text-[10px] text-stone-500">
-        <span>{fmtDateShort(dates[0])}</span>
-        {n > 2 && <span>{fmtDateShort(dates[Math.floor(n / 2)])}</span>}
-        <span>{fmtDateShort(dates[n - 1])}</span>
+    <div className="relative">
+      <div className="flex justify-end gap-1 mb-1">
+        <button onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">−</button>
+        <button onClick={() => setZoom(z => Math.min(8, +(z + 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">+</button>
       </div>
+      <div className="overflow-x-auto">
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} onMouseMove={onMove} onMouseLeave={() => setHover(null)} style={{ display: 'block' }}>
+          {plotted.map((s, si) => {
+            const line = s.vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+            const area = `${padL},${H - padB} ${line} ${W - padR},${H - padB}`;
+            return (<g key={si}><polygon points={area} fill={s.color} fillOpacity="0.10" /><polyline points={line} fill="none" stroke={s.color} strokeWidth="2" /></g>);
+          })}
+          {hover != null && (
+            <g>
+              <line x1={X(hover)} y1={padT} x2={X(hover)} y2={H - padB} stroke="#ffffff" strokeOpacity="0.18" />
+              {plotted.map((s, si) => <circle key={si} cx={X(hover)} cy={Y(s.vals[hover])} r="3.5" fill={s.color} stroke="#0c0a08" strokeWidth="1.5" />)}
+            </g>
+          )}
+          {dates.map((d, i) => (i % labelStep === 0 || i === n - 1) ? <text key={i} x={X(i)} y={H - 8} textAnchor="middle" fontSize="10" fill="#78716c">{fmtDateShort(d)}</text> : null)}
+        </svg>
+      </div>
+      {hover != null && (
+        <div className="absolute top-9 right-2 bg-[#0c0a08]/95 border border-white/10 rounded-lg shadow-2xl p-3 text-xs pointer-events-none z-10 min-w-[150px]">
+          <p className="font-semibold text-stone-200 mb-1.5">{fmtDateFull(dates[hover])}</p>
+          {plotted.map((s, si) => (<div key={si} className="flex items-center gap-2"><span className="w-2 h-2 rounded-sm" style={{ background: s.color }}></span><span className="text-stone-400">{s.name}</span><span className="ml-auto pl-3 text-stone-200 tabular-nums">{format(s.vals[hover])}</span></div>))}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3 mt-3 justify-center">
         {series.map((s, i) => (<div key={i} className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }}></span><span className="text-stone-400">{s.name}</span></div>))}
       </div>
@@ -427,31 +445,53 @@ const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative' }) => {
   );
 };
 
-// Stacked bar timeline of post frequency by date + platform, with a hover tooltip listing creators.
-const StackedBarTimeline = ({ items = [] }) => {
+// Stacked bar timeline of post frequency by date + platform: zoomable, scrollable, click a bar to expand.
+const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
+  const [zoom, setZoom] = useState(1.5);
   if (!items.length) return <div className="h-56 flex items-center justify-center text-sm text-stone-600">No posts in range</div>;
+  const n = items.length;
   const totals = items.map(it => Object.values(it.platforms).reduce((a, b) => a + b, 0));
   const max = Math.max(1, ...totals);
   const platformsSeen = [...new Set(items.flatMap(it => Object.keys(it.platforms)))];
+  const barW = Math.round(16 * zoom);
+  const gap = Math.max(3, Math.round(5 * zoom));
+  const W = n * (barW + gap);
+  const labelStep = Math.max(1, Math.ceil((barW + gap < 46 ? 46 : 1) / (barW + gap)));
   return (
     <div>
-      <div className="flex items-end gap-1 h-56">
-        {items.map((it, i) => (
-          <div key={i} className="flex-1 h-full flex flex-col justify-end items-stretch relative group/bar min-w-0">
-            <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 opacity-0 invisible group-hover/bar:opacity-100 group-hover/bar:visible transition-all z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3 text-left">
-              <p className="text-xs font-semibold text-stone-200 mb-2">{fmtDateFull(it.date)}</p>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {it.names.map((nm, j) => (<p key={j} className="text-xs text-stone-400 truncate">• {nm}</p>))}
-              </div>
-            </div>
-            {Object.entries(it.platforms).map(([p, cnt], j) => (
-              <div key={j} style={{ height: `${(cnt / max) * 100}%`, background: getPlatformColor(p) }} className="w-full first:rounded-t-sm" title={`${p}: ${cnt}`}></div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-stone-500">Click any bar to see that day's deliverables</p>
+        <div className="flex gap-1">
+          <button onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">−</button>
+          <button onClick={() => setZoom(z => Math.min(8, +(z + 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">+</button>
+        </div>
+      </div>
+      <div className="overflow-x-auto pb-1">
+        <div style={{ width: Math.max(W, 100) }}>
+          <div className="flex items-end h-56" style={{ gap }}>
+            {items.map((it, i) => (
+              <button key={i} onClick={() => onSelectDay(it)} style={{ width: barW }} className="h-full flex flex-col justify-end items-stretch relative group/bar shrink-0 hover:opacity-90 transition-opacity">
+                <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 opacity-0 invisible group-hover/bar:opacity-100 group-hover/bar:visible transition-all z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3 text-left">
+                  <p className="text-xs font-semibold text-stone-200 mb-2">{fmtDateFull(it.date)} · {totals[i]} post{totals[i] === 1 ? '' : 's'}</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {it.names.map((nm, j) => (<p key={j} className="text-xs text-stone-400 truncate">• {nm}</p>))}
+                  </div>
+                  <p className="text-[10px] text-orange-400/80 mt-2">Click to open links →</p>
+                </div>
+                {Object.entries(it.platforms).map(([p, cnt], j) => (
+                  <div key={j} style={{ height: `${(cnt / max) * 100}%`, background: getPlatformColor(p) }} className="w-full first:rounded-t-sm" title={`${p}: ${cnt}`}></div>
+                ))}
+              </button>
             ))}
           </div>
-        ))}
-      </div>
-      <div className="flex gap-1 mt-2">
-        {items.map((it, i) => (<div key={i} className="flex-1 text-center text-[9px] text-stone-500 truncate" title={fmtDateFull(it.date)}>{fmtDateShort(it.date)}</div>))}
+          <div className="flex mt-2" style={{ gap }}>
+            {items.map((it, i) => (
+              <div key={i} style={{ width: barW }} className="shrink-0 text-center text-[9px] text-stone-500 whitespace-nowrap overflow-visible">
+                {i % labelStep === 0 ? fmtDateShort(it.date) : ''}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="flex flex-wrap gap-3 mt-3 justify-center">
         {platformsSeen.map((p, i) => (<div key={i} className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: getPlatformColor(p) }}></span><span className="text-stone-400">{p}</span></div>))}
@@ -536,6 +576,7 @@ export default function InfluencerOS() {
   const [commentFrom, setCommentFrom] = useState('');
   const [commentBody, setCommentBody] = useState('');
   const [profileCardCreator, setProfileCardCreator] = useState(null);
+  const [timelineDay, setTimelineDay] = useState(null);
   const [reportCampaign, setReportCampaign] = useState('all');
   const [reportDateMode, setReportDateMode] = useState('month');
   const [reportMonth, setReportMonth] = useState('all');
@@ -1039,7 +1080,7 @@ export default function InfluencerOS() {
       const day = cr.filter(c => c.planned_go_live_date === d);
       const plat = {};
       day.forEach(c => { const p = c.platform || 'Other'; plat[p] = (plat[p] || 0) + 1; });
-      return { date: d, platforms: plat, names: day.map(c => c.creator_name) };
+      return { date: d, platforms: plat, names: day.map(c => c.creator_name), creators: day };
     });
 
     return {
@@ -2490,7 +2531,7 @@ export default function InfluencerOS() {
                       <button onClick={() => setViewsMode('daily')} className={`px-2.5 py-1 ${viewsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
-                  <MultiSeriesChart dates={report.dateSet} series={report.viewsSeries} mode={viewsMode} />
+                  <MultiSeriesChart dates={report.dateSet} series={report.viewsSeries} mode={viewsMode} format={formatNumber} />
                 </div>
                 <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
                   <div className="flex items-center justify-between mb-4">
@@ -2500,7 +2541,7 @@ export default function InfluencerOS() {
                       <button onClick={() => setLikesMode('daily')} className={`px-2.5 py-1 ${likesMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
-                  <MultiSeriesChart dates={report.dateSet} series={report.likesSeries} mode={likesMode} />
+                  <MultiSeriesChart dates={report.dateSet} series={report.likesSeries} mode={likesMode} format={formatNumber} />
                 </div>
                 <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
                   <div className="flex items-center justify-between mb-4">
@@ -2510,7 +2551,7 @@ export default function InfluencerOS() {
                       <button onClick={() => setCommentsMode('daily')} className={`px-2.5 py-1 ${commentsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
-                  <MultiSeriesChart dates={report.dateSet} series={report.commentsSeries} mode={commentsMode} />
+                  <MultiSeriesChart dates={report.dateSet} series={report.commentsSeries} mode={commentsMode} format={formatNumber} />
                 </div>
                 <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-4">Spend by Platform</p>
@@ -2521,7 +2562,7 @@ export default function InfluencerOS() {
               {/* Timeline Frequency */}
               <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-4">Campaign Timeline Frequency</p>
-                <StackedBarTimeline items={report.timeline} />
+                <StackedBarTimeline items={report.timeline} onSelectDay={(it) => setTimelineDay(it)} />
               </div>
             </div>
           )}
@@ -2542,6 +2583,42 @@ export default function InfluencerOS() {
           )}
         </div>
       </main>
+
+      {/* Timeline Day — deliverables posted that day */}
+      {timelineDay && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setTimelineDay(null)}>
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
+              <div>
+                <h3 className="font-medium text-stone-100 flex items-center gap-2"><CalendarDays size={16} className="text-orange-400"/> {fmtDateFull(timelineDay.date)}</h3>
+                <p className="text-xs text-stone-500 mt-0.5">{timelineDay.creators.length} deliverable{timelineDay.creators.length === 1 ? '' : 's'} posted</p>
+              </div>
+              <button onClick={() => setTimelineDay(null)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {timelineDay.creators.map((c) => {
+                const href = c.deliverable_link ? (c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`) : '';
+                return (
+                  <div key={c.creator_deal_id} className="flex items-center gap-3 bg-white/[0.025] border border-white/[0.06] rounded-lg p-3">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: getPlatformColor(c.platform) }}></span>
+                    <div className="min-w-0 flex-1">
+                      <button onClick={() => { setTimelineDay(null); setProfileCardCreator(c); }} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left truncate block">{c.creator_name}</button>
+                      <p className="text-xs text-stone-500 truncate">{c.platform} · {c.content_type} · {formatNumber(c.views || 0)} views</p>
+                    </div>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noreferrer" className="shrink-0 inline-flex items-center gap-1.5 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
+                        <ExternalLink size={13}/> View post
+                      </a>
+                    ) : (
+                      <span className="shrink-0 text-xs text-stone-600">No link</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Creator Profile Card */}
       {profileCardCreator && (() => {
