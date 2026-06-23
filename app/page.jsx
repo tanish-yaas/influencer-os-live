@@ -1831,10 +1831,12 @@ export default function InfluencerOS() {
         .theme-light [class~="bg-[#0a0807]"]{background-color:#f4f2ef!important}
         .theme-light [class~="bg-[#0c0a08]"]{background-color:#ffffff!important}
         .theme-light [class~="bg-[#070605]"]{background-color:#ece9e5!important}
+        .theme-light main{background-color:#f4f2ef!important;background-image:none!important}
+        .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:#f4f2ef!important}
         .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(244,242,239,0.88)!important}
-        .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:rgba(0,0,0,0.035)!important}
-        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:rgba(0,0,0,0.05)!important}
-        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:rgba(0,0,0,0.08)!important}
+        .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:#ffffff!important}
+        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#f0ebe5!important}
+        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e6e0d9!important}
         .theme-light [class~="bg-black/30"],.theme-light [class~="bg-black/40"]{background-color:#ffffff!important}
         .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:rgba(0,0,0,0.1)!important}
         .theme-light [class~="border-white/10"]{border-color:rgba(0,0,0,0.14)!important}
