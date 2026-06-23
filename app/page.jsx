@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -287,7 +287,7 @@ const StatCard = ({ label, value, sub, dot = '#f97316' }) => (
       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot, boxShadow: `0 0 8px ${dot}99` }}></span>
       <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium truncate">{label}</p>
     </div>
-    <p className="text-2xl font-semibold mt-2 tabular-nums text-stone-100">{value}</p>
+    <p className="text-xl font-semibold mt-2 tabular-nums text-stone-100 leading-tight tracking-tight">{value}</p>
     {sub && <p className="text-xs text-stone-500 mt-1 truncate">{sub}</p>}
   </div>
 );
@@ -577,6 +577,9 @@ export default function InfluencerOS() {
   const [commentBody, setCommentBody] = useState('');
   const [profileCardCreator, setProfileCardCreator] = useState(null);
   const [timelineDay, setTimelineDay] = useState(null);
+  const [theme, setTheme] = useState('dark');
+  const [fontSize, setFontSize] = useState('medium');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportCampaign, setReportCampaign] = useState('all');
   const [reportDateMode, setReportDateMode] = useState('month');
   const [reportMonth, setReportMonth] = useState('all');
@@ -682,6 +685,25 @@ export default function InfluencerOS() {
     setProfileEditorOpen(false);
     try { await supabase.from('profiles').upsert(row, { onConflict: 'email' }); } catch (e) { console.error('profile save (db) failed:', e); }
   };
+
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('ios_theme');
+      const f = localStorage.getItem('ios_fontsize');
+      if (t === 'light' || t === 'dark') setTheme(t);
+      if (f === 'small' || f === 'medium' || f === 'large') setFontSize(f);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('ios_theme', theme); } catch {}
+  }, [theme]);
+
+  useEffect(() => {
+    const px = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px';
+    try { document.documentElement.style.fontSize = px; localStorage.setItem('ios_fontsize', fontSize); } catch {}
+    return () => { try { document.documentElement.style.fontSize = ''; } catch {} };
+  }, [fontSize]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1804,7 +1826,25 @@ export default function InfluencerOS() {
 
   // ============ MAIN APP ============
   return (
-    <div className="flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30">
+    <div className={`flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30 ${theme === 'light' ? 'theme-light' : ''}`}>
+      <style>{`
+        .theme-light [class~="bg-[#0a0807]"]{background-color:#f4f2ef!important}
+        .theme-light [class~="bg-[#0c0a08]"]{background-color:#ffffff!important}
+        .theme-light [class~="bg-[#070605]"]{background-color:#ece9e5!important}
+        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(244,242,239,0.88)!important}
+        .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:rgba(0,0,0,0.035)!important}
+        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:rgba(0,0,0,0.05)!important}
+        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:rgba(0,0,0,0.08)!important}
+        .theme-light [class~="bg-black/30"],.theme-light [class~="bg-black/40"]{background-color:#ffffff!important}
+        .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:rgba(0,0,0,0.1)!important}
+        .theme-light [class~="border-white/10"]{border-color:rgba(0,0,0,0.14)!important}
+        .theme-light [class~="text-stone-100"]{color:#1c1917!important}
+        .theme-light [class~="text-stone-200"]{color:#292524!important}
+        .theme-light [class~="text-stone-300"]{color:#44403c!important}
+        .theme-light [class~="text-stone-400"]{color:#57534e!important}
+        .theme-light [class~="text-stone-500"]{color:#78716c!important}
+        .theme-light [class~="text-stone-600"]{color:#a8a29e!important}
+      `}</style>
       <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
         <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
           {!logoError ? (
@@ -1835,19 +1875,23 @@ export default function InfluencerOS() {
             <h1 className="text-lg font-medium text-stone-100 tracking-tight capitalize">
               {activeCampaignId ? 'Campaign Workspace' : activeTab.replace(/_/g, ' ')}
             </h1>
-            <div className="h-4 w-px bg-white/10"></div>
-            <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-md p-1 shadow-sm">
-              <span className="text-[10px] font-medium text-stone-500 uppercase tracking-[0.2em] pl-2">Filter Month:</span>
-              <select 
-                value={targetMonth}
-                onChange={(e) => setTargetMonth(e.target.value)}
-                className="bg-transparent text-sm font-medium text-orange-400 outline-none cursor-pointer pr-2"
-              >
-                {ALL_MONTHS.map(m => (
-                  <option key={m} value={m} className="bg-[#0a0807] text-stone-200">{m} 2026</option>
-                ))}
-              </select>
-            </div>
+            {activeTab === 'finance_vs_ops' && !activeCampaignId && (
+              <>
+                <div className="h-4 w-px bg-white/10"></div>
+                <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-md p-1 shadow-sm">
+                  <span className="text-[10px] font-medium text-stone-500 uppercase tracking-[0.2em] pl-2">Filter Month:</span>
+                  <select 
+                    value={targetMonth}
+                    onChange={(e) => setTargetMonth(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-orange-400 outline-none cursor-pointer pr-2"
+                  >
+                    {ALL_MONTHS.map(m => (
+                      <option key={m} value={m} className="bg-[#0a0807] text-stone-200">{m} 2026</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-5">
@@ -1927,6 +1971,9 @@ export default function InfluencerOS() {
 
             <div className="h-4 w-px bg-white/10"></div>
             <Bell className="text-stone-500 hover:text-stone-300 cursor-pointer" size={18}/>
+            <button onClick={() => setSettingsOpen(true)} title="Settings" className="text-stone-500 hover:text-stone-300 transition-colors">
+              <Settings size={18}/>
+            </button>
 
             {/* Profile menu */}
             <div className="relative">
@@ -2699,6 +2746,42 @@ export default function InfluencerOS() {
           </div>
         );
       })()}
+
+      {/* Settings */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Settings size={16} className="text-orange-400"/> Settings</h3>
+              <button onClick={() => setSettingsOpen(false)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium">Appearance</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => setTheme('dark')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
+                    <Moon size={16}/> Dark
+                  </button>
+                  <button onClick={() => setTheme('light')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'light' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
+                    <Sun size={16}/> Light
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium flex items-center gap-1.5"><Type size={12}/> Font Size</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([val, label]) => (
+                    <button key={val} onClick={() => setFontSize(val)} className={`py-3 rounded-lg border font-medium transition-colors ${fontSize === val ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'} ${val === 'small' ? 'text-xs' : val === 'large' ? 'text-base' : 'text-sm'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-stone-500 mt-3">Adjusts text size across the whole app.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments Modal */}
       {commentModal.isOpen && (
