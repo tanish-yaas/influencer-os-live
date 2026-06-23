@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -580,6 +580,14 @@ export default function InfluencerOS() {
   const [theme, setTheme] = useState('dark');
   const [fontSize, setFontSize] = useState('medium');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scrapeQuery, setScrapeQuery] = useState('');
+  const [scrapeResults, setScrapeResults] = useState([]);
+  const [scrapeLoading, setScrapeLoading] = useState(false);
+  const [scrapeNote, setScrapeNote] = useState('');
+  const [leadPickerFor, setLeadPickerFor] = useState(null);
+  const [toast, setToast] = useState('');
+  const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
+  const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
   const [reportCampaign, setReportCampaign] = useState('all');
   const [reportDateMode, setReportDateMode] = useState('month');
   const [reportMonth, setReportMonth] = useState('all');
@@ -1435,6 +1443,96 @@ export default function InfluencerOS() {
     setEditingCreator(null);
   };
 
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2600); };
+
+  const handleScrape = async () => {
+    const q = scrapeQuery.trim();
+    if (!q) return;
+    setScrapeLoading(true); setScrapeNote(''); setScrapeResults([]);
+    try {
+      const res = await fetch('/api/scrape-instagram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.results) && data.results.length) {
+        setScrapeResults(data.results.map(r => ({ ...r, fee: '' })));
+        if (data.simulated) setScrapeNote('Showing simulated data — add an Apify token to the scrape API route for live Instagram data.');
+      } else {
+        setScrapeNote(data.error || 'No profiles found for that search.');
+      }
+    } catch (e) {
+      setScrapeNote('Scrape request failed (' + (e.message || 'network error') + '). Make sure the /api/scrape-instagram route is deployed.');
+    } finally {
+      setScrapeLoading(false);
+    }
+  };
+
+  const addLeadToCampaign = async (lead, campId) => {
+    if (!campId) return;
+    const newC = {
+      creator_deal_id: `cd_${Date.now()}`,
+      ip_id: campId,
+      creator_name: lead.fullName || lead.username,
+      platform: 'Instagram',
+      profile_link: lead.profileUrl,
+      followers: lead.followers || 0,
+      content_type: lead.category || 'Reel Collab',
+      deal_value: Math.round(Number(lead.fee) || 0),
+      closed_month: null,
+      planned_go_live_date: null,
+      planned_go_live_month: null,
+      payment_model: '100_advance',
+      creator_status: 'lead',
+      deliverable_link: '',
+      views: lead.avgViews || 0,
+      likes: lead.avgLikes || 0,
+      comments: lead.avgComments || 0,
+      shares: 0, saves: 0
+    };
+    setCreators(prev => [...prev, newC]);
+    setLeadPickerFor(null);
+    await supabase.from('creators').insert([newC]);
+    showToast(`Added ${newC.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'} → see Timeline`);
+  };
+
+  const updateCreatorGoLive = async (creator, date) => {
+    const month = date ? new Date(date).toLocaleString('default', { month: 'long' }) : null;
+    const status = date ? 'booked' : creator.creator_status;
+    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, planned_go_live_date: date || null, planned_go_live_month: month, creator_status: status } : c));
+    await supabase.from('creators').update({ planned_go_live_date: date || null, planned_go_live_month: month, creator_status: status }).eq('creator_deal_id', creator.creator_deal_id);
+  };
+
+  const updateCreatorInvoice = async (creator, date) => {
+    if (!date) return;
+    const month = new Date(date).toLocaleString('default', { month: 'long' });
+    const existing = bills.find(b => b.creator_deal_id === creator.creator_deal_id);
+    const billData = {
+      invoice_id: existing?.invoice_id || `inv_${creator.creator_deal_id}`,
+      creator_deal_id: creator.creator_deal_id,
+      invoice_amount: creator.deal_value || 0,
+      invoice_date: date,
+      invoice_month: month,
+      status: 'processed'
+    };
+    if (existing) {
+      setBills(bills.map(b => b.creator_deal_id === creator.creator_deal_id ? billData : b));
+      await supabase.from('bills').update(billData).eq('creator_deal_id', creator.creator_deal_id);
+    } else {
+      setBills([...bills, billData]);
+      await supabase.from('bills').insert([billData]);
+    }
+  };
+
+  const moveCreatorToCampaign = async (creator, campId) => {
+    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, ip_id: campId } : c));
+    await supabase.from('creators').update({ ip_id: campId }).eq('creator_deal_id', creator.creator_deal_id);
+    showToast(`Moved ${creator.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'}`);
+  };
+
+  const editFromTimeline = (creator) => {
+    setActiveCampaignId(creator.ip_id);
+    setEditingCreator(creator);
+    setCreatorModalOpen(true);
+  };
+
   const requestDelete = (e, type, id, name) => {
     e.stopPropagation();
     setDeletePrompt({ isOpen: true, type, id, name });
@@ -1454,7 +1552,9 @@ export default function InfluencerOS() {
       if (childCreatorIds.length) await supabase.from('bills').delete().in('creator_deal_id', childCreatorIds);
       if (activeCampaignId === campId) setActiveCampaignId(null);
     } else if (deletePrompt.type === 'creator') {
-      if (!canManageCampaign(activeCampaign)) { alert('You do not have edit access to this campaign.'); return; }
+      const target = creators.find(c => c.creator_deal_id === deletePrompt.id);
+      const camp = activeCampaign || campaigns.find(c => c.ip_id === target?.ip_id);
+      if (!canManageCampaign(camp)) { alert('You do not have edit access to this campaign.'); return; }
       setCreators(creators.filter(c => c.creator_deal_id !== deletePrompt.id));
       setBills(bills.filter(b => b.creator_deal_id !== deletePrompt.id));
       await supabase.from('creators').delete().eq('creator_deal_id', deletePrompt.id);
@@ -1860,6 +1960,7 @@ export default function InfluencerOS() {
           <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={ArrowRightLeft} id="finance_vs_ops" label="Finance vs Ops"/>
+          <NavItem icon={ScanSearch} id="scraper" label="Lead Scraper"/>
           <NavItem icon={PieChart} id="analytics" label="Analytics"/>
           <NavItem icon={CreditCard} id="payments" label="Payments"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
@@ -2625,22 +2726,214 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {['payments', 'timeline'].includes(activeTab) && (
+          {activeTab === 'scraper' && (
+            <div className="max-w-[1100px] mx-auto space-y-6 animate-in fade-in duration-500">
+              <div>
+                <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Lead Scraper</h2>
+                <p className="text-sm text-stone-500 mt-1">Search a creator by Instagram link or name to pull their stats, then send them to a campaign.</p>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <ScanSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"/>
+                  <input
+                    value={scrapeQuery}
+                    onChange={(e) => setScrapeQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleScrape(); }}
+                    placeholder="instagram.com/username  ·  or a creator's name"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                  />
+                </div>
+                <button onClick={handleScrape} disabled={scrapeLoading} className="bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white px-5 py-2.5 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                  {scrapeLoading ? <Loader2 size={16} className="animate-spin"/> : <ScanSearch size={16}/>} {scrapeLoading ? 'Scraping…' : 'Search'}
+                </button>
+              </div>
+
+              {scrapeNote && (
+                <div className="flex items-start gap-2 text-sm text-orange-200 bg-orange-500/[0.07] border border-orange-500/25 px-4 py-2.5 rounded-lg">
+                  <Info size={16} className="mt-0.5 shrink-0"/> <span>{scrapeNote}</span>
+                </div>
+              )}
+
+              {scrapeResults.length === 0 && !scrapeLoading && !scrapeNote && (
+                <div className="text-center py-20 text-stone-600">
+                  <ScanSearch size={40} className="mx-auto mb-4 opacity-40"/>
+                  <p className="text-sm">Search a creator to see their scraped profile card.</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {scrapeResults.map((r, idx) => {
+                  const eng = (r.avgLikes || 0) + (r.avgComments || 0);
+                  const fee = Number(r.fee) || 0;
+                  const cpv = fee > 0 && r.avgViews > 0 ? fee / r.avgViews : null;
+                  const cpe = fee > 0 && eng > 0 ? fee / eng : null;
+                  return (
+                    <div key={idx} className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-bold text-white shrink-0">
+                          {(r.fullName || r.username || '?').trim().charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-semibold text-stone-100 truncate">{r.fullName || r.username}</h3>
+                            {r.isVerified && <BadgeCheck size={15} className="text-orange-400 shrink-0"/>}
+                          </div>
+                          <a href={r.profileUrl} target="_blank" rel="noreferrer" className="text-sm text-orange-300/90 hover:text-orange-200 truncate block">@{r.username}</a>
+                          {r.category && <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.category}</span>}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mt-4">
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Followers</p><p className="text-sm font-semibold text-stone-200 tabular-nums mt-0.5">{formatNumber(r.followers || 0)}</p></div>
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Avg Views</p><p className="text-sm font-semibold text-stone-200 tabular-nums mt-0.5">{formatNumber(r.avgViews || 0)}</p></div>
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Eng. Rate</p><p className="text-sm font-semibold text-orange-300 tabular-nums mt-0.5">{(r.engagementRate || 0).toFixed(2)}%</p></div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3">
+                        <div className="flex-1 relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 text-sm">₹</span>
+                          <input
+                            type="number" value={r.fee}
+                            onChange={(e) => setScrapeResults(scrapeResults.map((x, i) => i === idx ? { ...x, fee: e.target.value } : x))}
+                            placeholder="Expected fee"
+                            className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                          />
+                        </div>
+                        <div className="text-xs text-stone-400 tabular-nums whitespace-nowrap">CPV {cpv == null ? '—' : formatMicroMoney(cpv)} · CPE {cpe == null ? '—' : formatMicroMoney(cpe)}</div>
+                      </div>
+
+                      <div className="mt-4 relative">
+                        <button onClick={() => setLeadPickerFor(leadPickerFor === idx ? null : idx)} className="w-full flex items-center justify-center gap-2 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-sm font-medium py-2 rounded-md transition-colors">
+                          <UserPlus size={15}/> Send to a campaign
+                        </button>
+                        {leadPickerFor === idx && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-1.5 max-h-52 overflow-y-auto">
+                            {campaigns.length === 0 && <p className="text-xs text-stone-500 p-2">No campaigns yet — create one first.</p>}
+                            {campaigns.map(camp => (
+                              <button key={camp.ip_id} onClick={() => addLeadToCampaign(r, camp.ip_id)} className="w-full text-left px-3 py-2 rounded-md text-sm text-stone-300 hover:bg-white/[0.06] flex items-center justify-between">
+                                <span className="truncate">{camp.ip_name}</span>
+                                <span className="text-xs text-stone-600 shrink-0 ml-2">{camp.owner}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'timeline' && (() => {
+            const liveIds = new Set(campaigns.map(c => c.ip_id));
+            let list = creators.filter(c => liveIds.has(c.ip_id));
+            if (timelineCampaignFilter !== 'all') list = list.filter(c => c.ip_id === timelineCampaignFilter);
+            if (timelineStatusFilter === 'leads') list = list.filter(c => !c.planned_go_live_date);
+            if (timelineStatusFilter === 'scheduled') list = list.filter(c => c.planned_go_live_date);
+            list = [...list].sort((a, b) => (a.planned_go_live_date || '9999').localeCompare(b.planned_go_live_date || '9999'));
+            return (
+              <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Timeline</h2>
+                    <p className="text-sm text-stone-500 mt-1">Schedule go-live dates, set invoice dates, and assign creators to campaigns.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select value={timelineCampaignFilter} onChange={(e) => setTimelineCampaignFilter(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                      <option value="all" className="bg-[#0c0a08]">All campaigns</option>
+                      {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                    </select>
+                    <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-sm">
+                      {[['all', 'All'], ['leads', 'Leads'], ['scheduled', 'Scheduled']].map(([v, l]) => (
+                        <button key={v} onClick={() => setTimelineStatusFilter(v)} className={`px-3 py-2 transition-colors ${timelineStatusFilter === v ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl">
+                  <table className="w-full text-left text-sm min-w-[920px]">
+                    <thead className="bg-white/[0.02] text-stone-500">
+                      <tr>
+                        <th className="px-5 py-3 font-medium text-[11px] uppercase tracking-wider">Creator</th>
+                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Campaign</th>
+                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Go-Live Date</th>
+                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Invoice Date</th>
+                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.05]">
+                      {list.length === 0 && (
+                        <tr><td colSpan="6" className="px-5 py-12 text-center text-stone-600">No creators yet. Use the Lead Scraper to add some.</td></tr>
+                      )}
+                      {list.map(c => {
+                        const camp = campaigns.find(x => x.ip_id === c.ip_id);
+                        const canManage = canManageCampaign(camp);
+                        const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
+                        return (
+                          <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-5 py-3">
+                              <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                              <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <select value={c.ip_id} disabled={!canManage} onChange={(e) => moveCreatorToCampaign(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 max-w-[150px]">
+                                {campaigns.map(x => <option key={x.ip_id} value={x.ip_id} className="bg-[#0c0a08]">{x.ip_name}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input type="date" defaultValue={c.planned_go_live_date || ''} disabled={!canManage} onChange={(e) => updateCreatorGoLive(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input type="date" defaultValue={bill?.invoice_date || ''} disabled={!canManage} onChange={(e) => updateCreatorInvoice(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
+                            </td>
+                            <td className="px-4 py-3">
+                              {c.planned_go_live_date
+                                ? <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">Scheduled</span>
+                                : <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">Lead</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-3">
+                                <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors" title="Comments"><MessageSquare size={16}/></button>
+                                {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors" title="Edit"><Edit2 size={16}/></button>}
+                                {canManage && <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-stone-500 hover:text-red-400 transition-colors" title="Delete"><Trash2 size={16}/></button>}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {activeTab === 'payments' && (
             <div className="h-full flex items-center justify-center animate-in fade-in duration-500">
               <div className="text-center max-w-md px-6">
                 <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center bg-orange-500/10 border border-orange-500/20 text-orange-400 shadow-[0_0_30px_-8px_rgba(249,115,22,0.6)]">
-                  {activeTab === 'payments' ? <CreditCard size={28}/> : <CalendarDays size={28}/>}
+                  <CreditCard size={28}/>
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400/80 font-semibold mb-2">Coming soon</p>
-                <h2 className="text-2xl font-semibold text-stone-100 tracking-tight capitalize">{activeTab}</h2>
+                <h2 className="text-2xl font-semibold text-stone-100 tracking-tight capitalize">Payments</h2>
                 <p className="text-sm text-stone-500 mt-3 leading-relaxed">
-                  We're still building this out. {activeTab === 'payments' ? 'Payment tracking and payout schedules' : 'A visual delivery timeline'} will land here soon.
+                  We're still building this out. Payment tracking and payout schedules will land here soon.
                 </p>
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#0c0a08] border border-orange-500/30 text-stone-100 text-sm px-4 py-2.5 rounded-lg shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check size={15} className="text-orange-400"/> {toast}
+        </div>
+      )}
 
       {/* Timeline Day — deliverables posted that day */}
       {timelineDay && (

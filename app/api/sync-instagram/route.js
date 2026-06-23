@@ -1,104 +1,85 @@
-import { NextResponse } from 'next/server';
+// app/api/sync-instagram/route.js
+// POST { link }  ->  { success, simulated, metrics: { views, likes, comments, shares, saves, followers } }
+//
+// Powers the "Sync Instagram" button. Uses Apify when APIFY_TOKEN (or
+// APIFY_API_TOKEN) is set in your environment variables; otherwise (or on
+// timeout/failure) returns deterministic simulated metrics so the button always
+// works. Instagram does not expose shares/saves publicly, so those are
+// synthesized (shares ~= 25% of likes, saves ~= 15% of likes).
 
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0; 
-  }
-  return Math.abs(hash);
+export const maxDuration = 30;
+
+function hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
 }
 
-function generateSimulatorData(link) {
-  const seed = hashCode(link);
-  const baseViews = (seed % 450000) + 50000; 
+function simulateMetrics(link) {
+  const h = hash(String(link || 'x'));
+  const followers = 20000 + (h % 1500000);
+  const views = 5000 + (h % 900000);
+  const likes = Math.round(views * (0.03 + ((h >> 3) % 5) / 100));   // ~3-8% of views
+  const comments = Math.round(likes * (0.01 + ((h >> 5) % 3) / 100)); // ~1-4% of likes
+  const shares = Math.round(likes * 0.25);
+  const saves = Math.round(likes * 0.15);
+  return { views, likes, comments, shares, saves, followers };
+}
+
+function isInstagram(link) { return /instagram\.com/i.test(link || ''); }
+
+async function apifyScrape(link, token) {
+  // Single post/reel scrape via Apify's Instagram scraper.
+  const res = await fetch(
+    `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ directUrls: [link], resultsType: 'posts', resultsLimit: 1, addParentData: true }),
+      signal: AbortSignal.timeout(9000)
+    }
+  );
+  if (!res.ok) throw new Error('Apify scrape failed: ' + res.status);
+  const items = await res.json();
+  const p = Array.isArray(items) ? items[0] : null;
+  if (!p) throw new Error('No data returned');
+  const views = p.videoViewCount || p.videoPlayCount || p.igPlayCount || 0;
+  const likes = p.likesCount || 0;
+  const comments = p.commentsCount || 0;
+  const followers = p.ownerFollowersCount || (p.owner && p.owner.followersCount) || 0;
   return {
-    views: baseViews,
-    likes: Math.floor(baseViews * 0.065), 
-    comments: Math.floor(baseViews * 0.004), 
-    shares: Math.floor(baseViews * 0.012), 
-    saves: Math.floor(baseViews * 0.008),
-    followers: 0
+    views,
+    likes,
+    comments,
+    shares: Math.round(likes * 0.25),
+    saves: Math.round(likes * 0.15),
+    followers
   };
 }
 
-export async function POST(req) {
+export async function POST(request) {
+  let link = '';
   try {
-    const body = await req.json();
-    const { link } = body;
-
-    if (!link) {
-      return NextResponse.json({ success: false, error: "No link provided" }, { status: 400 });
-    }
-
-    const apifyToken = process.env.APIFY_TOKEN;
-
-    if (!apifyToken || apifyToken === 'undefined') {
-      console.log("[BACKEND] Apify Token missing. Falling back to simulator.");
-      return NextResponse.json({ success: true, metrics: generateSimulatorData(link) });
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-    try {
-      console.log(`[BACKEND] Attempting live Apify scrape for: ${link}`);
-      
-      const apifyUrl = `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apifyToken}`;
-      
-      const response = await fetch(apifyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          directUrls: [link],
-          resultsType: "posts", 
-          resultsLimit: 1
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId); 
-
-      if (!response.ok) {
-        throw new Error(`Apify returned status ${response.status}`);
-      }
-
-      const jsonResult = await response.json();
-      const postData = (Array.isArray(jsonResult) && jsonResult.length > 0) ? jsonResult[0] : null;
-
-      if (!postData) {
-        throw new Error("No data returned from Apify dataset.");
-      }
-
-      // 1. Correctly target videoPlayCount and the nested owner.followersCount
-      const views = Number(postData.videoPlayCount || postData.viewCount || postData.videoViewCount || 0);
-      const likes = Number(postData.likesCount || 0);
-      const comments = Number(postData.commentsCount || 0);
-      const followers = postData.owner ? Number(postData.owner.followersCount || 0) : 0;
-
-      // 2. Generate realistic industry-standard estimates for hidden metrics
-      const shares = Math.floor(likes * 0.25);
-      const saves = Math.floor(likes * 0.15);
-
-      const realMetrics = { views, likes, comments, shares, saves, followers };
-
-      // Fallback for static images
-      if (realMetrics.views === 0 && realMetrics.likes > 0) {
-        realMetrics.views = realMetrics.likes; 
-      }
-
-      return NextResponse.json({ success: true, metrics: realMetrics });
-
-    } catch (networkError) {
-      clearTimeout(timeoutId);
-      console.error("[BACKEND] Apify Scraper failed or timed out. Falling back to simulator.", networkError.message);
-      return NextResponse.json({ success: true, metrics: generateSimulatorData(link) });
-    }
-
-  } catch (error) {
-    console.error("Critical Server Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const body = await request.json();
+    link = (body.link || '').toString();
+  } catch {
+    return Response.json({ success: false, error: 'Invalid request body.' }, { status: 400 });
   }
+  if (!link.trim()) return Response.json({ success: false, error: 'No link provided.' });
+
+  const token = process.env.APIFY_TOKEN || process.env.APIFY_API_TOKEN;
+
+  if (token && isInstagram(link)) {
+    try {
+      const metrics = await apifyScrape(link, token);
+      if (metrics.views || metrics.likes) {
+        return Response.json({ success: true, simulated: false, metrics });
+      }
+    } catch (e) {
+      console.error('Sync fallback:', e?.message || e);
+    }
+  }
+
+  // Simulated fallback (deterministic from the link).
+  return Response.json({ success: true, simulated: true, metrics: simulateMetrics(link) });
 }
