@@ -588,6 +588,8 @@ export default function InfluencerOS() {
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
+  const [timelineSearch, setTimelineSearch] = useState('');
+  const [leadDrafts, setLeadDrafts] = useState({});
   const [reportCampaign, setReportCampaign] = useState('all');
   const [reportDateMode, setReportDateMode] = useState('month');
   const [reportMonth, setReportMonth] = useState('all');
@@ -1016,7 +1018,7 @@ export default function InfluencerOS() {
   const analytics = useMemo(() => {
     const num = (v) => Number(v) || 0;
     const liveIds = new Set(campaigns.map(c => c.ip_id));
-    let cr = creators.filter(c => liveIds.has(c.ip_id));
+    let cr = creators.filter(c => liveIds.has(c.ip_id) && c.creator_status !== 'lead');
     if (analyticsCampaign !== 'all') cr = cr.filter(c => c.ip_id === analyticsCampaign);
     if (analyticsPlatform !== 'all') cr = cr.filter(c => c.platform === analyticsPlatform);
     if (analyticsMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === analyticsMonth);
@@ -1083,7 +1085,7 @@ export default function InfluencerOS() {
   const report = useMemo(() => {
     const num = (v) => Number(v) || 0;
     const liveIds = new Set(campaigns.map(c => c.ip_id));
-    let cr = creators.filter(c => liveIds.has(c.ip_id));
+    let cr = creators.filter(c => liveIds.has(c.ip_id) && c.creator_status !== 'lead');
     if (reportCampaign !== 'all') cr = cr.filter(c => c.ip_id === reportCampaign);
     if (reportDateMode === 'month' && reportMonth !== 'all') cr = cr.filter(c => c.planned_go_live_month === reportMonth);
     if (reportDateMode === 'custom' && reportStart && reportEnd) cr = cr.filter(c => c.planned_go_live_date && c.planned_go_live_date >= reportStart && c.planned_go_live_date <= reportEnd);
@@ -1533,6 +1535,30 @@ export default function InfluencerOS() {
     setCreatorModalOpen(true);
   };
 
+  const setLeadDraft = (id, patch) => setLeadDrafts(d => ({ ...d, [id]: { ...d[id], ...patch } }));
+
+  const getLeadDraft = (creator) => leadDrafts[creator.creator_deal_id] || { budget: creator.deal_value || '', date: creator.planned_go_live_date || '' };
+
+  const confirmLead = async (creator) => {
+    const draft = getLeadDraft(creator);
+    const budget = Math.round(Number(draft.budget) || 0);
+    const date = draft.date || '';
+    if (!budget || !date) { alert('Add both an expected budget and a go-live date before confirming.'); return; }
+    const month = new Date(date).toLocaleString('default', { month: 'long' });
+    const updated = { ...creator, deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' };
+    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? updated : c));
+    setLeadDrafts(d => { const n = { ...d }; delete n[creator.creator_deal_id]; return n; });
+    await supabase.from('creators').update({ deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' }).eq('creator_deal_id', creator.creator_deal_id);
+    showToast(`${creator.creator_name} confirmed → moved into ${campaigns.find(c => c.ip_id === creator.ip_id)?.ip_name || 'campaign'}`);
+  };
+
+  const rejectLead = async (creator) => {
+    if (!window.confirm(`Remove ${creator.creator_name} from the talking phase? This deletes the lead.`)) return;
+    setCreators(creators.filter(c => c.creator_deal_id !== creator.creator_deal_id));
+    setLeadDrafts(d => { const n = { ...d }; delete n[creator.creator_deal_id]; return n; });
+    await supabase.from('creators').delete().eq('creator_deal_id', creator.creator_deal_id);
+  };
+
   const requestDelete = (e, type, id, name) => {
     e.stopPropagation();
     setDeletePrompt({ isOpen: true, type, id, name });
@@ -1649,7 +1675,7 @@ export default function InfluencerOS() {
   };
 
   const getGroupedCreators = () => {
-    const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId);
+    const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead');
     campaignCreators.sort((a, b) => new Date(a.planned_go_live_date) - new Date(b.planned_go_live_date));
 
     return campaignCreators.reduce((acc, creator) => {
@@ -2164,7 +2190,7 @@ export default function InfluencerOS() {
               
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                 {campaigns.map(camp => {
-                  const campCreators = creators.filter(c => c.ip_id === camp.ip_id);
+                  const campCreators = creators.filter(c => c.ip_id === camp.ip_id && c.creator_status !== 'lead');
                   const bookedValue = campCreators.reduce((sum, c) => sum + Number(c.deal_value), 0);
                   const isSelected = selectedCampaigns.includes(camp.ip_id);
                   
@@ -2314,7 +2340,7 @@ export default function InfluencerOS() {
                     </tr>
                   </thead>
                   
-                  {creators.filter(c => c.ip_id === activeCampaignId).length === 0 ? (
+                  {creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead').length === 0 ? (
                     <tbody>
                       <tr><td colSpan="8" className="px-5 py-12 text-center text-stone-600">No creators booked for this campaign yet.</td></tr>
                     </tbody>
@@ -2805,7 +2831,7 @@ export default function InfluencerOS() {
 
                       <div className="mt-4 relative">
                         <button onClick={() => setLeadPickerFor(leadPickerFor === idx ? null : idx)} className="w-full flex items-center justify-center gap-2 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-sm font-medium py-2 rounded-md transition-colors">
-                          <UserPlus size={15}/> Send to a campaign
+                          <UserPlus size={15}/> Add to a campaign's talks
                         </button>
                         {leadPickerFor === idx && (
                           <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-1.5 max-h-52 overflow-y-auto">
@@ -2828,86 +2854,94 @@ export default function InfluencerOS() {
 
           {activeTab === 'timeline' && (() => {
             const liveIds = new Set(campaigns.map(c => c.ip_id));
-            let list = creators.filter(c => liveIds.has(c.ip_id));
-            if (timelineCampaignFilter !== 'all') list = list.filter(c => c.ip_id === timelineCampaignFilter);
-            if (timelineStatusFilter === 'leads') list = list.filter(c => !c.planned_go_live_date);
-            if (timelineStatusFilter === 'scheduled') list = list.filter(c => c.planned_go_live_date);
-            list = [...list].sort((a, b) => (a.planned_go_live_date || '9999').localeCompare(b.planned_go_live_date || '9999'));
+            const q = timelineSearch.trim().toLowerCase();
+            let leads = creators.filter(c => liveIds.has(c.ip_id) && c.creator_status === 'lead');
+            if (q) leads = leads.filter(c => (c.creator_name || '').toLowerCase().includes(q));
+            const campsWithLeads = campaigns.filter(camp => leads.some(c => c.ip_id === camp.ip_id));
             return (
               <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Timeline</h2>
-                    <p className="text-sm text-stone-500 mt-1">Schedule go-live dates, set invoice dates, and assign creators to campaigns.</p>
+                    <p className="text-sm text-stone-500 mt-1">Your talking phase. Set a budget and go-live date, then confirm (✓) to move a creator into their campaign — or reject (✕).</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select value={timelineCampaignFilter} onChange={(e) => setTimelineCampaignFilter(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                      <option value="all" className="bg-[#0c0a08]">All campaigns</option>
-                      {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
-                    </select>
-                    <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-sm">
-                      {[['all', 'All'], ['leads', 'Leads'], ['scheduled', 'Scheduled']].map(([v, l]) => (
-                        <button key={v} onClick={() => setTimelineStatusFilter(v)} className={`px-3 py-2 transition-colors ${timelineStatusFilter === v ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>{l}</button>
-                      ))}
-                    </div>
+                  <div className="relative w-full sm:w-72">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"/>
+                    <input value={timelineSearch} onChange={(e) => setTimelineSearch(e.target.value)} placeholder="Search creators in talks…" className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                   </div>
                 </div>
 
-                <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl">
-                  <table className="w-full text-left text-sm min-w-[920px]">
-                    <thead className="bg-white/[0.02] text-stone-500">
-                      <tr>
-                        <th className="px-5 py-3 font-medium text-[11px] uppercase tracking-wider">Creator</th>
-                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Campaign</th>
-                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Go-Live Date</th>
-                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Invoice Date</th>
-                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.05]">
-                      {list.length === 0 && (
-                        <tr><td colSpan="6" className="px-5 py-12 text-center text-stone-600">No creators yet. Use the Lead Scraper to add some.</td></tr>
-                      )}
-                      {list.map(c => {
-                        const camp = campaigns.find(x => x.ip_id === c.ip_id);
-                        const canManage = canManageCampaign(camp);
-                        const bill = bills.find(b => b.creator_deal_id === c.creator_deal_id);
-                        return (
-                          <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
-                            <td className="px-5 py-3">
-                              <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
-                              <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <select value={c.ip_id} disabled={!canManage} onChange={(e) => moveCreatorToCampaign(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 max-w-[150px]">
-                                {campaigns.map(x => <option key={x.ip_id} value={x.ip_id} className="bg-[#0c0a08]">{x.ip_name}</option>)}
-                              </select>
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="date" defaultValue={c.planned_go_live_date || ''} disabled={!canManage} onChange={(e) => updateCreatorGoLive(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input type="date" defaultValue={bill?.invoice_date || ''} disabled={!canManage} onChange={(e) => updateCreatorInvoice(c, e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
-                            </td>
-                            <td className="px-4 py-3">
-                              {c.planned_go_live_date
-                                ? <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">Scheduled</span>
-                                : <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">Lead</span>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-end gap-3">
-                                <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors" title="Comments"><MessageSquare size={16}/></button>
-                                {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors" title="Edit"><Edit2 size={16}/></button>}
-                                {canManage && <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-stone-500 hover:text-red-400 transition-colors" title="Delete"><Trash2 size={16}/></button>}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {leads.length === 0 && (
+                  <div className="text-center py-20 text-stone-600">
+                    <CalendarDays size={40} className="mx-auto mb-4 opacity-40"/>
+                    <p className="text-sm">{q ? 'No creators match that search.' : 'No creators in the talking phase yet. Add some from the Lead Scraper.'}</p>
+                  </div>
+                )}
+
+                {campsWithLeads.map(camp => {
+                  const canManage = canManageCampaign(camp);
+                  const campLeads = leads.filter(c => c.ip_id === camp.ip_id);
+                  return (
+                    <div key={camp.ip_id} className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
+                        <div className="flex items-center gap-2.5">
+                          {camp.image_url
+                            ? <div className="w-7 h-7 rounded overflow-hidden border border-white/10 shrink-0"><img src={camp.image_url} alt="" className="w-full h-full object-cover"/></div>
+                            : <div className="w-7 h-7 rounded bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0"><FolderKanban size={14}/></div>}
+                          <h3 className="font-medium text-stone-100">{camp.ip_name}</h3>
+                          <span className="text-xs text-stone-500">· {campLeads.length} in talks</span>
+                        </div>
+                        {!canManage && <span className="text-[10px] uppercase tracking-wider text-stone-500 border border-white/10 rounded px-1.5 py-0.5">View only</span>}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm min-w-[760px]">
+                          <thead className="text-stone-500">
+                            <tr className="border-b border-white/[0.05]">
+                              <th className="px-5 py-2.5 font-medium text-[11px] uppercase tracking-wider">Creator</th>
+                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Stats</th>
+                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Expected Budget</th>
+                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Go-Live Date</th>
+                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.05]">
+                            {campLeads.map(c => {
+                              const draft = getLeadDraft(c);
+                              return (
+                                <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="px-5 py-3">
+                                    <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                                    <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-stone-400 tabular-nums">
+                                    {formatNumber(c.views || 0)} views · {c.views > 0 ? (((c.likes || 0) + (c.comments || 0)) / c.views * 100).toFixed(1) : '0.0'}% ER
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="relative w-32">
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 text-sm">₹</span>
+                                      <input type="number" value={draft.budget} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { budget: e.target.value })} placeholder="0" className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <input type="date" value={draft.date} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { date: e.target.value })} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Comments"><MessageSquare size={15}/></button>
+                                      {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Edit"><Edit2 size={15}/></button>}
+                                      {canManage && <button onClick={() => confirmLead(c)} className="w-7 h-7 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 flex items-center justify-center transition-colors" title="Confirm → move to campaign"><Check size={15}/></button>}
+                                      {canManage && <button onClick={() => rejectLead(c)} className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Reject lead"><X size={15}/></button>}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
