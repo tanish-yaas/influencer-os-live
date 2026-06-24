@@ -585,6 +585,9 @@ export default function InfluencerOS() {
   const [scrapeLoading, setScrapeLoading] = useState(false);
   const [scrapeNote, setScrapeNote] = useState('');
   const [leadPickerFor, setLeadPickerFor] = useState(null);
+  const [leadAssignCampaign, setLeadAssignCampaign] = useState('');
+  const [leadAssignPoc, setLeadAssignPoc] = useState('');
+  const [teamProfiles, setTeamProfiles] = useState([]);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
@@ -717,6 +720,15 @@ export default function InfluencerOS() {
   }, [fontSize]);
 
   useEffect(() => { setCampaignView('live'); }, [activeCampaignId]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('profiles').select('email, display_name, title, avatar_index');
+        if (Array.isArray(data)) setTeamProfiles(data.filter(p => p.display_name));
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1470,8 +1482,8 @@ export default function InfluencerOS() {
     }
   };
 
-  const addLeadToCampaign = async (lead, campId) => {
-    if (!campId) return;
+  const addLeadToCampaign = async (lead, campId, poc) => {
+    if (!campId) { alert('Pick a campaign first.'); return; }
     const newC = {
       creator_deal_id: `cd_${Date.now()}`,
       ip_id: campId,
@@ -1492,10 +1504,13 @@ export default function InfluencerOS() {
       comments: lead.avgComments || 0,
       shares: 0, saves: 0
     };
-    setCreators(prev => [...prev, newC]);
+    setCreators(prev => [...prev, { ...newC, poc: poc || null }]);
     setLeadPickerFor(null);
+    setLeadAssignCampaign('');
+    setLeadAssignPoc('');
     await supabase.from('creators').insert([newC]);
-    showToast(`Added ${newC.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'} → see Timeline`);
+    if (poc) { try { await supabase.from('creators').update({ poc }).eq('creator_deal_id', newC.creator_deal_id); } catch {} }
+    showToast(`Added ${newC.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'} → In-Talks`);
   };
 
   const updateCreatorGoLive = async (creator, date) => {
@@ -1713,7 +1728,7 @@ export default function InfluencerOS() {
                   {formatNumber(c.views || 0)} views · {c.views > 0 ? (((c.likes || 0) + (c.comments || 0)) / c.views * 100).toFixed(1) : '0.0'}% ER
                 </td>
                 <td className="px-4 py-3">
-                  <input type="text" defaultValue={draft.poc} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { poc: e.target.value })} onBlur={(e) => persistPOC(c, e.target.value)} placeholder="Assign…" className="w-28 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                  <input type="text" list="poc-options" defaultValue={draft.poc} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { poc: e.target.value })} onBlur={(e) => persistPOC(c, e.target.value)} placeholder="Assign…" className="w-28 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
                 </td>
                 <td className="px-4 py-3">
                   <div className="relative w-28">
@@ -2056,7 +2071,6 @@ export default function InfluencerOS() {
           <NavItem icon={PieChart} id="analytics" label="Analytics"/>
           <NavItem icon={CreditCard} id="payments" label="Payments"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
-          <NavItem icon={CalendarDays} id="timeline" label="Timeline"/>
           <NavItem icon={BarChart3} id="reports" label="Reports"/>
         </nav>
       </aside>
@@ -2923,18 +2937,31 @@ export default function InfluencerOS() {
                       </div>
 
                       <div className="mt-4 relative">
-                        <button onClick={() => setLeadPickerFor(leadPickerFor === idx ? null : idx)} className="w-full flex items-center justify-center gap-2 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-sm font-medium py-2 rounded-md transition-colors">
+                        <button onClick={() => { setLeadPickerFor(leadPickerFor === idx ? null : idx); setLeadAssignCampaign(''); setLeadAssignPoc(''); }} className="w-full flex items-center justify-center gap-2 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-sm font-medium py-2 rounded-md transition-colors">
                           <UserPlus size={15}/> Add to a campaign's talks
                         </button>
                         {leadPickerFor === idx && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-1.5 max-h-52 overflow-y-auto">
-                            {campaigns.length === 0 && <p className="text-xs text-stone-500 p-2">No campaigns yet — create one first.</p>}
-                            {campaigns.map(camp => (
-                              <button key={camp.ip_id} onClick={() => addLeadToCampaign(r, camp.ip_id)} className="w-full text-left px-3 py-2 rounded-md text-sm text-stone-300 hover:bg-white/[0.06] flex items-center justify-between">
-                                <span className="truncate">{camp.ip_name}</span>
-                                <span className="text-xs text-stone-600 shrink-0 ml-2">{camp.owner}</span>
-                              </button>
-                            ))}
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-3 space-y-2.5">
+                            {campaigns.length === 0 ? (
+                              <p className="text-xs text-stone-500 p-1">No campaigns yet — create one first.</p>
+                            ) : (
+                              <>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.15em] text-stone-500 mb-1">Campaign</label>
+                                  <select value={leadAssignCampaign} onChange={(e) => setLeadAssignCampaign(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                                    <option value="" className="bg-[#0c0a08]">Select campaign…</option>
+                                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.15em] text-stone-500 mb-1">POC <span className="normal-case tracking-normal text-stone-600">(who's talking to them)</span></label>
+                                  <input list="poc-options" value={leadAssignPoc} onChange={(e) => setLeadAssignPoc(e.target.value)} placeholder="Search team by name…" className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                                </div>
+                                <button onClick={() => addLeadToCampaign(r, leadAssignCampaign, leadAssignPoc)} disabled={!leadAssignCampaign} className="w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-40 text-white text-sm font-semibold py-1.5 rounded-md transition-colors">
+                                  Send to In-Talks
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2945,54 +2972,6 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {activeTab === 'timeline' && (() => {
-            const liveIds = new Set(campaigns.map(c => c.ip_id));
-            const q = timelineSearch.trim().toLowerCase();
-            let leads = creators.filter(c => liveIds.has(c.ip_id) && c.creator_status === 'lead');
-            if (q) leads = leads.filter(c => (c.creator_name || '').toLowerCase().includes(q));
-            const campsWithLeads = campaigns.filter(camp => leads.some(c => c.ip_id === camp.ip_id));
-            return (
-              <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Timeline</h2>
-                    <p className="text-sm text-stone-500 mt-1">Your talking phase. Set a budget and go-live date, then confirm (✓) to move a creator into their campaign — or reject (✕).</p>
-                  </div>
-                  <div className="relative w-full sm:w-72">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"/>
-                    <input value={timelineSearch} onChange={(e) => setTimelineSearch(e.target.value)} placeholder="Search creators in talks…" className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
-                  </div>
-                </div>
-
-                {leads.length === 0 && (
-                  <div className="text-center py-20 text-stone-600">
-                    <CalendarDays size={40} className="mx-auto mb-4 opacity-40"/>
-                    <p className="text-sm">{q ? 'No creators match that search.' : 'No creators in the talking phase yet. Add some from the Lead Scraper.'}</p>
-                  </div>
-                )}
-
-                {campsWithLeads.map(camp => {
-                  const canManage = canManageCampaign(camp);
-                  const campLeads = leads.filter(c => c.ip_id === camp.ip_id);
-                  return (
-                    <div key={camp.ip_id} className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
-                      <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
-                        <div className="flex items-center gap-2.5">
-                          {camp.image_url
-                            ? <div className="w-7 h-7 rounded overflow-hidden border border-white/10 shrink-0"><img src={camp.image_url} alt="" className="w-full h-full object-cover"/></div>
-                            : <div className="w-7 h-7 rounded bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0"><FolderKanban size={14}/></div>}
-                          <h3 className="font-medium text-stone-100">{camp.ip_name}</h3>
-                          <span className="text-xs text-stone-500">· {campLeads.length} in talks</span>
-                        </div>
-                        {!canManage && <span className="text-[10px] uppercase tracking-wider text-stone-500 border border-white/10 rounded px-1.5 py-0.5">View only</span>}
-                      </div>
-                      {inTalksTable(campLeads, canManage)}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
 
           {activeTab === 'payments' && (
             <div className="h-full flex items-center justify-center animate-in fade-in duration-500">
@@ -3016,6 +2995,10 @@ export default function InfluencerOS() {
           <Check size={15} className="text-orange-400"/> {toast}
         </div>
       )}
+
+      <datalist id="poc-options">
+        {teamProfiles.map(p => <option key={p.email} value={p.display_name} />)}
+      </datalist>
 
       {/* Timeline Day — deliverables posted that day */}
       {timelineDay && (
