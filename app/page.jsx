@@ -590,6 +590,7 @@ export default function InfluencerOS() {
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
   const [timelineSearch, setTimelineSearch] = useState('');
   const [leadDrafts, setLeadDrafts] = useState({});
+  const [campaignView, setCampaignView] = useState('live');
   const [reportCampaign, setReportCampaign] = useState('all');
   const [reportDateMode, setReportDateMode] = useState('month');
   const [reportMonth, setReportMonth] = useState('all');
@@ -714,6 +715,8 @@ export default function InfluencerOS() {
     try { document.documentElement.style.fontSize = px; localStorage.setItem('ios_fontsize', fontSize); } catch {}
     return () => { try { document.documentElement.style.fontSize = ''; } catch {} };
   }, [fontSize]);
+
+  useEffect(() => { setCampaignView('live'); }, [activeCampaignId]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1537,19 +1540,29 @@ export default function InfluencerOS() {
 
   const setLeadDraft = (id, patch) => setLeadDrafts(d => ({ ...d, [id]: { ...d[id], ...patch } }));
 
-  const getLeadDraft = (creator) => leadDrafts[creator.creator_deal_id] || { budget: creator.deal_value || '', date: creator.planned_go_live_date || '' };
+  const getLeadDraft = (creator) => ({
+    budget: leadDrafts[creator.creator_deal_id]?.budget ?? (creator.deal_value || ''),
+    date: leadDrafts[creator.creator_deal_id]?.date ?? (creator.planned_go_live_date || ''),
+    poc: leadDrafts[creator.creator_deal_id]?.poc ?? (creator.poc || '')
+  });
+
+  const persistPOC = async (creator, poc) => {
+    if ((creator.poc || '') === (poc || '')) return;
+    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, poc } : c));
+    await supabase.from('creators').update({ poc }).eq('creator_deal_id', creator.creator_deal_id);
+  };
 
   const confirmLead = async (creator) => {
     const draft = getLeadDraft(creator);
     const budget = Math.round(Number(draft.budget) || 0);
     const date = draft.date || '';
-    if (!budget || !date) { alert('Add both an expected budget and a go-live date before confirming.'); return; }
+    if (!budget || !date) { alert('Add an expected budget and a go-live date before confirming. (Invoice date is optional — add it later in the campaign.)'); return; }
     const month = new Date(date).toLocaleString('default', { month: 'long' });
-    const updated = { ...creator, deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' };
-    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? updated : c));
+    const update = { deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' };
+    setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, ...update } : c));
     setLeadDrafts(d => { const n = { ...d }; delete n[creator.creator_deal_id]; return n; });
-    await supabase.from('creators').update({ deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' }).eq('creator_deal_id', creator.creator_deal_id);
-    showToast(`${creator.creator_name} confirmed → moved into ${campaigns.find(c => c.ip_id === creator.ip_id)?.ip_name || 'campaign'}`);
+    await supabase.from('creators').update(update).eq('creator_deal_id', creator.creator_deal_id);
+    showToast(`${creator.creator_name} confirmed → moved to Live Creators in ${campaigns.find(c => c.ip_id === creator.ip_id)?.ip_name || 'campaign'}`);
   };
 
   const rejectLead = async (creator) => {
@@ -1673,6 +1686,59 @@ export default function InfluencerOS() {
     setIsCampaignSyncing(false);
     alert(`Sync complete for this campaign — updated ${successfulSyncs} of ${creatorsWithLinks.length} creator${creatorsWithLinks.length === 1 ? '' : 's'} with live links.`);
   };
+
+  const inTalksTable = (campLeads, canManage) => (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm min-w-[860px]">
+        <thead className="text-stone-500">
+          <tr className="border-b border-white/[0.05]">
+            <th className="px-5 py-2.5 font-medium text-[11px] uppercase tracking-wider">Creator</th>
+            <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Stats</th>
+            <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">POC</th>
+            <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Budget</th>
+            <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Go-Live Date</th>
+            <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.05]">
+          {campLeads.map(c => {
+            const draft = getLeadDraft(c);
+            return (
+              <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
+                <td className="px-5 py-3">
+                  <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                  <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
+                </td>
+                <td className="px-4 py-3 text-xs text-stone-400 tabular-nums whitespace-nowrap">
+                  {formatNumber(c.views || 0)} views · {c.views > 0 ? (((c.likes || 0) + (c.comments || 0)) / c.views * 100).toFixed(1) : '0.0'}% ER
+                </td>
+                <td className="px-4 py-3">
+                  <input type="text" defaultValue={draft.poc} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { poc: e.target.value })} onBlur={(e) => persistPOC(c, e.target.value)} placeholder="Assign…" className="w-28 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="relative w-28">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 text-sm">₹</span>
+                    <input type="number" value={draft.budget} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { budget: e.target.value })} placeholder="0" className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <input type="date" value={draft.date} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { date: e.target.value })} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Comments"><MessageSquare size={15}/></button>
+                    {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Edit"><Edit2 size={15}/></button>}
+                    {canManage && <button onClick={() => confirmLead(c)} className="w-7 h-7 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 flex items-center justify-center transition-colors" title="Confirm → move to Live Creators"><Check size={15}/></button>}
+                    {canManage && <button onClick={() => rejectLead(c)} className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Reject lead"><X size={15}/></button>}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const getGroupedCreators = () => {
     const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead');
@@ -2325,6 +2391,18 @@ export default function InfluencerOS() {
                 </div>
               </div>
 
+              {(() => {
+                const liveCount = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead').length;
+                const talkCount = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead').length;
+                return (
+                  <div className="flex items-center rounded-lg border border-white/10 overflow-hidden w-fit">
+                    <button onClick={() => setCampaignView('live')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${campaignView === 'live' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Live Creators <span className="text-xs opacity-70">({liveCount})</span></button>
+                    <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
+                  </div>
+                );
+              })()}
+
+              {campaignView === 'live' && (
               <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl pb-16">
                  <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-white/[0.02] text-stone-500 border-b border-white/[0.07]">
@@ -2460,6 +2538,21 @@ export default function InfluencerOS() {
                   )}
                  </table>
               </div>
+              )}
+
+              {campaignView === 'talks' && (() => {
+                const campLeads = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead');
+                return (
+                  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                      <p className="text-sm text-stone-400">Talking phase — set a budget + go-live date, assign a POC, then confirm (✓) to move a creator into Live Creators.</p>
+                    </div>
+                    {campLeads.length === 0 ? (
+                      <div className="text-center py-16 text-stone-600 text-sm">No creators in talks for this campaign yet. Add some from the Lead Scraper.</div>
+                    ) : inTalksTable(campLeads, canManageActive)}
+                  </div>
+                );
+              })()}
              </div>
           )}
 
@@ -2893,52 +2986,7 @@ export default function InfluencerOS() {
                         </div>
                         {!canManage && <span className="text-[10px] uppercase tracking-wider text-stone-500 border border-white/10 rounded px-1.5 py-0.5">View only</span>}
                       </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm min-w-[760px]">
-                          <thead className="text-stone-500">
-                            <tr className="border-b border-white/[0.05]">
-                              <th className="px-5 py-2.5 font-medium text-[11px] uppercase tracking-wider">Creator</th>
-                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Stats</th>
-                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Expected Budget</th>
-                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">Go-Live Date</th>
-                              <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/[0.05]">
-                            {campLeads.map(c => {
-                              const draft = getLeadDraft(c);
-                              return (
-                                <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="px-5 py-3">
-                                    <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
-                                    <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
-                                  </td>
-                                  <td className="px-4 py-3 text-xs text-stone-400 tabular-nums">
-                                    {formatNumber(c.views || 0)} views · {c.views > 0 ? (((c.likes || 0) + (c.comments || 0)) / c.views * 100).toFixed(1) : '0.0'}% ER
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="relative w-32">
-                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 text-sm">₹</span>
-                                      <input type="number" value={draft.budget} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { budget: e.target.value })} placeholder="0" className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <input type="date" value={draft.date} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { date: e.target.value })} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Comments"><MessageSquare size={15}/></button>
-                                      {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Edit"><Edit2 size={15}/></button>}
-                                      {canManage && <button onClick={() => confirmLead(c)} className="w-7 h-7 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 flex items-center justify-center transition-colors" title="Confirm → move to campaign"><Check size={15}/></button>}
-                                      {canManage && <button onClick={() => rejectLead(c)} className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Reject lead"><X size={15}/></button>}
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                      {inTalksTable(campLeads, canManage)}
                     </div>
                   );
                 })}
