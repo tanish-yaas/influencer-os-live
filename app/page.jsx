@@ -421,7 +421,7 @@ const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative', format
           {plotted.map((s, si) => {
             const line = s.vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
             const area = `${padL},${H - padB} ${line} ${W - padR},${H - padB}`;
-            return (<g key={si}><polygon points={area} fill={s.color} fillOpacity="0.10" /><polyline points={line} fill="none" stroke={s.color} strokeWidth="2" /></g>);
+            return (<g key={si}><polygon points={area} fill={s.color} fillOpacity="0.10" /><polyline points={line} fill="none" stroke={s.color} strokeWidth="2" />{s.vals.map((v, i) => v > 0 ? <circle key={i} cx={X(i)} cy={Y(v)} r="2.4" fill={s.color} /> : null)}</g>);
           })}
           {hover != null && (
             <g>
@@ -460,7 +460,7 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-stone-500">Click any bar to see that day's deliverables</p>
+        <p className="text-xs text-stone-500">Hover a bar to preview · click to open that day's links</p>
         <div className="flex gap-1">
           <button onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">−</button>
           <button onClick={() => setZoom(z => Math.min(8, +(z + 0.5).toFixed(1)))} className="w-6 h-6 rounded bg-white/[0.05] border border-white/10 text-stone-300 hover:bg-white/10 flex items-center justify-center text-sm leading-none">+</button>
@@ -472,7 +472,10 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
             {items.map((it, i) => (
               <button key={i} onClick={() => onSelectDay(it)} style={{ width: barW }} className="h-full flex flex-col justify-end items-stretch relative group/bar shrink-0 hover:opacity-90 transition-opacity">
                 <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 opacity-0 invisible group-hover/bar:opacity-100 group-hover/bar:visible transition-all z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3 text-left">
-                  <p className="text-xs font-semibold text-stone-200 mb-2">{fmtDateFull(it.date)} · {totals[i]} post{totals[i] === 1 ? '' : 's'}</p>
+                  <p className="text-xs font-semibold text-stone-200 mb-1.5">{fmtDateFull(it.date)} · {totals[i]} post{totals[i] === 1 ? '' : 's'}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-2">
+                    {Object.entries(it.platforms).map(([p, cnt], k) => (<span key={k} className="inline-flex items-center gap-1 text-[10px] text-stone-400"><span className="w-1.5 h-1.5 rounded-sm" style={{ background: getPlatformColor(p) }}></span>{p} · {cnt}</span>))}
+                  </div>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {it.names.map((nm, j) => (<p key={j} className="text-xs text-stone-400 truncate">• {nm}</p>))}
                   </div>
@@ -629,6 +632,9 @@ export default function InfluencerOS() {
   const [viewsMode, setViewsMode] = useState('cumulative');
   const [likesMode, setLikesMode] = useState('cumulative');
   const [commentsMode, setCommentsMode] = useState('cumulative');
+  const [reportsView, setReportsView] = useState('reports');
+  const [reportExport, setReportExport] = useState({ open: false, format: 'csv' });
+  const [exportOpts, setExportOpts] = useState({ summary: true, breakdown: true, engagement: true, cost: true });
 
   // ---- Auth helpers ----
   const loadProfile = async (email) => {
@@ -1204,22 +1210,52 @@ export default function InfluencerOS() {
     return { camp, range };
   };
 
-  const downloadReportCSV = () => {
-    const rows = report.rows.map(c => {
-      const m = calculateCreatorMetrics(c);
-      return {
-        Creator: c.creator_name, Platform: c.platform, 'Content Type': c.content_type,
-        'Go-Live Date': c.planned_go_live_date || '', Spend: c.deal_value, Views: c.views || 0,
-        Likes: c.likes || 0, Comments: c.comments || 0, Shares: c.shares || 0, Saves: c.saves || 0,
-        Engagement: m.engagement, 'ER %': c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0',
-        CPV: m.cpv.toFixed(3), CPE: m.cpe.toFixed(3)
-      };
-    });
+  const downloadReportCSV = (opts) => {
+    const o = opts || { summary: true, breakdown: true, engagement: true, cost: true };
     const { camp, range } = reportScope();
-    downloadCSV(`Report_${camp}_${range}.csv`.replace(/[^a-z0-9]+/gi, '_'), rows);
+    const lines = [];
+    if (o.summary) {
+      lines.push(['Influencer OS — YAAS Report']);
+      lines.push(['Scope', camp, range, `${report.count} creators`]);
+      lines.push([]);
+      lines.push(['Summary']);
+      lines.push(['Views', report.views]);
+      lines.push(['Likes', report.likes]);
+      lines.push(['Comments', report.comments]);
+      lines.push(['Shares', report.shares]);
+      lines.push(['E.R. Avg %', report.erAvg.toFixed(3)]);
+      lines.push(['CPE', report.cpe]);
+      lines.push(['CPV', report.cpv]);
+      lines.push(['Total Spend', report.spend]);
+      lines.push([]);
+    }
+    if (o.breakdown) {
+      const header = ['Creator', 'Platform', 'Content Type', 'Go-Live Date', 'Spend', 'Views'];
+      if (o.engagement) header.push('Likes', 'Comments', 'Shares', 'Saves', 'Engagement', 'ER %');
+      if (o.cost) header.push('CPV', 'CPE');
+      lines.push(header);
+      report.rows.forEach(c => {
+        const m = calculateCreatorMetrics(c);
+        const row = [c.creator_name, c.platform, c.content_type, c.planned_go_live_date || '', c.deal_value, c.views || 0];
+        if (o.engagement) row.push(c.likes || 0, c.comments || 0, c.shares || 0, c.saves || 0, m.engagement, c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0');
+        if (o.cost) row.push(m.cpv.toFixed(3), m.cpe.toFixed(3));
+        lines.push(row);
+      });
+    }
+    if (lines.length === 0) { alert('Turn on at least one section to export.'); return; }
+    const csv = lines.map(r => r.map(field => {
+      const s = String(field == null ? '' : field);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Report_${camp}_${range}.csv`.replace(/[^a-z0-9]+/gi, '_');
+    a.click(); URL.revokeObjectURL(url);
   };
 
-  const downloadReportPDF = () => {
+  const downloadReportPDF = (opts) => {
+    const o = opts || { summary: true, breakdown: true, engagement: true, cost: true };
     const { camp, range } = reportScope();
     const r = report;
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1230,10 +1266,20 @@ export default function InfluencerOS() {
       ['CPE', formatMicroMoney(r.cpe)], ['CPV', formatMicroMoney(r.cpv)], ['Total Spend', formatMoney(r.spend)]
     ];
     const statCards = stats.map(([k, v]) => `<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');
+    const cols = ['Creator', 'Platform', 'Deliverable', 'Go-Live', 'Spend', 'Views'];
+    if (o.engagement) cols.push('Likes', 'Comments', 'Shares', 'Engagement', 'ER');
+    if (o.cost) cols.push('CPV', 'CPE');
+    const headHtml = cols.map(c => ['Spend', 'Views', 'Likes', 'Comments', 'Shares', 'Engagement', 'ER', 'CPV', 'CPE'].includes(c) ? `<th class="n">${c}</th>` : `<th>${c}</th>`).join('');
     const rowsHtml = r.rows.map(c => {
       const m = calculateCreatorMetrics(c);
-      return `<tr><td>${esc(c.creator_name)}</td><td>${esc(c.platform)}</td><td>${esc(c.content_type)}</td><td>${esc(c.planned_go_live_date || '')}</td><td class="n">${formatMoney(c.deal_value)}</td><td class="n">${formatNumber(c.views || 0)}</td><td class="n">${formatNumber(m.engagement)}</td><td class="n">${c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0'}%</td></tr>`;
+      let cells = `<td>${esc(c.creator_name)}</td><td>${esc(c.platform)}</td><td>${esc(c.content_type)}</td><td>${esc(c.planned_go_live_date || '')}</td><td class="n">${formatMoney(c.deal_value)}</td><td class="n">${formatNumber(c.views || 0)}</td>`;
+      if (o.engagement) cells += `<td class="n">${formatNumber(c.likes || 0)}</td><td class="n">${formatNumber(c.comments || 0)}</td><td class="n">${formatNumber(c.shares || 0)}</td><td class="n">${formatNumber(m.engagement)}</td><td class="n">${c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0'}%</td>`;
+      if (o.cost) cells += `<td class="n">${formatMicroMoney(m.cpv)}</td><td class="n">${formatMicroMoney(m.cpe)}</td>`;
+      return `<tr>${cells}</tr>`;
     }).join('');
+    const summaryBlock = o.summary ? `<div class="grid">${statCards}</div>` : '';
+    const tableBlock = o.breakdown ? `<h2>Creator Breakdown</h2><table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>` : '';
+    if (!summaryBlock && !tableBlock) { alert('Turn on at least one section to export.'); return; }
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(camp)} Report</title><style>
       *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c1917;margin:32px;}
       h1{font-size:22px;margin:0 0 2px}.sub{color:#78716c;font-size:13px;margin-bottom:20px}
@@ -1248,9 +1294,8 @@ export default function InfluencerOS() {
       <div class="brand"><div class="dot"></div><strong>Influencer OS — YAAS</strong></div>
       <h1>${esc(camp)} — Campaign Report</h1>
       <div class="sub">Scope: ${esc(range)} &middot; ${r.count} creators &middot; Generated ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-      <div class="grid">${statCards}</div>
-      <h2>Creator Breakdown</h2>
-      <table><thead><tr><th>Creator</th><th>Platform</th><th>Deliverable</th><th>Go-Live</th><th class="n">Spend</th><th class="n">Views</th><th class="n">Engagement</th><th class="n">ER</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+      ${summaryBlock}
+      ${tableBlock}
       <div class="foot">Generated by Influencer OS · YAAS</div>
     </body></html>`;
     const win = window.open('', '_blank');
@@ -1259,6 +1304,12 @@ export default function InfluencerOS() {
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); }, 500);
+  };
+
+  const runReportExport = () => {
+    const o = exportOpts;
+    if (reportExport.format === 'csv') downloadReportCSV(o); else downloadReportPDF(o);
+    setReportExport({ open: false, format: reportExport.format });
   };
 
   const handleSaveCampaign = async (e) => {
@@ -2141,10 +2192,9 @@ export default function InfluencerOS() {
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={ArrowRightLeft} id="finance_vs_ops" label="Finance vs Ops"/>
           <NavItem icon={ScanSearch} id="scraper" label="Lead Scraper"/>
-          <NavItem icon={PieChart} id="analytics" label="Analytics"/>
           <NavItem icon={CreditCard} id="payments" label="Payments"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
-          <NavItem icon={BarChart3} id="reports" label="Reports"/>
+          <NavItem icon={BarChart3} id="reports" label="Reports & Analytics"/>
         </nav>
       </aside>
 
@@ -2758,11 +2808,21 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {activeTab === 'analytics' && (
+          {activeTab === 'reports' && (
+            <div className="max-w-[1400px] mx-auto mb-5 flex items-center justify-between gap-4 animate-in fade-in duration-300">
+              <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Reports &amp; Analytics</h2>
+              <div className="inline-flex items-center rounded-lg border border-white/10 overflow-hidden bg-white/[0.025] shrink-0">
+                <button onClick={() => setReportsView('reports')} className={`px-5 py-2.5 text-sm font-medium transition-colors ${reportsView === 'reports' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Reports</button>
+                <button onClick={() => setReportsView('analytics')} className={`px-5 py-2.5 text-sm font-medium transition-colors border-l border-white/10 ${reportsView === 'analytics' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Analytics</button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'reports' && reportsView === 'analytics' && (
             <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Analytics Overview</h2>
+                  <h2 className="text-lg font-semibold text-stone-100 tracking-tight">Analytics Overview</h2>
                   <p className="text-sm text-stone-500 mt-1">A visual snapshot across all campaigns and creators.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -2829,18 +2889,18 @@ export default function InfluencerOS() {
             </div>
           )}
 
-          {activeTab === 'reports' && (
+          {activeTab === 'reports' && reportsView === 'reports' && (
             <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Reports</h2>
+                  <h2 className="text-lg font-semibold text-stone-100 tracking-tight">Campaign Report</h2>
                   <p className="text-sm text-stone-500 mt-1">{reportScope().camp} · {reportScope().range} · {report.count} creators</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={downloadReportCSV} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-200 px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
+                  <button onClick={() => setReportExport({ open: true, format: 'csv' })} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-200 px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
                     <Download size={15}/> CSV
                   </button>
-                  <button onClick={downloadReportPDF} className="bg-orange-500 hover:bg-orange-400 text-white px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                  <button onClick={() => setReportExport({ open: true, format: 'pdf' })} className="bg-orange-500 hover:bg-orange-400 text-white px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
                     <Download size={15}/> PDF
                   </button>
                 </div>
@@ -3079,6 +3139,42 @@ export default function InfluencerOS() {
       </datalist>
 
       {/* Timeline Day — deliverables posted that day */}
+      {reportExport.open && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReportExport({ ...reportExport, open: false })}>
+          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-semibold text-stone-100">Export {reportExport.format.toUpperCase()} report</h3>
+              <button onClick={() => setReportExport({ ...reportExport, open: false })} className="text-stone-500 hover:text-stone-200 text-sm">Close</button>
+            </div>
+            <p className="text-xs text-stone-500 mb-4">Choose what to include. Everything's on by default — switch off anything you don't want in the file.</p>
+            <div className="space-y-2.5">
+              {[
+                { key: 'summary', label: 'Summary statistics', desc: 'Total views, likes, ER, spend, CPE/CPV' },
+                { key: 'breakdown', label: 'Creator breakdown', desc: 'A row per creator' },
+                { key: 'engagement', label: 'Engagement columns', desc: 'Likes, comments, shares, saves, ER' },
+                { key: 'cost', label: 'Cost columns', desc: 'CPV and CPE per creator' }
+              ].map(opt => {
+                const dependent = (opt.key === 'engagement' || opt.key === 'cost') && !exportOpts.breakdown;
+                return (
+                  <button key={opt.key} disabled={dependent} onClick={() => setExportOpts(o => ({ ...o, [opt.key]: !o[opt.key] }))} className={`w-full flex items-center justify-between gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors ${dependent ? 'border-white/[0.05] opacity-40 cursor-not-allowed' : 'border-white/10 hover:bg-white/[0.03]'}`}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-200">{opt.label}</p>
+                      <p className="text-[11px] text-stone-500 mt-0.5">{dependent ? 'Needs creator breakdown on' : opt.desc}</p>
+                    </div>
+                    <span className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${exportOpts[opt.key] && !dependent ? 'bg-orange-500' : 'bg-white/10'}`}>
+                      <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${exportOpts[opt.key] && !dependent ? 'translate-x-4' : 'translate-x-0'}`}></span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={runReportExport} className="mt-5 w-full bg-orange-500 hover:bg-orange-400 text-white py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+              <Download size={15}/> Download {reportExport.format.toUpperCase()}
+            </button>
+          </div>
+        </div>
+      )}
+
       {timelineDay && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setTimelineDay(null)}>
           <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
