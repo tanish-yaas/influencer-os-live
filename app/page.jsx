@@ -448,6 +448,8 @@ const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative', format
 // Stacked bar timeline of post frequency by date + platform: zoomable, scrollable, click a bar to expand.
 const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
   const [zoom, setZoom] = useState(1.5);
+  const [hover, setHover] = useState(null); // { i, x, y }
+  const wrapRef = useRef(null);
   if (!items.length) return <div className="h-56 flex items-center justify-center text-sm text-stone-600">No posts in range</div>;
   const n = items.length;
   const totals = items.map(it => Object.values(it.platforms).reduce((a, b) => a + b, 0));
@@ -457,8 +459,43 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
   const gap = Math.max(3, Math.round(5 * zoom));
   const W = n * (barW + gap);
   const labelStep = Math.max(1, Math.ceil((barW + gap < 46 ? 46 : 1) / (barW + gap)));
+  const track = (i, e) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({ i, x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+  const TW = 232;
+  let tip = null;
+  if (hover != null && items[hover.i]) {
+    const it = items[hover.i];
+    const cw = wrapRef.current?.clientWidth || 9999;
+    const left = Math.max(8, Math.min(hover.x - TW / 2, cw - TW - 8));
+    const below = hover.y < 160;
+    tip = (
+      <div className="pointer-events-none absolute z-50 bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl p-3.5 text-left" style={{ left, width: TW, top: below ? hover.y + 18 : hover.y - 14, transform: below ? 'none' : 'translateY(-100%)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-stone-100">{fmtDateFull(it.date)}</p>
+          <span className="text-[10px] uppercase tracking-wider text-orange-300 bg-orange-500/15 border border-orange-500/25 rounded px-1.5 py-0.5">{totals[hover.i]} post{totals[hover.i] === 1 ? '' : 's'}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 mb-2.5">
+          {Object.entries(it.platforms).map(([p, cnt], k) => (
+            <div key={k} className="flex items-center gap-1.5 bg-white/[0.04] rounded-md px-2 py-1">
+              <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: getPlatformColor(p) }}></span>
+              <span className="text-[11px] text-stone-300 truncate">{p}</span>
+              <span className="text-[11px] text-stone-400 tabular-nums ml-auto">{cnt}</span>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-0.5 max-h-32 overflow-y-auto border-t border-white/[0.06] pt-2">
+          {it.names.slice(0, 8).map((nm, j) => (<p key={j} className="text-[11px] text-stone-400 truncate">• {nm}</p>))}
+          {it.names.length > 8 && <p className="text-[10px] text-stone-600 pl-2">+{it.names.length - 8} more</p>}
+        </div>
+        <p className="text-[10px] text-orange-400/80 mt-2 flex items-center gap-1">Click the bar to open links →</p>
+      </div>
+    );
+  }
   return (
-    <div>
+    <div className="relative" ref={wrapRef} onMouseLeave={() => setHover(null)}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-stone-500">Hover a bar to preview · click to open that day's links</p>
         <div className="flex gap-1">
@@ -470,19 +507,9 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
         <div style={{ width: Math.max(W, 100) }}>
           <div className="flex items-end h-56" style={{ gap }}>
             {items.map((it, i) => (
-              <button key={i} onClick={() => onSelectDay(it)} style={{ width: barW }} className="h-full flex flex-col justify-end items-stretch relative group/bar shrink-0 hover:opacity-90 transition-opacity">
-                <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 opacity-0 invisible group-hover/bar:opacity-100 group-hover/bar:visible transition-all z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3 text-left">
-                  <p className="text-xs font-semibold text-stone-200 mb-1.5">{fmtDateFull(it.date)} · {totals[i]} post{totals[i] === 1 ? '' : 's'}</p>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-2">
-                    {Object.entries(it.platforms).map(([p, cnt], k) => (<span key={k} className="inline-flex items-center gap-1 text-[10px] text-stone-400"><span className="w-1.5 h-1.5 rounded-sm" style={{ background: getPlatformColor(p) }}></span>{p} · {cnt}</span>))}
-                  </div>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {it.names.map((nm, j) => (<p key={j} className="text-xs text-stone-400 truncate">• {nm}</p>))}
-                  </div>
-                  <p className="text-[10px] text-orange-400/80 mt-2">Click to open links →</p>
-                </div>
+              <button key={i} onClick={() => onSelectDay(it)} onMouseEnter={(e) => track(i, e)} onMouseMove={(e) => track(i, e)} style={{ width: barW }} className={`h-full flex flex-col justify-end items-stretch relative shrink-0 transition-opacity ${hover ? (hover.i === i ? 'opacity-100' : 'opacity-50') : 'hover:opacity-90'}`}>
                 {Object.entries(it.platforms).map(([p, cnt], j) => (
-                  <div key={j} style={{ height: `${(cnt / max) * 100}%`, background: getPlatformColor(p) }} className="w-full first:rounded-t-sm" title={`${p}: ${cnt}`}></div>
+                  <div key={j} style={{ height: `${(cnt / max) * 100}%`, background: getPlatformColor(p) }} className="w-full first:rounded-t-sm"></div>
                 ))}
               </button>
             ))}
@@ -496,6 +523,7 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
           </div>
         </div>
       </div>
+      {tip}
       <div className="flex flex-wrap gap-3 mt-3 justify-center">
         {platformsSeen.map((p, i) => (<div key={i} className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: getPlatformColor(p) }}></span><span className="text-stone-400">{p}</span></div>))}
       </div>
@@ -634,7 +662,12 @@ export default function InfluencerOS() {
   const [commentsMode, setCommentsMode] = useState('cumulative');
   const [reportsView, setReportsView] = useState('reports');
   const [reportExport, setReportExport] = useState({ open: false, format: 'csv' });
-  const [exportOpts, setExportOpts] = useState({ summary: true, breakdown: true, engagement: true, cost: true });
+  const [exportOpts, setExportOpts] = useState({
+    summary: true, breakdown: true,
+    creator: true, platform: true, contentType: true, goLive: true, spend: true, views: true,
+    likes: true, comments: true, shares: true, saves: true, engagement: true, er: true,
+    cpv: true, cpe: true
+  });
 
   // ---- Auth helpers ----
   const loadProfile = async (email) => {
@@ -1210,8 +1243,25 @@ export default function InfluencerOS() {
     return { camp, range };
   };
 
+  const reportColumnDefs = [
+    { key: 'creator', label: 'Creator', group: 'Profile', num: false, csv: (c) => c.creator_name, pdf: (c) => c.creator_name },
+    { key: 'platform', label: 'Platform', group: 'Profile', num: false, csv: (c) => c.platform, pdf: (c) => c.platform },
+    { key: 'contentType', label: 'Content Type', group: 'Profile', num: false, csv: (c) => c.content_type, pdf: (c) => c.content_type },
+    { key: 'goLive', label: 'Go-Live', group: 'Profile', num: false, csv: (c) => c.planned_go_live_date || '', pdf: (c) => c.planned_go_live_date || '' },
+    { key: 'spend', label: 'Spend', group: 'Profile', num: true, csv: (c) => c.deal_value, pdf: (c) => formatMoney(c.deal_value) },
+    { key: 'views', label: 'Views', group: 'Engagement', num: true, csv: (c) => c.views || 0, pdf: (c) => formatNumber(c.views || 0) },
+    { key: 'likes', label: 'Likes', group: 'Engagement', num: true, csv: (c) => c.likes || 0, pdf: (c) => formatNumber(c.likes || 0) },
+    { key: 'comments', label: 'Comments', group: 'Engagement', num: true, csv: (c) => c.comments || 0, pdf: (c) => formatNumber(c.comments || 0) },
+    { key: 'shares', label: 'Shares', group: 'Engagement', num: true, csv: (c) => c.shares || 0, pdf: (c) => formatNumber(c.shares || 0) },
+    { key: 'saves', label: 'Saves', group: 'Engagement', num: true, csv: (c) => c.saves || 0, pdf: (c) => formatNumber(c.saves || 0) },
+    { key: 'engagement', label: 'Engagement', group: 'Engagement', num: true, csv: (c, m) => m.engagement, pdf: (c, m) => formatNumber(m.engagement) },
+    { key: 'er', label: 'ER %', group: 'Engagement', num: true, csv: (c, m) => c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0', pdf: (c, m) => (c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0') + '%' },
+    { key: 'cpv', label: 'CPV', group: 'Cost', num: true, csv: (c, m) => m.cpv.toFixed(3), pdf: (c, m) => formatMicroMoney(m.cpv) },
+    { key: 'cpe', label: 'CPE', group: 'Cost', num: true, csv: (c, m) => m.cpe.toFixed(3), pdf: (c, m) => formatMicroMoney(m.cpe) }
+  ];
+
   const downloadReportCSV = (opts) => {
-    const o = opts || { summary: true, breakdown: true, engagement: true, cost: true };
+    const o = opts || exportOpts;
     const { camp, range } = reportScope();
     const lines = [];
     if (o.summary) {
@@ -1230,19 +1280,13 @@ export default function InfluencerOS() {
       lines.push([]);
     }
     if (o.breakdown) {
-      const header = ['Creator', 'Platform', 'Content Type', 'Go-Live Date', 'Spend', 'Views'];
-      if (o.engagement) header.push('Likes', 'Comments', 'Shares', 'Saves', 'Engagement', 'ER %');
-      if (o.cost) header.push('CPV', 'CPE');
-      lines.push(header);
-      report.rows.forEach(c => {
-        const m = calculateCreatorMetrics(c);
-        const row = [c.creator_name, c.platform, c.content_type, c.planned_go_live_date || '', c.deal_value, c.views || 0];
-        if (o.engagement) row.push(c.likes || 0, c.comments || 0, c.shares || 0, c.saves || 0, m.engagement, c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0');
-        if (o.cost) row.push(m.cpv.toFixed(3), m.cpe.toFixed(3));
-        lines.push(row);
-      });
+      const cols = reportColumnDefs.filter(col => o[col.key]);
+      if (cols.length) {
+        lines.push(cols.map(c => c.label));
+        report.rows.forEach(c => { const m = calculateCreatorMetrics(c); lines.push(cols.map(col => col.csv(c, m))); });
+      }
     }
-    if (lines.length === 0) { alert('Turn on at least one section to export.'); return; }
+    if (lines.length === 0) { alert('Turn on at least one section/column to export.'); return; }
     const csv = lines.map(r => r.map(field => {
       const s = String(field == null ? '' : field);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -1255,7 +1299,7 @@ export default function InfluencerOS() {
   };
 
   const downloadReportPDF = (opts) => {
-    const o = opts || { summary: true, breakdown: true, engagement: true, cost: true };
+    const o = opts || exportOpts;
     const { camp, range } = reportScope();
     const r = report;
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1266,20 +1310,15 @@ export default function InfluencerOS() {
       ['CPE', formatMicroMoney(r.cpe)], ['CPV', formatMicroMoney(r.cpv)], ['Total Spend', formatMoney(r.spend)]
     ];
     const statCards = stats.map(([k, v]) => `<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');
-    const cols = ['Creator', 'Platform', 'Deliverable', 'Go-Live', 'Spend', 'Views'];
-    if (o.engagement) cols.push('Likes', 'Comments', 'Shares', 'Engagement', 'ER');
-    if (o.cost) cols.push('CPV', 'CPE');
-    const headHtml = cols.map(c => ['Spend', 'Views', 'Likes', 'Comments', 'Shares', 'Engagement', 'ER', 'CPV', 'CPE'].includes(c) ? `<th class="n">${c}</th>` : `<th>${c}</th>`).join('');
+    const cols = o.breakdown ? reportColumnDefs.filter(col => o[col.key]) : [];
+    const headHtml = cols.map(col => col.num ? `<th class="n">${esc(col.label)}</th>` : `<th>${esc(col.label)}</th>`).join('');
     const rowsHtml = r.rows.map(c => {
       const m = calculateCreatorMetrics(c);
-      let cells = `<td>${esc(c.creator_name)}</td><td>${esc(c.platform)}</td><td>${esc(c.content_type)}</td><td>${esc(c.planned_go_live_date || '')}</td><td class="n">${formatMoney(c.deal_value)}</td><td class="n">${formatNumber(c.views || 0)}</td>`;
-      if (o.engagement) cells += `<td class="n">${formatNumber(c.likes || 0)}</td><td class="n">${formatNumber(c.comments || 0)}</td><td class="n">${formatNumber(c.shares || 0)}</td><td class="n">${formatNumber(m.engagement)}</td><td class="n">${c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(2) : '0'}%</td>`;
-      if (o.cost) cells += `<td class="n">${formatMicroMoney(m.cpv)}</td><td class="n">${formatMicroMoney(m.cpe)}</td>`;
-      return `<tr>${cells}</tr>`;
+      return `<tr>${cols.map(col => col.num ? `<td class="n">${esc(col.pdf(c, m))}</td>` : `<td>${esc(col.pdf(c, m))}</td>`).join('')}</tr>`;
     }).join('');
     const summaryBlock = o.summary ? `<div class="grid">${statCards}</div>` : '';
-    const tableBlock = o.breakdown ? `<h2>Creator Breakdown</h2><table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>` : '';
-    if (!summaryBlock && !tableBlock) { alert('Turn on at least one section to export.'); return; }
+    const tableBlock = (o.breakdown && cols.length) ? `<h2>Creator Breakdown</h2><table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>` : '';
+    if (!summaryBlock && !tableBlock) { alert('Turn on at least one section/column to export.'); return; }
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(camp)} Report</title><style>
       *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c1917;margin:32px;}
       h1{font-size:22px;margin:0 0 2px}.sub{color:#78716c;font-size:13px;margin-bottom:20px}
@@ -3141,33 +3180,58 @@ export default function InfluencerOS() {
       {/* Timeline Day — deliverables posted that day */}
       {reportExport.open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReportExport({ ...reportExport, open: false })}>
-          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[88vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold text-stone-100">Export {reportExport.format.toUpperCase()} report</h3>
               <button onClick={() => setReportExport({ ...reportExport, open: false })} className="text-stone-500 hover:text-stone-200 text-sm">Close</button>
             </div>
-            <p className="text-xs text-stone-500 mb-4">Choose what to include. Everything's on by default — switch off anything you don't want in the file.</p>
+            <p className="text-xs text-stone-500 mb-4">Everything's on by default — switch off anything you don't want in the file.</p>
+
             <div className="space-y-2.5">
               {[
                 { key: 'summary', label: 'Summary statistics', desc: 'Total views, likes, ER, spend, CPE/CPV' },
-                { key: 'breakdown', label: 'Creator breakdown', desc: 'A row per creator' },
-                { key: 'engagement', label: 'Engagement columns', desc: 'Likes, comments, shares, saves, ER' },
-                { key: 'cost', label: 'Cost columns', desc: 'CPV and CPE per creator' }
-              ].map(opt => {
-                const dependent = (opt.key === 'engagement' || opt.key === 'cost') && !exportOpts.breakdown;
-                return (
-                  <button key={opt.key} disabled={dependent} onClick={() => setExportOpts(o => ({ ...o, [opt.key]: !o[opt.key] }))} className={`w-full flex items-center justify-between gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors ${dependent ? 'border-white/[0.05] opacity-40 cursor-not-allowed' : 'border-white/10 hover:bg-white/[0.03]'}`}>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-stone-200">{opt.label}</p>
-                      <p className="text-[11px] text-stone-500 mt-0.5">{dependent ? 'Needs creator breakdown on' : opt.desc}</p>
-                    </div>
-                    <span className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${exportOpts[opt.key] && !dependent ? 'bg-orange-500' : 'bg-white/10'}`}>
-                      <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${exportOpts[opt.key] && !dependent ? 'translate-x-4' : 'translate-x-0'}`}></span>
-                    </span>
-                  </button>
-                );
-              })}
+                { key: 'breakdown', label: 'Creator breakdown', desc: 'A row per creator (pick columns below)' }
+              ].map(opt => (
+                <button key={opt.key} onClick={() => setExportOpts(o => ({ ...o, [opt.key]: !o[opt.key] }))} className="w-full flex items-center justify-between gap-3 rounded-lg border border-white/10 hover:bg-white/[0.03] px-3.5 py-3 text-left transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-stone-200">{opt.label}</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">{opt.desc}</p>
+                  </div>
+                  <span className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${exportOpts[opt.key] ? 'bg-orange-500' : 'bg-white/10'}`}>
+                    <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${exportOpts[opt.key] ? 'translate-x-4' : 'translate-x-0'}`}></span>
+                  </span>
+                </button>
+              ))}
             </div>
+
+            {exportOpts.breakdown && (
+              <div className="mt-4 border-t border-white/[0.07] pt-4">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-stone-500">Columns</p>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = true); return n; })} className="text-[11px] text-orange-300 hover:text-orange-200 px-2 py-0.5 rounded border border-orange-500/25 bg-orange-500/10">All</button>
+                    <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = false); return n; })} className="text-[11px] text-stone-400 hover:text-stone-200 px-2 py-0.5 rounded border border-white/10">None</button>
+                  </div>
+                </div>
+                {['Profile', 'Engagement', 'Cost'].map(group => (
+                  <div key={group} className="mb-3 last:mb-0">
+                    <p className="text-[10px] uppercase tracking-wider text-stone-600 mb-1.5">{group}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {reportColumnDefs.filter(c => c.group === group).map(col => {
+                        const on = exportOpts[col.key];
+                        return (
+                          <button key={col.key} onClick={() => setExportOpts(o => ({ ...o, [col.key]: !o[col.key] }))} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${on ? 'bg-orange-500/20 border-orange-500/40 text-orange-200' : 'bg-white/[0.02] border-white/10 text-stone-500 hover:text-stone-300'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-orange-400' : 'bg-stone-600'}`}></span>
+                            {col.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button onClick={runReportExport} className="mt-5 w-full bg-orange-500 hover:bg-orange-400 text-white py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
               <Download size={15}/> Download {reportExport.format.toUpperCase()}
             </button>
