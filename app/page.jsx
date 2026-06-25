@@ -1708,6 +1708,11 @@ export default function InfluencerOS() {
 
         setCreators(prev => prev.map(c => c.creator_deal_id === editingCreator?.creator_deal_id ? { ...c, ...data.metrics } : c));
         setEditingCreator(prev => prev ? { ...prev, ...data.metrics } : null);
+        if (data.simulated) {
+          alert('⚠️ These are ESTIMATED numbers, not live data.\n\nReason: ' + (data.reason || 'the live source could not be reached') + '\n\nThe fields were filled with placeholder estimates. Fix the cause above and sync again for real numbers.');
+        } else {
+          showToast('Synced live metrics ✓');
+        }
       } else {
         alert("Failed to sync metrics: " + data.error);
       }

@@ -1,11 +1,11 @@
 // app/api/sync-instagram/route.js
 // POST { link }  ->  { success, simulated, metrics: { views, likes, comments, shares, saves, followers } }
 //
-// Powers the "Sync Instagram" button. Uses Apify when APIFY_TOKEN (or
-// APIFY_API_TOKEN) is set in your environment variables; otherwise (or on
-// timeout/failure) returns deterministic simulated metrics so the button always
-// works. Instagram does not expose shares/saves publicly, so those are
-// synthesized (shares ~= 25% of likes, saves ~= 15% of likes).
+// Powers the "Sync" button for BOTH Instagram and YouTube deliverable links.
+//   - Instagram: Apify when APIFY_TOKEN is set (else simulated).
+//   - YouTube:   official YouTube Data API when YOUTUBE_API_KEY is set (else simulated).
+// Instagram/YouTube don't expose shares & saves, so those are synthesized
+// (shares ~= 25% of likes, saves ~= 15% of likes).
 
 export const maxDuration = 30;
 
@@ -19,26 +19,59 @@ function simulateMetrics(link) {
   const h = hash(String(link || 'x'));
   const followers = 20000 + (h % 1500000);
   const views = 5000 + (h % 900000);
-  const likes = Math.round(views * (0.03 + ((h >> 3) % 5) / 100));   // ~3-8% of views
-  const comments = Math.round(likes * (0.01 + ((h >> 5) % 3) / 100)); // ~1-4% of likes
-  const shares = Math.round(likes * 0.25);
-  const saves = Math.round(likes * 0.15);
-  return { views, likes, comments, shares, saves, followers };
+  const likes = Math.round(views * (0.03 + ((h >> 3) % 5) / 100));
+  const comments = Math.round(likes * (0.01 + ((h >> 5) % 3) / 100));
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
 }
 
-function isInstagram(link) { return /instagram\.com/i.test(link || ''); }
+const isInstagram = (l) => /instagram\.com/i.test(l || '');
+const isYouTube = (l) => /youtube\.com|youtu\.be/i.test(l || '');
 
-async function apifyScrape(link, token) {
-  // Single post/reel scrape via Apify's Instagram scraper.
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directUrls: [link], resultsType: 'posts', resultsLimit: 1, addParentData: true }),
-      signal: AbortSignal.timeout(9000)
+function ytVideoId(link) {
+  try {
+    const u = new URL(link);
+    const h = u.hostname.toLowerCase();
+    if (h.includes('youtu.be')) return u.pathname.split('/').filter(Boolean)[0] || '';
+    if (h.includes('youtube.com')) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      const si = parts.findIndex(p => p.toLowerCase() === 'shorts');
+      if (si >= 0 && parts[si + 1]) return parts[si + 1];
+      return u.searchParams.get('v') || '';
     }
-  );
+  } catch {}
+  return '';
+}
+
+async function youtubeMetrics(link, key) {
+  const id = ytVideoId(link);
+  if (!id) throw new Error('Could not find a video ID in that link.');
+  const vr = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${id}&key=${key}`, { signal: AbortSignal.timeout(12000) });
+  const vj = await vr.json();
+  if (vj.error) throw new Error(vj.error.message || ('YouTube API error ' + (vj.error.code || '')));
+  const it = vj.items && vj.items[0];
+  if (!it) throw new Error('Video not found, private, or removed.');
+  const st = it.statistics || {};
+  const views = Number(st.viewCount) || 0;
+  const likes = Number(st.likeCount) || 0;
+  const comments = Number(st.commentCount) || 0;
+  let followers = 0;
+  const channelId = it.snippet && it.snippet.channelId;
+  if (channelId) {
+    try {
+      const cr = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${key}`, { signal: AbortSignal.timeout(10000) });
+      const cj = await cr.json();
+      followers = Number(cj.items?.[0]?.statistics?.subscriberCount) || 0;
+    } catch {}
+  }
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
+}
+
+async function apifyInstagram(link, token) {
+  const res = await fetch(`https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ directUrls: [link], resultsType: 'posts', resultsLimit: 1, addParentData: true }),
+    signal: AbortSignal.timeout(9000)
+  });
   if (!res.ok) throw new Error('Apify scrape failed: ' + res.status);
   const items = await res.json();
   const p = Array.isArray(items) ? items[0] : null;
@@ -47,14 +80,7 @@ async function apifyScrape(link, token) {
   const likes = p.likesCount || 0;
   const comments = p.commentsCount || 0;
   const followers = p.ownerFollowersCount || (p.owner && p.owner.followersCount) || 0;
-  return {
-    views,
-    likes,
-    comments,
-    shares: Math.round(likes * 0.25),
-    saves: Math.round(likes * 0.15),
-    followers
-  };
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
 }
 
 export async function POST(request) {
@@ -67,19 +93,36 @@ export async function POST(request) {
   }
   if (!link.trim()) return Response.json({ success: false, error: 'No link provided.' });
 
-  const token = process.env.APIFY_TOKEN || process.env.APIFY_API_TOKEN;
-
-  if (token && isInstagram(link)) {
+  // YouTube path
+  if (isYouTube(link)) {
+    const ytKey = process.env.YOUTUBE_API_KEY;
+    if (!ytKey) {
+      return Response.json({ success: true, simulated: true, reason: 'No YOUTUBE_API_KEY is set on the server. Add it in Vercel → Settings → Environment Variables, then redeploy.', metrics: simulateMetrics(link) });
+    }
     try {
-      const metrics = await apifyScrape(link, token);
-      if (metrics.views || metrics.likes) {
-        return Response.json({ success: true, simulated: false, metrics });
-      }
+      const metrics = await youtubeMetrics(link, ytKey);
+      return Response.json({ success: true, simulated: false, metrics });
     } catch (e) {
-      console.error('Sync fallback:', e?.message || e);
+      console.error('YouTube sync fallback:', e?.message || e);
+      return Response.json({ success: true, simulated: true, reason: 'YouTube API: ' + (e?.message || 'request failed'), metrics: simulateMetrics(link) });
     }
   }
 
-  // Simulated fallback (deterministic from the link).
-  return Response.json({ success: true, simulated: true, metrics: simulateMetrics(link) });
+  // Instagram path
+  const token = process.env.APIFY_TOKEN || process.env.APIFY_API_TOKEN;
+  if (isInstagram(link)) {
+    if (!token) {
+      return Response.json({ success: true, simulated: true, reason: 'No APIFY_TOKEN is set on the server (Instagram scraping needs it).', metrics: simulateMetrics(link) });
+    }
+    try {
+      const metrics = await apifyInstagram(link, token);
+      if (metrics.views || metrics.likes) return Response.json({ success: true, simulated: false, metrics });
+      return Response.json({ success: true, simulated: true, reason: 'Instagram returned no data for that link (it may be private or unsupported).', metrics: simulateMetrics(link) });
+    } catch (e) {
+      console.error('IG sync fallback:', e?.message || e);
+      return Response.json({ success: true, simulated: true, reason: 'Instagram fetch failed: ' + (e?.message || 'error'), metrics: simulateMetrics(link) });
+    }
+  }
+
+  return Response.json({ success: true, simulated: true, reason: 'Link was not recognised as Instagram or YouTube.', metrics: simulateMetrics(link) });
 }
