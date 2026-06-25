@@ -558,6 +558,32 @@ export default function InfluencerOS() {
   
   const [isCreatorModalOpen, setCreatorModalOpen] = useState(false);
   const [editingCreator, setEditingCreator] = useState(null);
+  const [modalPlatform, setModalPlatform] = useState('Instagram');
+  const [modalContentType, setModalContentType] = useState('Reel Collab');
+
+  const CONTENT_TYPES = {
+    Instagram: ['Reel Collab', 'Story (Set of 3)', 'Static Post', 'Carousel', 'Reel + Story Combo'],
+    YouTube: ['YouTube Integration', 'Dedicated Video', 'Shorts', 'Community Post'],
+    TikTok: ['TikTok Video', 'TikTok Series'],
+    LinkedIn: ['LinkedIn Post', 'LinkedIn Video', 'LinkedIn Article']
+  };
+  const contentTypesFor = (p) => CONTENT_TYPES[p] || CONTENT_TYPES.Instagram;
+
+  useEffect(() => {
+    if (isCreatorModalOpen) {
+      const p = editingCreator?.platform || 'Instagram';
+      setModalPlatform(p);
+      const list = contentTypesFor(p);
+      const ct = editingCreator?.content_type;
+      setModalContentType(ct && list.includes(ct) ? ct : (ct || list[0]));
+    }
+  }, [isCreatorModalOpen, editingCreator]);
+
+  const onModalPlatformChange = (p) => {
+    setModalPlatform(p);
+    const list = contentTypesFor(p);
+    if (!list.includes(modalContentType)) setModalContentType(list[0]);
+  };
 
   const [deletePrompt, setDeletePrompt] = useState({ isOpen: false, type: '', id: '', name: '' });
   
@@ -3546,7 +3572,7 @@ export default function InfluencerOS() {
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Platform</label>
-                      <select name="platform" defaultValue={editingCreator?.platform || 'Instagram'} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                      <select name="platform" value={modalPlatform} onChange={(e) => onModalPlatformChange(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
                         <option className="bg-[#0c0a08]">Instagram</option>
                         <option className="bg-[#0c0a08]">YouTube</option>
                         <option className="bg-[#0c0a08]">TikTok</option>
@@ -3555,7 +3581,7 @@ export default function InfluencerOS() {
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Profile Link</label>
-                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder="instagram.com/username" />
+                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/@channel' : 'instagram.com/username'} />
                     </div>
                   </div>
                 </div>
@@ -3603,21 +3629,18 @@ export default function InfluencerOS() {
                   <div className="grid grid-cols-2 gap-5 mb-5">
                      <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Deliverable Link (URL)</label>
-                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder="https://instagram.com/p/..." />
+                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/watch?v=…  ·  /shorts/…' : 'https://instagram.com/p/...'} />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                       <div>
                         <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Content Type</label>
-                        <select name="content_type" defaultValue={editingCreator?.content_type || 'Reel Collab'} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                          <option className="bg-[#0c0a08]">Reel Collab</option>
-                          <option className="bg-[#0c0a08]">Story (Set of 3)</option>
-                          <option className="bg-[#0c0a08]">Dedicated Video</option>
-                          <option className="bg-[#0c0a08]">YT Integration</option>
-                          <option className="bg-[#0c0a08]">Shorts</option>
+                        <select name="content_type" value={modalContentType} onChange={(e) => setModalContentType(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
+                          {contentTypesFor(modalPlatform).map(ct => <option key={ct} className="bg-[#0c0a08]">{ct}</option>)}
+                          {!contentTypesFor(modalPlatform).includes(modalContentType) && modalContentType && <option className="bg-[#0c0a08]">{modalContentType}</option>}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Followers</label>
+                        <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">{modalPlatform === 'YouTube' ? 'Subscribers' : 'Followers'}</label>
                         <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
                       </div>
                     </div>
