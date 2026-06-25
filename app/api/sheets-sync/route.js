@@ -1,108 +1,117 @@
-// app/api/sheets-sync/route.js
-// One-way mirror: app -> Google Sheets. POST a snapshot of all campaigns'
-// live + in-talks creators; this writes a tab per campaign into two master
-// spreadsheets (one for Live Creators, one for In-Talks).
+// app/api/sync-instagram/route.js
+// POST { link }  ->  { success, simulated, metrics: { views, likes, comments, shares, saves, followers } }
 //
-// Required environment variables (set in Vercel -> Settings -> Env Variables):
-//   GOOGLE_SA_EMAIL        - the service account email
-//   GOOGLE_SA_PRIVATE_KEY  - the service account private key (paste the whole
-//                            -----BEGIN PRIVATE KEY----- ... block; newlines
-//                            may be stored as literal \n, we handle both)
-//   SHEET_ID_LIVE          - spreadsheet ID of the "Live Creators" master sheet
-//   SHEET_ID_TALKS         - spreadsheet ID of the "In-Talks" master sheet
-//
-// Share BOTH spreadsheets with GOOGLE_SA_EMAIL as an Editor.
-// If any env var is missing, this route no-ops (so the app never breaks).
+// Powers the "Sync" button for BOTH Instagram and YouTube deliverable links.
+//   - Instagram: Apify when APIFY_TOKEN is set (else simulated).
+//   - YouTube:   official YouTube Data API when YOUTUBE_API_KEY is set (else simulated).
+// Instagram/YouTube don't expose shares & saves, so those are synthesized
+// (shares ~= 25% of likes, saves ~= 15% of likes).
 
-import crypto from 'crypto';
+export const maxDuration = 30;
 
-export const maxDuration = 60;
-
-const b64url = (buf) => Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-async function getAccessToken(email, key) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = b64url(JSON.stringify({
-    iss: email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600
-  }));
-  const signer = crypto.createSign('RSA-SHA256');
-  signer.update(`${header}.${claim}`);
-  signer.end();
-  const sig = b64url(signer.sign(key));
-  const assertion = `${header}.${claim}.${sig}`;
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${assertion}`
-  });
-  const j = await res.json();
-  if (!j.access_token) throw new Error('Token exchange failed: ' + JSON.stringify(j));
-  return j.access_token;
+function hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
 }
 
-const sanitizeTab = (name) => (String(name || 'Campaign').replace(/[\[\]\*\?\/\\:]/g, ' ').trim().slice(0, 90) || 'Campaign');
-const quoteTab = (tab) => `'${tab.replace(/'/g, "''")}'`;
+function simulateMetrics(link) {
+  const h = hash(String(link || 'x'));
+  const followers = 20000 + (h % 1500000);
+  const views = 5000 + (h % 900000);
+  const likes = Math.round(views * (0.03 + ((h >> 3) % 5) / 100));
+  const comments = Math.round(likes * (0.01 + ((h >> 5) % 3) / 100));
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
+}
 
-async function syncSpreadsheet(token, sheetId, entries) {
-  const auth = { Authorization: `Bearer ${token}` };
-  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, { headers: auth });
-  const meta = await metaRes.json();
-  if (meta.error) throw new Error('Sheet read failed: ' + (meta.error.message || ''));
-  const existing = new Set((meta.sheets || []).map(s => s.properties.title));
+const isInstagram = (l) => /instagram\.com/i.test(l || '');
+const isYouTube = (l) => /youtube\.com|youtu\.be/i.test(l || '');
 
-  const toAdd = [];
-  for (const e of entries) {
-    const t = sanitizeTab(e.campaign);
-    if (!existing.has(t)) { toAdd.push({ addSheet: { properties: { title: t } } }); existing.add(t); }
-  }
-  if (toAdd.length) {
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
-      method: 'POST',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests: toAdd })
-    });
-  }
+function ytVideoId(link) {
+  try {
+    const u = new URL(link);
+    const h = u.hostname.toLowerCase();
+    if (h.includes('youtu.be')) return u.pathname.split('/').filter(Boolean)[0] || '';
+    if (h.includes('youtube.com')) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      const si = parts.findIndex(p => p.toLowerCase() === 'shorts');
+      if (si >= 0 && parts[si + 1]) return parts[si + 1];
+      return u.searchParams.get('v') || '';
+    }
+  } catch {}
+  return '';
+}
 
-  for (const e of entries) {
-    const tab = sanitizeTab(e.campaign);
-    const clearRange = encodeURIComponent(`${quoteTab(tab)}!A:Z`);
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${clearRange}:clear`, { method: 'POST', headers: auth });
-    const values = [e.headers || [], ...(e.rows || [])];
-    const writeRange = encodeURIComponent(`${quoteTab(tab)}!A1`);
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${writeRange}?valueInputOption=RAW`, {
-      method: 'PUT',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values })
-    });
+async function youtubeMetrics(link, key) {
+  const id = ytVideoId(link);
+  if (!id) throw new Error('No YouTube video id in link');
+  const vr = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${id}&key=${key}`, { signal: AbortSignal.timeout(12000) });
+  const vj = await vr.json();
+  const it = vj.items && vj.items[0];
+  if (!it) throw new Error('Video not found');
+  const st = it.statistics || {};
+  const views = Number(st.viewCount) || 0;
+  const likes = Number(st.likeCount) || 0;
+  const comments = Number(st.commentCount) || 0;
+  let followers = 0;
+  const channelId = it.snippet && it.snippet.channelId;
+  if (channelId) {
+    try {
+      const cr = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${key}`, { signal: AbortSignal.timeout(10000) });
+      const cj = await cr.json();
+      followers = Number(cj.items?.[0]?.statistics?.subscriberCount) || 0;
+    } catch {}
   }
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
+}
+
+async function apifyInstagram(link, token) {
+  const res = await fetch(`https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ directUrls: [link], resultsType: 'posts', resultsLimit: 1, addParentData: true }),
+    signal: AbortSignal.timeout(9000)
+  });
+  if (!res.ok) throw new Error('Apify scrape failed: ' + res.status);
+  const items = await res.json();
+  const p = Array.isArray(items) ? items[0] : null;
+  if (!p) throw new Error('No data returned');
+  const views = p.videoViewCount || p.videoPlayCount || p.igPlayCount || 0;
+  const likes = p.likesCount || 0;
+  const comments = p.commentsCount || 0;
+  const followers = p.ownerFollowersCount || (p.owner && p.owner.followersCount) || 0;
+  return { views, likes, comments, shares: Math.round(likes * 0.25), saves: Math.round(likes * 0.15), followers };
 }
 
 export async function POST(request) {
-  const email = process.env.GOOGLE_SA_EMAIL;
-  let key = process.env.GOOGLE_SA_PRIVATE_KEY;
-  const liveId = process.env.SHEET_ID_LIVE;
-  const talksId = process.env.SHEET_ID_TALKS;
-
-  if (!email || !key || !liveId || !talksId) {
-    return Response.json({ ok: false, skipped: true, reason: 'Google Sheets sync is not configured.' });
-  }
-  key = key.replace(/\\n/g, '\n');
-
-  let body;
-  try { body = await request.json(); } catch { return Response.json({ ok: false, error: 'Invalid body' }, { status: 400 }); }
-
+  let link = '';
   try {
-    const token = await getAccessToken(email, key);
-    if (Array.isArray(body.live)) await syncSpreadsheet(token, liveId, body.live);
-    if (Array.isArray(body.talks)) await syncSpreadsheet(token, talksId, body.talks);
-    return Response.json({ ok: true });
-  } catch (e) {
-    console.error('sheets-sync error:', e?.message || e);
-    return Response.json({ ok: false, error: e?.message || 'sync failed' });
+    const body = await request.json();
+    link = (body.link || '').toString();
+  } catch {
+    return Response.json({ success: false, error: 'Invalid request body.' }, { status: 400 });
   }
+  if (!link.trim()) return Response.json({ success: false, error: 'No link provided.' });
+
+  // YouTube path
+  if (isYouTube(link)) {
+    const ytKey = process.env.YOUTUBE_API_KEY;
+    if (ytKey) {
+      try {
+        const metrics = await youtubeMetrics(link, ytKey);
+        if (metrics.views || metrics.likes) return Response.json({ success: true, simulated: false, metrics });
+      } catch (e) { console.error('YouTube sync fallback:', e?.message || e); }
+    }
+    return Response.json({ success: true, simulated: true, metrics: simulateMetrics(link) });
+  }
+
+  // Instagram path
+  const token = process.env.APIFY_TOKEN || process.env.APIFY_API_TOKEN;
+  if (token && isInstagram(link)) {
+    try {
+      const metrics = await apifyInstagram(link, token);
+      if (metrics.views || metrics.likes) return Response.json({ success: true, simulated: false, metrics });
+    } catch (e) { console.error('IG sync fallback:', e?.message || e); }
+  }
+
+  return Response.json({ success: true, simulated: true, metrics: simulateMetrics(link) });
 }

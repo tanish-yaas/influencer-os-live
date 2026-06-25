@@ -581,6 +581,7 @@ export default function InfluencerOS() {
   const [fontSize, setFontSize] = useState('medium');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrapeQuery, setScrapeQuery] = useState('');
+  const [scrapePlatform, setScrapePlatform] = useState('instagram');
   const [scrapeResults, setScrapeResults] = useState([]);
   const [scrapeLoading, setScrapeLoading] = useState(false);
   const [scrapeNote, setScrapeNote] = useState('');
@@ -1502,11 +1503,11 @@ export default function InfluencerOS() {
     if (!q) return;
     setScrapeLoading(true); setScrapeNote(''); setScrapeResults([]);
     try {
-      const res = await fetch('/api/scrape-instagram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) });
+      const res = await fetch('/api/scrape-instagram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, platform: scrapePlatform }) });
       const data = await res.json();
       if (data.success && Array.isArray(data.results) && data.results.length) {
         setScrapeResults(data.results.map(r => ({ ...r, fee: '' })));
-        if (data.simulated) setScrapeNote('Showing simulated data — add an Apify token to the scrape API route for live Instagram data.');
+        if (data.simulated) setScrapeNote(scrapePlatform === 'youtube' ? 'Showing simulated data — add a YOUTUBE_API_KEY to the scrape API route for live YouTube data.' : 'Showing simulated data — add an Apify token to the scrape API route for live Instagram data.');
       } else {
         setScrapeNote(data.error || 'No profiles found for that search.');
       }
@@ -1523,7 +1524,7 @@ export default function InfluencerOS() {
       creator_deal_id: `cd_${Date.now()}`,
       ip_id: campId,
       creator_name: lead.fullName || lead.username,
-      platform: 'Instagram',
+      platform: lead.platform || 'Instagram',
       profile_link: lead.profileUrl,
       followers: lead.followers || 0,
       content_type: lead.category || 'Reel Collab',
@@ -2421,7 +2422,7 @@ export default function InfluencerOS() {
                       className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={isCampaignSyncing ? "animate-spin text-orange-400" : "text-orange-400"} size={16}/>
-                      {isCampaignSyncing ? "Syncing Campaign..." : "Sync Instagram"}
+                      {isCampaignSyncing ? "Syncing Campaign..." : "Sync Metrics"}
                     </button>
                     )}
                     <button 
@@ -2907,14 +2908,18 @@ export default function InfluencerOS() {
                 <p className="text-sm text-stone-500 mt-1">Search a creator by Instagram link or name to pull their stats, then send them to a campaign.</p>
               </div>
 
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-sm shrink-0">
+                  <button onClick={() => setScrapePlatform('instagram')} className={`px-3 py-2.5 transition-colors ${scrapePlatform === 'instagram' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Instagram</button>
+                  <button onClick={() => setScrapePlatform('youtube')} className={`px-3 py-2.5 transition-colors border-l border-white/10 ${scrapePlatform === 'youtube' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>YouTube</button>
+                </div>
+                <div className="flex-1 relative min-w-[220px]">
                   <ScanSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"/>
                   <input
                     value={scrapeQuery}
                     onChange={(e) => setScrapeQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleScrape(); }}
-                    placeholder="instagram.com/username  ·  or a creator's name"
+                    placeholder={scrapePlatform === 'youtube' ? 'youtube.com/@channel  ·  video link  ·  or a name' : 'instagram.com/username  ·  or a creator name'}
                     className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
                   />
                 </div>
@@ -2954,7 +2959,8 @@ export default function InfluencerOS() {
                             {r.isVerified && <BadgeCheck size={15} className="text-orange-400 shrink-0"/>}
                           </div>
                           <a href={r.profileUrl} target="_blank" rel="noreferrer" className="text-sm text-orange-300/90 hover:text-orange-200 truncate block">@{r.username}</a>
-                          {r.category && <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.category}</span>}
+                          {r.category && <span className="inline-block mt-1 mr-1.5 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.category}</span>}
+                          <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.platform || 'Instagram'}</span>
                         </div>
                       </div>
 
