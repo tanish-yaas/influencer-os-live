@@ -630,6 +630,7 @@ export default function InfluencerOS() {
   };
 
   const handleSession = async (session) => {
+    try { if (localStorage.getItem('ios_admin') === '1') return; } catch {}
     const email = (session?.user?.email || '').toLowerCase();
     if (!email) return;
     if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
@@ -776,6 +777,37 @@ export default function InfluencerOS() {
     } catch {
       try { const raw = localStorage.getItem('ios_comments'); if (raw) setComments(JSON.parse(raw)); } catch {}
     }
+  };
+
+  // ---- Google Sheets one-way sync (app -> sheets) ----
+  const creatorsRef = useRef(creators);
+  const campaignsRef = useRef(campaigns);
+  useEffect(() => { creatorsRef.current = creators; }, [creators]);
+  useEffect(() => { campaignsRef.current = campaigns; }, [campaigns]);
+  const sheetTimer = useRef(null);
+
+  const pushAllSheets = async () => {
+    const camps = campaignsRef.current || [];
+    const crs = creatorsRef.current || [];
+    const num = (v) => Number(v) || 0;
+    const build = (kind) => camps.map(camp => ({
+      campaign: camp.ip_name,
+      headers: kind === 'live'
+        ? ['Creator', 'Platform', 'Followers', 'Deliverable Type', 'Go-Live Date', 'Fee', 'Views', 'Likes', 'Comments', 'Shares', 'Saves', 'Deliverable Link', 'POC']
+        : ['Creator', 'Platform', 'Followers', 'POC', 'Expected Budget', 'Go-Live Date', 'Profile Link', 'Avg Views', 'Eng Rate %'],
+      rows: crs.filter(c => c.ip_id === camp.ip_id && (kind === 'live' ? c.creator_status !== 'lead' : c.creator_status === 'lead'))
+        .map(c => kind === 'live'
+          ? [c.creator_name, c.platform, num(c.followers), c.content_type || '', c.planned_go_live_date || '', num(c.deal_value), num(c.views), num(c.likes), num(c.comments), num(c.shares), num(c.saves), c.deliverable_link || '', c.poc || '']
+          : [c.creator_name, c.platform, num(c.followers), c.poc || '', num(c.deal_value), c.planned_go_live_date || '', c.profile_link || '', num(c.views), c.views > 0 ? (((num(c.likes) + num(c.comments)) / c.views) * 100).toFixed(2) : '0'])
+    }));
+    try {
+      await fetch('/api/sheets-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ live: build('live'), talks: build('talks') }) });
+    } catch {}
+  };
+
+  const scheduleSheetSync = () => {
+    if (sheetTimer.current) clearTimeout(sheetTimer.current);
+    sheetTimer.current = setTimeout(() => { pushAllSheets(); }, 1500);
   };
 
   const downloadCSV = (filename, rows) => {
@@ -1229,6 +1261,7 @@ export default function InfluencerOS() {
     setEditorsList([]);
     setEditorInput('');
     setCampaignImage('');
+    scheduleSheetSync();
   };
 
   const openCampaignModal = (camp) => {
@@ -1388,6 +1421,7 @@ export default function InfluencerOS() {
       setCreators(prev => prev.map(c => updated.find(x => x.creator_deal_id === c.creator_deal_id) || c));
       setIsCampaignSyncing(false);
     }
+    scheduleSheetSync();
   };
 
   const openCampaignEdit = (e, camp) => {
@@ -1458,6 +1492,7 @@ export default function InfluencerOS() {
     
     setCreatorModalOpen(false);
     setEditingCreator(null);
+    scheduleSheetSync();
   };
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2600); };
@@ -1510,6 +1545,7 @@ export default function InfluencerOS() {
     setLeadAssignPoc('');
     await supabase.from('creators').insert([newC]);
     if (poc) { try { await supabase.from('creators').update({ poc }).eq('creator_deal_id', newC.creator_deal_id); } catch {} }
+    scheduleSheetSync();
     showToast(`Added ${newC.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'} → In-Talks`);
   };
 
@@ -1565,6 +1601,7 @@ export default function InfluencerOS() {
     if ((creator.poc || '') === (poc || '')) return;
     setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, poc } : c));
     await supabase.from('creators').update({ poc }).eq('creator_deal_id', creator.creator_deal_id);
+    scheduleSheetSync();
   };
 
   const confirmLead = async (creator) => {
@@ -1577,6 +1614,7 @@ export default function InfluencerOS() {
     setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, ...update } : c));
     setLeadDrafts(d => { const n = { ...d }; delete n[creator.creator_deal_id]; return n; });
     await supabase.from('creators').update(update).eq('creator_deal_id', creator.creator_deal_id);
+    scheduleSheetSync();
     showToast(`${creator.creator_name} confirmed → moved to Live Creators in ${campaigns.find(c => c.ip_id === creator.ip_id)?.ip_name || 'campaign'}`);
   };
 
@@ -1585,6 +1623,7 @@ export default function InfluencerOS() {
     setCreators(creators.filter(c => c.creator_deal_id !== creator.creator_deal_id));
     setLeadDrafts(d => { const n = { ...d }; delete n[creator.creator_deal_id]; return n; });
     await supabase.from('creators').delete().eq('creator_deal_id', creator.creator_deal_id);
+    scheduleSheetSync();
   };
 
   const requestDelete = (e, type, id, name) => {
@@ -1615,6 +1654,7 @@ export default function InfluencerOS() {
       await supabase.from('bills').delete().eq('creator_deal_id', deletePrompt.id);
     }
     setDeletePrompt({ isOpen: false, type: '', id: '', name: '' });
+    scheduleSheetSync();
   };
 
   const handleAutoSync = async () => {
@@ -1699,6 +1739,7 @@ export default function InfluencerOS() {
 
     setCreators(localCreatorsState);
     setIsCampaignSyncing(false);
+    scheduleSheetSync();
     alert(`Sync complete for this campaign — updated ${successfulSyncs} of ${creatorsWithLinks.length} creator${creatorsWithLinks.length === 1 ? '' : 's'} with live links.`);
   };
 
