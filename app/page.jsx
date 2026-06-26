@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ChevronLeft, ChevronRight, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -650,7 +650,8 @@ export default function InfluencerOS() {
   const [commentBody, setCommentBody] = useState('');
   const [profileCardCreator, setProfileCardCreator] = useState(null);
   const [timelineDay, setTimelineDay] = useState(null);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [fontSize, setFontSize] = useState('medium');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrapeQuery, setScrapeQuery] = useState('');
@@ -788,14 +789,32 @@ export default function InfluencerOS() {
     try {
       const t = localStorage.getItem('ios_theme');
       const f = localStorage.getItem('ios_fontsize');
+      const sb = localStorage.getItem('ios_sidebar');
       if (t === 'light' || t === 'dark') setTheme(t);
       if (f === 'small' || f === 'medium' || f === 'large') setFontSize(f);
+      if (sb === 'collapsed') setSidebarCollapsed(true);
     } catch {}
   }, []);
 
+  // When a user signs in, apply that account's saved theme preference (if any)
   useEffect(() => {
-    try { localStorage.setItem('ios_theme', theme); } catch {}
-  }, [theme]);
+    if (!currentUser) return;
+    try {
+      const t = localStorage.getItem('ios_theme_' + currentUser.email);
+      if (t === 'light' || t === 'dark') setTheme(t);
+    } catch {}
+  }, [currentUser]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ios_theme', theme);
+      if (currentUser) localStorage.setItem('ios_theme_' + currentUser.email, theme);
+    } catch {}
+  }, [theme, currentUser]);
+
+  useEffect(() => {
+    try { localStorage.setItem('ios_sidebar', sidebarCollapsed ? 'collapsed' : 'expanded'); } catch {}
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     const px = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px';
@@ -1939,44 +1958,59 @@ export default function InfluencerOS() {
     const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead');
     campaignCreators.sort((a, b) => new Date(a.planned_go_live_date) - new Date(b.planned_go_live_date));
 
-    return campaignCreators.reduce((acc, creator) => {
+    const groups = campaignCreators.reduce((acc, creator) => {
       const month = creator.planned_go_live_month || 'Unscheduled';
       if (!acc[month]) acc[month] = [];
       acc[month].push(creator);
       return acc;
     }, {});
+
+    // Order groups most-recent month first; keep "Unscheduled" at the bottom.
+    const ordered = {};
+    Object.keys(groups)
+      .sort((a, b) => {
+        if (a === 'Unscheduled') return 1;
+        if (b === 'Unscheduled') return -1;
+        return new Date(groups[b][0].planned_go_live_date) - new Date(groups[a][0].planned_go_live_date);
+      })
+      .forEach(m => { ordered[m] = groups[m]; });
+    return ordered;
   };
 
   const NAV_COLORS = { campaigns: '#6366f1', finance_vs_ops: '#10b981', scraper: '#0ea5e9', payments: '#8b5cf6', reports: '#f43f5e' };
   const NavItem = ({ id, icon: Icon, label }) => {
     const active = activeTab === id && !activeCampaignId;
     const light = theme === 'light';
+    const collapsed = sidebarCollapsed;
+    const pad = collapsed ? 'justify-center px-0 py-3' : 'gap-3 px-4 py-3';
     if (light) {
       const c = NAV_COLORS[id] || '#6366f1';
       return (
         <button
+          title={collapsed ? label : undefined}
           onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
           style={active ? { backgroundColor: c + '14', borderColor: c + '40', color: c } : undefined}
-          className={`group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative border ${active ? 'shadow-[0_1px_2px_rgba(16,24,40,0.05)]' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-black/[0.035]'}`}
+          className={`group w-full flex items-center ${pad} rounded-lg text-sm font-medium transition-all duration-200 relative border ${active ? 'shadow-[0_1px_2px_rgba(16,24,40,0.05)]' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-black/[0.035]'}`}
         >
-          {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full" style={{ backgroundColor: c }}></span>}
+          {active && !collapsed && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full" style={{ backgroundColor: c }}></span>}
           <Icon size={16} style={active ? { color: c } : undefined} className={active ? '' : 'text-stone-400 group-hover:text-stone-700'} />
-          {label}
+          {!collapsed && label}
         </button>
       );
     }
     return (
       <button 
+        title={collapsed ? label : undefined}
         onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
-        className={`group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+        className={`group w-full flex items-center ${pad} rounded-lg text-sm font-medium transition-all duration-200 relative ${
           active
             ? 'bg-orange-500/10 text-orange-200 border border-orange-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_-8px_rgba(249,115,22,0.5)]' 
             : 'text-stone-500 border border-transparent hover:text-stone-300 hover:bg-white/[0.03]'
         }`}
       >
-        {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-orange-500 shadow-[0_0_10px_2px_rgba(249,115,22,0.7)]"></span>}
+        {active && !collapsed && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-orange-500 shadow-[0_0_10px_2px_rgba(249,115,22,0.7)]"></span>}
         <Icon className={active ? 'text-orange-400' : 'text-stone-500 group-hover:text-stone-300'} size={16}/>
-        {label}
+        {!collapsed && label}
       </button>
     );
   };
@@ -2291,6 +2325,8 @@ export default function InfluencerOS() {
         .theme-light [class~="border-orange-500/60"]{border-color:rgba(249,115,22,0.85)!important}
         /* white text -> dark in light mode EXCEPT on filled orange buttons (keep white there) */
         .theme-light [class~="text-white"]:not([class~="bg-orange-500"]):not([class~="bg-orange-400"]){color:#1c1917!important}
+        /* chart hover tooltip (and any /95 dark cards) -> light so text is legible */
+        .theme-light [class~="bg-[#0c0a08]/95"]{background-color:rgba(255,255,255,0.98)!important}
         /* logo recolored to orange */
         .theme-light .app-logo{filter:brightness(0) saturate(100%) invert(52%) sepia(89%) saturate(1746%) hue-rotate(346deg) brightness(101%) contrast(96%)!important}
         /* atom backdrop: shown in light mode (orange variant) */
@@ -2298,14 +2334,24 @@ export default function InfluencerOS() {
         /* login ambient orange/brown glows off in light */
         .theme-light .login-ambient{display:none!important}
       `}</style>
-      <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
-        <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
+      <aside className={`${sidebarCollapsed ? 'w-[68px]' : 'w-64'} border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20 relative transition-[width] duration-200 ease-out`}>
+        {/* pop-out collapse / expand toggle */}
+        <button
+          onClick={() => setSidebarCollapsed(v => !v)}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand' : 'Collapse'}
+          className="absolute top-24 -right-3 z-40 h-6 w-6 rounded-full border border-white/10 bg-[#0c0a08] text-stone-300 hover:text-stone-100 hover:border-white/20 flex items-center justify-center shadow-md transition-colors"
+        >
+          {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
+        </button>
+
+        <div className={`flex items-center mb-10 mt-2 ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="app-logo h-12 w-auto max-w-[170px] object-contain"/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-12 w-auto max-w-[170px]'}`}/>
           ) : (
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
+            <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] shrink-0"></div>
           )}
-          <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>
+          {!sidebarCollapsed && <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>}
         </div>
         <nav className="flex flex-col gap-1.5 flex-1">
           <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
@@ -2601,7 +2647,7 @@ export default function InfluencerOS() {
                 >
                   <ArrowLeft size={16}/> Back to Campaigns
                 </button>
-                <div className="flex justify-between items-end">
+                <div className="sticky top-0 z-30 py-3 bg-[#0a0807]/80 backdrop-blur-md border-b border-white/[0.06] flex justify-between items-end">
                   <div className="flex items-center gap-4">
                     {activeCampaign?.image_url && (
                       <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
@@ -2660,9 +2706,9 @@ export default function InfluencerOS() {
               })()}
 
               {campaignView === 'live' && (
-              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl pb-16">
+              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-auto shadow-xl max-h-[calc(100vh-19rem)]">
                  <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-white/[0.02] text-stone-500 border-b border-white/[0.07]">
+                  <thead className="bg-[#0c0a08] text-stone-500 border-b border-white/[0.07] sticky top-0 z-10">
                     <tr>
                       <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Creator</th>
                       <th className="px-5 py-4 font-medium text-[10px] uppercase tracking-[0.2em]">Deliverable</th>
