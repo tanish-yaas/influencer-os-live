@@ -24,18 +24,18 @@ const ALLOWED_DOMAIN = '';
 
 // Cute, pickable avatars. Gradient class strings are written in full so Tailwind keeps them.
 const AVATARS = [
-  { emoji: '🦊', grad: 'from-orange-400 to-amber-600' },
+  { emoji: '🦊', grad: 'from-[#9a73ff] to-[#6d3fef]' },
   { emoji: '🐰', grad: 'from-rose-300 to-pink-500' },
   { emoji: '🐼', grad: 'from-zinc-300 to-zinc-600' },
-  { emoji: '🐯', grad: 'from-amber-400 to-orange-600' },
-  { emoji: '🦁', grad: 'from-yellow-400 to-amber-600' },
+  { emoji: '🐯', grad: 'from-[#9a73ff] to-[#6d3fef]' },
+  { emoji: '🦁', grad: 'from-yellow-400 to-[#6d3fef]' },
   { emoji: '🐸', grad: 'from-lime-400 to-green-600' },
   { emoji: '🐨', grad: 'from-slate-400 to-slate-600' },
   { emoji: '🐧', grad: 'from-sky-400 to-indigo-600' },
   { emoji: '🦄', grad: 'from-fuchsia-400 to-purple-600' },
-  { emoji: '🐱', grad: 'from-orange-300 to-rose-500' },
-  { emoji: '🦉', grad: 'from-amber-500 to-orange-700' },
-  { emoji: '🐵', grad: 'from-amber-600 to-yellow-800' },
+  { emoji: '🐱', grad: 'from-[#a78bfa] to-rose-500' },
+  { emoji: '🦉', grad: 'from-[#8052ff] to-[#5a2fd6]' },
+  { emoji: '🐵', grad: 'from-[#6d3fef] to-yellow-800' },
 ];
 
 // YAAS logo. For a crisp version you control, drop a file in /public and set LOGO_URL = '/yaas-logo.png'.
@@ -45,7 +45,7 @@ const AvatarBadge = ({ index = 0, size = 40, ring = false }) => {
   const a = AVATARS[index] || AVATARS[0];
   return (
     <div
-      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${ring ? 'outline outline-2 outline-offset-2 outline-orange-500/70' : ''}`}
+      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${ring ? 'outline outline-2 outline-offset-2 outline-[#8052ff]/70' : ''}`}
       style={{ width: size, height: size, fontSize: size * 0.5, lineHeight: 1 }}
     >
       <span>{a.emoji}</span>
@@ -68,8 +68,8 @@ const OrbitalScene = ({ className = '' }) => (
     <defs>
       <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stopColor="#fed7aa" stopOpacity="0.95"/>
-        <stop offset="35%" stopColor="#f97316" stopOpacity="0.55"/>
-        <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+        <stop offset="35%" stopColor="#8052ff" stopOpacity="0.55"/>
+        <stop offset="100%" stopColor="#8052ff" stopOpacity="0"/>
       </radialGradient>
       <radialGradient id="haze" cx="55%" cy="42%" r="62%">
         <stop offset="0%" stopColor="#7c2d12" stopOpacity="0.40"/>
@@ -80,13 +80,13 @@ const OrbitalScene = ({ className = '' }) => (
     <rect width="620" height="840" fill="url(#haze)"/>
 
     {/* circuit traces */}
-    <g stroke="#f97316" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
+    <g stroke="#8052ff" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
       <path d="M40 120 H150 V210 H230"/>
       <path d="M60 700 H180 V610 H300"/>
       <path d="M520 90 V180 H430"/>
       <path d="M560 760 V650 H470 V560"/>
     </g>
-    <g fill="#fb923c" fillOpacity="0.8">
+    <g fill="#9a73ff" fillOpacity="0.8">
       <circle cx="40" cy="120" r="3"/><circle cx="230" cy="210" r="3"/>
       <circle cx="60" cy="700" r="3"/><circle cx="300" cy="610" r="3"/>
       <circle cx="520" cy="90" r="3"/><circle cx="430" cy="180" r="3"/>
@@ -118,24 +118,24 @@ const OrbitalScene = ({ className = '' }) => (
         <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite"/>
       </circle>
 
-      <ellipse rx="210" ry="80" fill="none" stroke="#f97316" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
+      <ellipse rx="210" ry="80" fill="none" stroke="#8052ff" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
       <ellipse rx="250" ry="150" fill="none" stroke="#f59e0b" strokeOpacity="0.12" strokeWidth="1" transform="rotate(14)"/>
 
       <g>
         <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="70s" repeatCount="indefinite"/>
-        <circle r="120" fill="none" stroke="#fb923c" strokeOpacity="0.30" strokeWidth="1.2"/>
-        <circle cx="120" cy="0" r="6" fill="#f97316"/>
-        <circle cx="-120" cy="0" r="4" fill="#fdba74"/>
+        <circle r="120" fill="none" stroke="#9a73ff" strokeOpacity="0.30" strokeWidth="1.2"/>
+        <circle cx="120" cy="0" r="6" fill="#8052ff"/>
+        <circle cx="-120" cy="0" r="4" fill="#c4b5fd"/>
         <circle cx="0" cy="120" r="3" fill="#fbbf24"/>
       </g>
       <g>
         <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/>
-        <circle r="70" fill="none" stroke="#fdba74" strokeOpacity="0.25" strokeWidth="1"/>
+        <circle r="70" fill="none" stroke="#c4b5fd" strokeOpacity="0.25" strokeWidth="1"/>
         <circle cx="70" cy="0" r="4" fill="#f59e0b"/>
-        <circle cx="-70" cy="0" r="3" fill="#fb923c"/>
+        <circle cx="-70" cy="0" r="3" fill="#9a73ff"/>
       </g>
 
-      <circle r="22" fill="#fb923c"/>
+      <circle r="22" fill="#9a73ff"/>
       <circle r="22" fill="none" stroke="#fed7aa" strokeOpacity="0.7" strokeWidth="1.5"/>
       <circle r="9" fill="#fff7ed"/>
     </g>
@@ -272,7 +272,7 @@ const getEmbedInfo = (link) => {
   return { url: '', kind: '' };
 };
 
-const CHART_PALETTE = ['#f97316', '#22d3ee', '#f59e0b', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb7185', '#fbbf24', '#4ade80'];
+const CHART_PALETTE = ['#8052ff', '#ffb829', '#f59e0b', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb7185', '#fbbf24', '#4ade80'];
 
 const ChartPanel = ({ title, children, className = '' }) => (
   <div className={`bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm ${className}`}>
@@ -281,7 +281,7 @@ const ChartPanel = ({ title, children, className = '' }) => (
   </div>
 );
 
-const StatCard = ({ label, value, sub, dot = '#f97316' }) => (
+const StatCard = ({ label, value, sub, dot = '#8052ff' }) => (
   <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-4 backdrop-blur-sm">
     <div className="flex items-center gap-2">
       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot, boxShadow: `0 0 8px ${dot}99` }}></span>
@@ -292,7 +292,7 @@ const StatCard = ({ label, value, sub, dot = '#f97316' }) => (
   </div>
 );
 
-const VBarChart = ({ data = [], color = '#f97316', format = (v) => String(v) }) => {
+const VBarChart = ({ data = [], color = '#8052ff', format = (v) => String(v) }) => {
   if (!data.length) return <div className="h-44 flex items-center justify-center text-sm text-stone-600">No data</div>;
   const max = Math.max(1, ...data.map(d => d.value));
   return (
@@ -311,7 +311,7 @@ const VBarChart = ({ data = [], color = '#f97316', format = (v) => String(v) }) 
   );
 };
 
-const HBarChart = ({ data = [], color = '#22d3ee', format = (v) => String(v) }) => {
+const HBarChart = ({ data = [], color = '#ffb829', format = (v) => String(v) }) => {
   if (!data.length) return <div className="h-44 flex items-center justify-center text-sm text-stone-600">No data</div>;
   const max = Math.max(1, ...data.map(d => d.value));
   return (
@@ -361,7 +361,7 @@ const DonutChart = ({ data = [] }) => {
   );
 };
 
-const TrendChart = ({ data = [], color = '#f97316' }) => {
+const TrendChart = ({ data = [], color = '#8052ff' }) => {
   if (!data.length) return <div className="h-40 flex items-center justify-center text-sm text-stone-600">No data</div>;
   const w = 600, h = 150, top = 12, bot = 12;
   const max = Math.max(1, ...data.map(d => d.value));
@@ -383,7 +383,7 @@ const TrendChart = ({ data = [], color = '#f97316' }) => {
   );
 };
 
-const PLATFORM_COLORS = { instagram: '#ec4899', youtube: '#f97316', facebook: '#3b82f6', tiktok: '#22d3ee', linkedin: '#60a5fa' };
+const PLATFORM_COLORS = { instagram: '#ec4899', youtube: '#ff4d4d', facebook: '#3b82f6', tiktok: '#ffb829', linkedin: '#60a5fa' };
 const getPlatformColor = (p) => PLATFORM_COLORS[(p || '').toLowerCase()] || '#a78bfa';
 
 const fmtDateShort = (d) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); } catch { return d; } };
@@ -426,14 +426,14 @@ const MultiSeriesChart = ({ dates = [], series = [], mode = 'cumulative', format
           {hover != null && (
             <g>
               <line x1={X(hover)} y1={padT} x2={X(hover)} y2={H - padB} stroke="#ffffff" strokeOpacity="0.18" />
-              {plotted.map((s, si) => <circle key={si} cx={X(hover)} cy={Y(s.vals[hover])} r="3.5" fill={s.color} stroke="#0c0a08" strokeWidth="1.5" />)}
+              {plotted.map((s, si) => <circle key={si} cx={X(hover)} cy={Y(s.vals[hover])} r="3.5" fill={s.color} stroke="#0b0b0f" strokeWidth="1.5" />)}
             </g>
           )}
           {dates.map((d, i) => (i % labelStep === 0 || i === n - 1) ? <text key={i} x={X(i)} y={H - 8} textAnchor="middle" fontSize="10" fill="#78716c">{fmtDateShort(d)}</text> : null)}
         </svg>
       </div>
       {hover != null && (
-        <div className="absolute top-9 right-2 bg-[#0c0a08]/95 border border-white/10 rounded-lg shadow-2xl p-3 text-xs pointer-events-none z-10 min-w-[150px]">
+        <div className="absolute top-9 right-2 bg-[#0b0b0f]/95 border border-white/10 rounded-lg shadow-2xl p-3 text-xs pointer-events-none z-10 min-w-[150px]">
           <p className="font-semibold text-stone-200 mb-1.5">{fmtDateFull(dates[hover])}</p>
           {plotted.map((s, si) => (<div key={si} className="flex items-center gap-2"><span className="w-2 h-2 rounded-sm" style={{ background: s.color }}></span><span className="text-stone-400">{s.name}</span><span className="ml-auto pl-3 text-stone-200 tabular-nums">{format(s.vals[hover])}</span></div>))}
         </div>
@@ -472,10 +472,10 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
     const left = Math.max(8, Math.min(hover.x - TW / 2, cw - TW - 8));
     const below = hover.y < 160;
     tip = (
-      <div className="pointer-events-none absolute z-50 bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl p-3.5 text-left" style={{ left, width: TW, top: below ? hover.y + 18 : hover.y - 14, transform: below ? 'none' : 'translateY(-100%)' }}>
+      <div className="pointer-events-none absolute z-50 bg-[#0b0b0f] border border-white/10 rounded-xl shadow-2xl p-3.5 text-left" style={{ left, width: TW, top: below ? hover.y + 18 : hover.y - 14, transform: below ? 'none' : 'translateY(-100%)' }}>
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-stone-100">{fmtDateFull(it.date)}</p>
-          <span className="text-[10px] uppercase tracking-wider text-orange-300 bg-orange-500/15 border border-orange-500/25 rounded px-1.5 py-0.5">{totals[hover.i]} post{totals[hover.i] === 1 ? '' : 's'}</span>
+          <span className="text-[10px] uppercase tracking-wider text-[#a78bfa] bg-[#8052ff]/15 border border-[#8052ff]/25 rounded px-1.5 py-0.5">{totals[hover.i]} post{totals[hover.i] === 1 ? '' : 's'}</span>
         </div>
         <div className="grid grid-cols-2 gap-1.5 mb-2.5">
           {Object.entries(it.platforms).map(([p, cnt], k) => (
@@ -490,7 +490,7 @@ const StackedBarTimeline = ({ items = [], onSelectDay = () => {} }) => {
           {it.names.slice(0, 8).map((nm, j) => (<p key={j} className="text-[11px] text-stone-400 truncate">• {nm}</p>))}
           {it.names.length > 8 && <p className="text-[10px] text-stone-600 pl-2">+{it.names.length - 8} more</p>}
         </div>
-        <p className="text-[10px] text-orange-400/80 mt-2 flex items-center gap-1">Click the bar to open links →</p>
+        <p className="text-[10px] text-[#9a73ff]/80 mt-2 flex items-center gap-1">Click the bar to open links →</p>
       </div>
     );
   }
@@ -1323,7 +1323,7 @@ export default function InfluencerOS() {
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(camp)} Report</title><style>
       *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c1917;margin:32px;}
       h1{font-size:22px;margin:0 0 2px}.sub{color:#78716c;font-size:13px;margin-bottom:20px}
-      .brand{display:flex;align-items:center;gap:8px;margin-bottom:16px}.dot{width:14px;height:14px;border-radius:4px;background:#f97316}
+      .brand{display:flex;align-items:center;gap:8px;margin-bottom:16px}.dot{width:14px;height:14px;border-radius:4px;background:#8052ff}
       .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}
       .card{border:1px solid #e7e5e4;border-radius:10px;padding:12px}.k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}.v{font-size:18px;font-weight:600;margin-top:4px}
       h2{font-size:14px;margin:18px 0 8px}table{width:100%;border-collapse:collapse;font-size:11px}
@@ -1406,7 +1406,7 @@ export default function InfluencerOS() {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#0c0a08';
+        ctx.fillStyle = '#0b0b0f';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         setCampaignImage(canvas.toDataURL('image/jpeg', 0.82));
@@ -1885,28 +1885,28 @@ export default function InfluencerOS() {
             return (
               <tr key={c.creator_deal_id} className="hover:bg-white/[0.02] transition-colors">
                 <td className="px-5 py-3">
-                  <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                  <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-[#a78bfa] transition-colors text-left">{c.creator_name}</button>
                   <p className="text-xs text-stone-500 tabular-nums">{formatNumber(c.followers)} followers</p>
                 </td>
                 <td className="px-4 py-3 text-xs text-stone-400 tabular-nums whitespace-nowrap">
                   {formatNumber(c.views || 0)} views · {c.views > 0 ? (((c.likes || 0) + (c.comments || 0)) / c.views * 100).toFixed(1) : '0.0'}% ER
                 </td>
                 <td className="px-4 py-3">
-                  <input type="text" list="poc-options" defaultValue={draft.poc} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { poc: e.target.value })} onBlur={(e) => persistPOC(c, e.target.value)} placeholder="Assign…" className="w-28 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                  <input type="text" list="poc-options" defaultValue={draft.poc} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { poc: e.target.value })} onBlur={(e) => persistPOC(c, e.target.value)} placeholder="Assign…" className="w-28 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-[#8052ff]/70 disabled:opacity-60" />
                 </td>
                 <td className="px-4 py-3">
                   <div className="relative w-28">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 text-sm">₹</span>
-                    <input type="number" value={draft.budget} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { budget: e.target.value })} placeholder="0" className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60" />
+                    <input type="number" value={draft.budget} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { budget: e.target.value })} placeholder="0" className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-[#8052ff]/70 disabled:opacity-60" />
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <input type="date" value={draft.date} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { date: e.target.value })} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-orange-500/70 disabled:opacity-60 [color-scheme:dark]" />
+                  <input type="date" value={draft.date} disabled={!canManage} onChange={(e) => setLeadDraft(c.creator_deal_id, { date: e.target.value })} className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-xs text-stone-200 focus:outline-none focus:border-[#8052ff]/70 disabled:opacity-60 [color-scheme:dark]" />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openComments(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Comments"><MessageSquare size={15}/></button>
-                    {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-orange-400 transition-colors p-1" title="Edit"><Edit2 size={15}/></button>}
+                    <button onClick={() => openComments(c)} className="text-stone-500 hover:text-[#9a73ff] transition-colors p-1" title="Comments"><MessageSquare size={15}/></button>
+                    {canManage && <button onClick={() => editFromTimeline(c)} className="text-stone-500 hover:text-[#9a73ff] transition-colors p-1" title="Edit"><Edit2 size={15}/></button>}
                     {canManage && <button onClick={() => confirmLead(c)} className="w-7 h-7 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 flex items-center justify-center transition-colors" title="Confirm → move to Live Creators"><Check size={15}/></button>}
                     {canManage && <button onClick={() => rejectLead(c)} className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Reject lead"><X size={15}/></button>}
                   </div>
@@ -1938,12 +1938,12 @@ export default function InfluencerOS() {
         onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
         className={`group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
           active
-            ? 'bg-orange-500/10 text-orange-200 border border-orange-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_-8px_rgba(249,115,22,0.5)]' 
+            ? 'bg-[#8052ff]/10 text-[#c4b5fd] border border-[#8052ff]/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_-8px_rgba(128,82,255,0.5)]' 
             : 'text-stone-500 border border-transparent hover:text-stone-300 hover:bg-white/[0.03]'
         }`}
       >
-        {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-orange-500 shadow-[0_0_10px_2px_rgba(249,115,22,0.7)]"></span>}
-        <Icon className={active ? 'text-orange-400' : 'text-stone-500 group-hover:text-stone-300'} size={16}/>
+        {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-[#8052ff] shadow-[0_0_10px_2px_rgba(128,82,255,0.7)]"></span>}
+        <Icon className={active ? 'text-[#9a73ff]' : 'text-stone-500 group-hover:text-stone-300'} size={16}/>
         {label}
       </button>
     );
@@ -1957,11 +1957,11 @@ export default function InfluencerOS() {
           key={i}
           type="button"
           onClick={() => setProfileAvatar(i)}
-          className={`relative aspect-square rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center text-xl transition-transform hover:scale-105 ${profileAvatar === i ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0c0a08]' : 'opacity-70 hover:opacity-100'}`}
+          className={`relative aspect-square rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center text-xl transition-transform hover:scale-105 ${profileAvatar === i ? 'ring-2 ring-[#8052ff] ring-offset-2 ring-offset-[#0b0b0f]' : 'opacity-70 hover:opacity-100'}`}
         >
           <span>{a.emoji}</span>
           {profileAvatar === i && (
-            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#8052ff] flex items-center justify-center shadow-lg">
               <Check size={12} className="text-white"/>
             </span>
           )}
@@ -1984,8 +1984,8 @@ export default function InfluencerOS() {
 
   if (!isMounted || !authChecked) {
     return (
-      <div className="h-screen w-full bg-[#0a0807] flex items-center justify-center">
-        <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_24px_rgba(249,115,22,0.6)] animate-pulse"></div>
+      <div className="h-screen w-full bg-[#050507] flex items-center justify-center">
+        <div className="w-8 h-8 rounded bg-gradient-to-br from-[#8052ff] to-[#6d3fef] shadow-[0_0_24px_rgba(128,82,255,0.6)] animate-pulse"></div>
       </div>
     );
   }
@@ -1993,16 +1993,16 @@ export default function InfluencerOS() {
   // ============ LOGIN SCREEN ============
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden">
+      <div className="flex min-h-screen bg-[#000000] font-sans text-stone-200 selection:bg-[#8052ff]/30 relative overflow-hidden">
         {/* Ambient techy backdrop across the whole screen */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(128,82,255,0.20),_transparent_45%)]"></div>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
         <div className="pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
 
         {/* Left visual panel */}
         <div className="hidden lg:flex relative w-[52%] overflow-hidden">
           {/* glowing seam */}
-          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)] z-20"></div>
+          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#8052ff]/60 to-transparent shadow-[0_0_18px_2px_rgba(128,82,255,0.45)] z-20"></div>
 
           {/* cool tech illustration filling the panel */}
           <OrbitalScene className="absolute inset-0 w-full h-full" />
@@ -2015,15 +2015,15 @@ export default function InfluencerOS() {
                   src={LOGO_URL}
                   alt="YAAS"
                   onError={() => setLogoError(true)}
-                  className="h-10 w-auto max-w-[160px] object-contain"
+                  className="h-16 w-auto max-w-[260px] object-contain"
                 />
               ) : (
-                <div className="h-10 px-3 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] flex items-center font-bold tracking-tight text-white">YAAS</div>
+                <div className="h-16 px-5 rounded-md bg-gradient-to-br from-[#8052ff] to-[#9a73ff] shadow-[0_0_14px_rgba(128,82,255,0.6)] flex items-center text-2xl font-bold tracking-tight text-white">YAAS</div>
               )}
               <div className="h-7 w-px bg-white/15"></div>
               <div className="leading-tight">
                 <p className="font-semibold tracking-tight text-stone-100">Influencer OS</p>
-                <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-orange-400/80">YAAS Influencer Dashboard</p>
+                <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#9a73ff]/80">YAAS Influencer Dashboard</p>
               </div>
             </div>
 
@@ -2036,13 +2036,13 @@ export default function InfluencerOS() {
         {/* Right sign-in panel */}
         <div className="relative flex-1 flex items-center">
           <div className="relative z-10 w-full max-w-xl px-10 md:px-16 py-12">
-            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/[0.06] backdrop-blur-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_2px_rgba(249,115,22,0.8)]"></span>
-              <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-orange-300">YAAS // Influencer OS</span>
+            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-[#8052ff]/30 bg-[#8052ff]/[0.06] backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8052ff] shadow-[0_0_8px_2px_rgba(128,82,255,0.8)]"></span>
+              <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#a78bfa]">YAAS // Influencer OS</span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.9] text-white uppercase [text-shadow:0_0_40px_rgba(249,115,22,0.35)]">
-              Centralized<br/>Creator<br/><span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Hub</span>
+            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.9] text-white uppercase [text-shadow:0_0_40px_rgba(128,82,255,0.35)]">
+              Centralized<br/>Creator<br/><span className="bg-gradient-to-r from-[#9a73ff] to-[#9a73ff] bg-clip-text text-transparent">Hub</span>
             </h1>
 
             <p className="text-stone-400 text-base md:text-lg leading-relaxed mt-8 max-w-md">
@@ -2064,7 +2064,7 @@ export default function InfluencerOS() {
 
                 <button
                   onClick={() => { setLoginMode('admin'); setLoginError(''); }}
-                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-orange-300 text-sm font-medium transition-colors"
+                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-[#a78bfa] text-sm font-medium transition-colors"
                 >
                   <Shield size={15}/> Sign in as admin
                 </button>
@@ -2085,7 +2085,7 @@ export default function InfluencerOS() {
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
                       placeholder="admin@yaas"
-                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70 backdrop-blur-sm transition-colors"
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#8052ff]/70 backdrop-blur-sm transition-colors"
                       required
                     />
                   </div>
@@ -2098,14 +2098,14 @@ export default function InfluencerOS() {
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70 backdrop-blur-sm transition-colors"
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-3 py-3.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#8052ff]/70 backdrop-blur-sm transition-colors"
                       required
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-colors shadow-[0_0_30px_-8px_rgba(249,115,22,0.8)]"
+                    className="w-full flex items-center justify-center gap-2 bg-[#8052ff] hover:bg-[#9a73ff] text-white font-semibold text-sm tracking-wide uppercase py-4 rounded-xl transition-colors shadow-[0_0_30px_-8px_rgba(128,82,255,0.8)]"
                   >
                     <Shield size={16}/> Sign in as admin
                   </button>
@@ -2113,7 +2113,7 @@ export default function InfluencerOS() {
 
                 <button
                   onClick={() => { setLoginMode('google'); setLoginError(''); }}
-                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-orange-300 text-sm font-medium transition-colors"
+                  className="mt-5 inline-flex items-center gap-2 text-stone-500 hover:text-[#a78bfa] text-sm font-medium transition-colors"
                 >
                   <ArrowLeft size={15}/> Back to Google sign-in
                 </button>
@@ -2121,7 +2121,7 @@ export default function InfluencerOS() {
             )}
 
             {loginError && (
-              <div className="mt-6 max-w-md flex items-start gap-2 text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
+              <div className="mt-6 max-w-md flex items-start gap-2 text-[#c4b5fd] bg-[#8052ff]/[0.08] border border-[#8052ff]/30 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
                 <AlertCircle size={16} className="mt-0.5 shrink-0"/> <span>{loginError}</span>
               </div>
             )}
@@ -2138,19 +2138,19 @@ export default function InfluencerOS() {
   // ============ PROFILE SETUP (no profile yet) ============
   if (!profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0807] font-sans text-stone-200 selection:bg-orange-500/30 p-4">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-700/15 via-[#0a0807] to-[#0a0807]"></div>
+      <div className="flex min-h-screen items-center justify-center bg-[#050507] font-sans text-stone-200 selection:bg-[#8052ff]/30 p-4">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#5a2fd6]/15 via-[#050507] to-[#050507]"></div>
         <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" />
 
         <div className="relative w-full max-w-lg p-8 bg-white/[0.03] border border-white/[0.08] rounded-2xl shadow-2xl backdrop-blur-2xl">
-          <div className="flex items-center gap-2 mb-2 text-orange-400">
+          <div className="flex items-center gap-2 mb-2 text-[#9a73ff]">
             <Sparkles size={16}/>
             <span className="text-[11px] uppercase tracking-[0.2em] font-semibold">Set up your profile</span>
           </div>
           <h1 className="text-2xl font-bold text-stone-100 tracking-tight">Make it yours</h1>
           <p className="text-sm text-stone-500 mt-1">
             Signed in as <span className="text-stone-300">{currentUser.email}</span>
-            {currentUser.isAdmin && <span className="ml-2 inline-flex items-center gap-1 text-orange-300 text-xs"><Shield size={12}/> Admin</span>}
+            {currentUser.isAdmin && <span className="ml-2 inline-flex items-center gap-1 text-[#a78bfa] text-xs"><Shield size={12}/> Admin</span>}
           </p>
 
           <div className="mt-7 flex items-center gap-4">
@@ -2160,7 +2160,7 @@ export default function InfluencerOS() {
               <input
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                 placeholder="e.g. Tanya R."
               />
             </div>
@@ -2171,7 +2171,7 @@ export default function InfluencerOS() {
             <input
               value={profileTitle}
               onChange={(e) => setProfileTitle(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+              className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
               placeholder="e.g. Account Manager"
             />
           </div>
@@ -2185,7 +2185,7 @@ export default function InfluencerOS() {
             <button onClick={handleLogout} className="text-sm text-stone-500 hover:text-stone-300 transition-colors">Not you? Sign out</button>
             <button
               onClick={saveProfile}
-              className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
+              className="px-6 py-2.5 bg-[#8052ff] hover:bg-[#9a73ff] text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]"
             >
               Create profile
             </button>
@@ -2197,14 +2197,21 @@ export default function InfluencerOS() {
 
   // ============ MAIN APP ============
   return (
-    <div className={`flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30 ${theme === 'light' ? 'theme-light' : ''}`}>
+    <div className={`ios-root flex h-screen bg-black font-sans text-stone-300 selection:bg-[#8052ff]/30 ${theme === 'light' ? 'theme-light' : ''}`}>
       <style>{`
-        .theme-light [class~="bg-[#0a0807]"]{background-color:#f4f2ef!important}
-        .theme-light [class~="bg-[#0c0a08]"]{background-color:#ffffff!important}
-        .theme-light [class~="bg-[#070605]"]{background-color:#ece9e5!important}
+        :root{--font-acronym:'Acronym',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}
+        .ios-root, .ios-root input, .ios-root button, .ios-root select, .ios-root textarea{font-family:var(--font-acronym);}
+        .ios-root [class~="rounded-md"]{border-radius:12px}
+        .ios-root [class~="rounded-lg"]{border-radius:14px}
+        .ios-root [class~="rounded-xl"]{border-radius:18px}
+        .ios-root [class~="rounded-2xl"]{border-radius:24px}
+        .ios-root [class~="font-mono"]{font-family:var(--font-acronym);letter-spacing:0.04em}
+        .theme-light [class~="bg-[#050507]"]{background-color:#f4f2ef!important}
+        .theme-light [class~="bg-[#0b0b0f]"]{background-color:#ffffff!important}
+        .theme-light [class~="bg-[#000000]"]{background-color:#ece9e5!important}
         .theme-light main{background-color:#f4f2ef!important;background-image:none!important}
         .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:#f4f2ef!important}
-        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(244,242,239,0.88)!important}
+        .theme-light [class~="bg-[#050507]/80"]{background-color:rgba(244,242,239,0.88)!important}
         .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:#ffffff!important}
         .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#f0ebe5!important}
         .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e6e0d9!important}
@@ -2218,12 +2225,12 @@ export default function InfluencerOS() {
         .theme-light [class~="text-stone-500"]{color:#78716c!important}
         .theme-light [class~="text-stone-600"]{color:#a8a29e!important}
       `}</style>
-      <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
-        <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
+      <aside className="w-64 border-r border-white/[0.06] bg-[#050507] flex flex-col p-4 z-20">
+        <div className="flex items-center gap-2.5 mb-10 px-1 mt-2">
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-7 w-auto max-w-[92px] object-contain"/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-12 w-auto max-w-[150px] object-contain"/>
           ) : (
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
+            <div className="w-10 h-10 rounded bg-gradient-to-br from-[#8052ff] to-[#9a73ff] shadow-[0_0_14px_rgba(128,82,255,0.6)]"></div>
           )}
           <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>
         </div>
@@ -2238,11 +2245,11 @@ export default function InfluencerOS() {
         </nav>
       </aside>
 
-      <main className="relative flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
+      <main className="relative flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#2e1a66]/15 via-[#050507] to-[#050507]">
         {/* faint animated orbital backdrop */}
         <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
         
-        <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-30 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
+        <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#050507]/80 z-30 sticky top-0 shadow-[0_1px_0_rgba(128,82,255,0.08)]">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-medium text-stone-100 tracking-tight capitalize">
               {activeCampaignId ? 'Campaign Workspace' : activeTab.replace(/_/g, ' ')}
@@ -2255,10 +2262,10 @@ export default function InfluencerOS() {
                   <select 
                     value={targetMonth}
                     onChange={(e) => setTargetMonth(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-orange-400 outline-none cursor-pointer pr-2"
+                    className="bg-transparent text-sm font-medium text-[#9a73ff] outline-none cursor-pointer pr-2"
                   >
                     {ALL_MONTHS.map(m => (
-                      <option key={m} value={m} className="bg-[#0a0807] text-stone-200">{m} 2026</option>
+                      <option key={m} value={m} className="bg-[#050507] text-stone-200">{m} 2026</option>
                     ))}
                   </select>
                 </div>
@@ -2275,7 +2282,7 @@ export default function InfluencerOS() {
                 }
               }}
             >
-              <div className={`flex items-center bg-white/[0.03] border ${isSearchFocused ? 'border-orange-500/70' : 'border-white/[0.08]'} rounded-md px-3 py-1.5 transition-colors`}>
+              <div className={`flex items-center bg-white/[0.03] border ${isSearchFocused ? 'border-[#8052ff]/70' : 'border-white/[0.08]'} rounded-md px-3 py-1.5 transition-colors`}>
                 <Search className="text-stone-500" size={16}/>
                 <input 
                   type="text"
@@ -2288,7 +2295,7 @@ export default function InfluencerOS() {
               </div>
 
               {isSearchFocused && searchQuery.trim() !== '' && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-[#0c0a08] border border-white/[0.08] rounded-lg shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
+                <div className="absolute top-full right-0 mt-2 w-80 bg-[#0b0b0f] border border-white/[0.08] rounded-lg shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
                   <div className="max-h-80 overflow-y-auto">
                     {searchResults.campaigns.length > 0 && (
                       <div className="p-2">
@@ -2299,7 +2306,7 @@ export default function InfluencerOS() {
                             onMouseDown={() => handleSearchResultClick('campaign', camp)}
                             className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                           >
-                            <FolderKanban className="text-orange-400" size={14}/>
+                            <FolderKanban className="text-[#9a73ff]" size={14}/>
                             <div>
                               <p className="text-sm font-medium text-stone-200">{camp.ip_name}</p>
                               <p className="text-xs text-stone-500">Owner: {camp.owner}</p>
@@ -2320,7 +2327,7 @@ export default function InfluencerOS() {
                               onMouseDown={() => handleSearchResultClick('creator', creator)}
                               className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                             >
-                              <Users className="text-cyan-400" size={14}/>
+                              <Users className="text-[#ffb829]" size={14}/>
                               <div>
                                 <p className="text-sm font-medium text-stone-200">{creator.creator_name}</p>
                                 <p className="text-xs text-stone-500">in {parentCamp?.ip_name || 'Campaign'}</p>
@@ -2360,13 +2367,13 @@ export default function InfluencerOS() {
               {profileMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)}></div>
-                  <div className="absolute top-full right-0 mt-2 w-64 bg-[#0c0a08] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
+                  <div className="absolute top-full right-0 mt-2 w-64 bg-[#0b0b0f] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
                     <div className="p-4 flex items-center gap-3 border-b border-white/[0.06]">
                       <AvatarBadge index={profile.avatar_index ?? 0} size={42}/>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-stone-100 truncate flex items-center gap-1.5">
                           {profile.display_name}
-                          {profile.is_admin && <Shield size={12} className="text-orange-400"/>}
+                          {profile.is_admin && <Shield size={12} className="text-[#9a73ff]"/>}
                         </p>
                         <p className="text-xs text-stone-500 truncate">{profile.title || currentUser.email}</p>
                       </div>
@@ -2400,7 +2407,7 @@ export default function InfluencerOS() {
                   {selectedCampaigns.length > 0 && (
                     <button 
                       onClick={handleExportCampaigns}
-                      className="text-xs flex items-center gap-1.5 bg-orange-500/15 text-orange-300 px-3 py-1.5 rounded-full border border-orange-500/30 hover:bg-orange-500/25 transition-colors"
+                      className="text-xs flex items-center gap-1.5 bg-[#8052ff]/15 text-[#a78bfa] px-3 py-1.5 rounded-full border border-[#8052ff]/30 hover:bg-[#8052ff]/25 transition-colors"
                     >
                       <Download size={12}/> Export Selected ({selectedCampaigns.length})
                     </button>
@@ -2417,7 +2424,7 @@ export default function InfluencerOS() {
                   {isAdmin && (
                   <button 
                     onClick={() => openCampaignModal(null)}
-                    className="bg-orange-500 text-white hover:bg-orange-400 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
+                    className="bg-[#8052ff] text-white hover:bg-[#9a73ff] px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]"
                   >
                     <Plus size={16}/> New Campaign
                   </button>
@@ -2426,7 +2433,7 @@ export default function InfluencerOS() {
               </div>
 
               {importError && !importModalOpen && (
-                <div className="flex items-center gap-2 text-sm text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-2.5 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-[#c4b5fd] bg-[#8052ff]/[0.08] border border-[#8052ff]/30 px-4 py-2.5 rounded-lg">
                   <AlertCircle size={16}/> {importError}
                 </div>
               )}
@@ -2450,14 +2457,14 @@ export default function InfluencerOS() {
                     <div 
                       key={camp.ip_id} 
                       onClick={() => setActiveCampaignId(camp.ip_id)}
-                      className={`bg-white/[0.025] border p-5 rounded-xl transition-all cursor-pointer group flex flex-col relative overflow-hidden backdrop-blur-sm ${isSelected ? 'border-orange-500/50 shadow-[0_0_24px_-6px_rgba(249,115,22,0.45)]' : 'border-white/[0.07] hover:border-orange-500/30 hover:shadow-[0_0_24px_-10px_rgba(249,115,22,0.4)]'}`}
+                      className={`bg-white/[0.025] border p-5 rounded-xl transition-all cursor-pointer group flex flex-col relative overflow-hidden backdrop-blur-sm ${isSelected ? 'border-[#8052ff]/50 shadow-[0_0_24px_-6px_rgba(128,82,255,0.45)]' : 'border-white/[0.07] hover:border-[#8052ff]/30 hover:shadow-[0_0_24px_-10px_rgba(128,82,255,0.4)]'}`}
                     >
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedCampaigns(prev => prev.includes(camp.ip_id) ? prev.filter(id => id !== camp.ip_id) : [...prev, camp.ip_id]);
                         }}
-                        className={`absolute top-4 left-4 z-10 p-1 rounded-md transition-opacity ${isSelected ? 'opacity-100 text-orange-400' : 'opacity-0 group-hover:opacity-100 text-stone-500 hover:text-stone-300'}`}
+                        className={`absolute top-4 left-4 z-10 p-1 rounded-md transition-opacity ${isSelected ? 'opacity-100 text-[#9a73ff]' : 'opacity-0 group-hover:opacity-100 text-stone-500 hover:text-stone-300'}`}
                       >
                         {isSelected ? <CheckSquare size={20}/> : <Square size={20}/>}
                       </button>
@@ -2471,11 +2478,11 @@ export default function InfluencerOS() {
 
                       <div className="flex justify-between items-start mb-4 pl-8">
                         {camp.image_url ? (
-                          <div className="w-10 h-10 rounded overflow-hidden border border-white/[0.06] group-hover:border-orange-500/30 transition-colors">
+                          <div className="w-10 h-10 rounded overflow-hidden border border-white/[0.06] group-hover:border-[#8052ff]/30 transition-colors">
                             <img src={camp.image_url} alt="" className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-orange-400 group-hover:border-orange-500/30 transition-colors">
+                          <div className="w-10 h-10 rounded bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-stone-400 group-hover:text-[#9a73ff] group-hover:border-[#8052ff]/30 transition-colors">
                             <FolderKanban size={20}/>
                           </div>
                         )}
@@ -2497,12 +2504,12 @@ export default function InfluencerOS() {
                       <div className="mt-4 flex items-center gap-4 bg-black/40 rounded-lg p-2.5 border border-white/[0.06]">
                         <div className="flex-1">
                           <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] mb-0.5">Avg CPV</p>
-                          <p className="text-xs font-semibold text-orange-400 tabular-nums">{formatMicroMoney(campCpv)}</p>
+                          <p className="text-xs font-semibold text-[#9a73ff] tabular-nums">{formatMicroMoney(campCpv)}</p>
                         </div>
                         <div className="w-px h-6 bg-white/10"></div>
                         <div className="flex-1">
                           <p className="text-[10px] text-stone-500 uppercase tracking-[0.2em] mb-0.5">Avg CPE</p>
-                          <p className="text-xs font-semibold text-cyan-400 tabular-nums">{formatMicroMoney(campCpe)}</p>
+                          <p className="text-xs font-semibold text-[#ffb829] tabular-nums">{formatMicroMoney(campCpe)}</p>
                         </div>
                       </div>
                     </div>
@@ -2542,7 +2549,7 @@ export default function InfluencerOS() {
                       disabled={isCampaignSyncing}
                       className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
                     >
-                      <RefreshCw className={isCampaignSyncing ? "animate-spin text-orange-400" : "text-orange-400"} size={16}/>
+                      <RefreshCw className={isCampaignSyncing ? "animate-spin text-[#9a73ff]" : "text-[#9a73ff]"} size={16}/>
                       {isCampaignSyncing ? "Syncing Campaign..." : "Sync Metrics"}
                     </button>
                     )}
@@ -2555,7 +2562,7 @@ export default function InfluencerOS() {
                     {canManageActive ? (
                     <button 
                       onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }}
-                      className="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
+                      className="bg-[#8052ff] hover:bg-[#9a73ff] text-white px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]"
                     >
                       <Plus size={16}/> Book Creator
                     </button>
@@ -2573,14 +2580,14 @@ export default function InfluencerOS() {
                 const talkCount = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead').length;
                 return (
                   <div className="flex items-center rounded-lg border border-white/10 overflow-hidden w-fit">
-                    <button onClick={() => setCampaignView('live')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${campaignView === 'live' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Live Creators <span className="text-xs opacity-70">({liveCount})</span></button>
-                    <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
+                    <button onClick={() => setCampaignView('live')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${campaignView === 'live' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Live Creators <span className="text-xs opacity-70">({liveCount})</span></button>
+                    <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
                   </div>
                 );
               })()}
 
               {campaignView === 'live' && (
-              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl pb-16">
+              <div className="bg-[#0b0b0f] rounded-xl border border-white/[0.07] overflow-x-auto shadow-xl pb-16">
                  <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-white/[0.02] text-stone-500 border-b border-white/[0.07]">
                     <tr>
@@ -2604,9 +2611,9 @@ export default function InfluencerOS() {
                       {Object.entries(getGroupedCreators()).map(([month, monthCreators]) => {
                         return (
                           <React.Fragment key={month}>
-                            <tr className="bg-orange-500/[0.04]">
-                              <td colSpan="8" className="px-5 py-2.5 border-l-2 border-orange-500/60">
-                                <div className="flex justify-between items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300/80">
+                            <tr className="bg-[#8052ff]/[0.04]">
+                              <td colSpan="8" className="px-5 py-2.5 border-l-2 border-[#8052ff]/60">
+                                <div className="flex justify-between items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-[#a78bfa]/80">
                                   <span>{month} Delivery Target</span>
                                 </div>
                               </td>
@@ -2621,10 +2628,10 @@ export default function InfluencerOS() {
                                   <td className="px-5 py-4">
                                     <div className="flex flex-col">
                                       <div className="flex items-center gap-1.5">
-                                        <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left">{c.creator_name}</button>
+                                        <button onClick={() => setProfileCardCreator(c)} className="font-medium text-stone-200 hover:text-[#a78bfa] transition-colors text-left">{c.creator_name}</button>
                                         <span className="relative group/info inline-flex">
-                                          <Info size={13} className="text-stone-500 hover:text-orange-400 cursor-help"/>
-                                          <div className="pointer-events-none absolute left-0 top-full mt-2 w-56 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-150 z-50 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl p-3">
+                                          <Info size={13} className="text-stone-500 hover:text-[#9a73ff] cursor-help"/>
+                                          <div className="pointer-events-none absolute left-0 top-full mt-2 w-56 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-150 z-50 bg-[#0b0b0f] border border-white/10 rounded-lg shadow-2xl p-3">
                                             <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2">Engagement breakdown</p>
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                                               <div className="flex justify-between"><span className="text-stone-500">Likes</span><span className="text-stone-200 tabular-nums">{formatNumber(c.likes || 0)}</span></div>
@@ -2634,8 +2641,8 @@ export default function InfluencerOS() {
                                             </div>
                                             <div className="border-t border-white/10 mt-2 pt-2 space-y-1.5 text-xs">
                                               <div className="flex justify-between"><span className="text-stone-500">Total engagement</span><span className="text-stone-200 tabular-nums">{formatNumber(metrics.engagement)}</span></div>
-                                              <div className="flex justify-between"><span className="text-stone-500">Eng. rate</span><span className="text-orange-300 tabular-nums">{c.views > 0 ? ((metrics.engagement / c.views) * 100).toFixed(1) : '0.0'}%</span></div>
-                                              <div className="flex justify-between"><span className="text-stone-500">CPV / CPE</span><span className="text-cyan-300 tabular-nums">{formatMicroMoney(metrics.cpv)} / {formatMicroMoney(metrics.cpe)}</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">Eng. rate</span><span className="text-[#a78bfa] tabular-nums">{c.views > 0 ? ((metrics.engagement / c.views) * 100).toFixed(1) : '0.0'}%</span></div>
+                                              <div className="flex justify-between"><span className="text-stone-500">CPV / CPE</span><span className="text-[#ffd27a] tabular-nums">{formatMicroMoney(metrics.cpv)} / {formatMicroMoney(metrics.cpe)}</span></div>
                                             </div>
                                           </div>
                                         </span>
@@ -2648,7 +2655,7 @@ export default function InfluencerOS() {
                                     <div className="flex flex-col">
                                       <span className="text-stone-300">{c.content_type}</span>
                                       {c.deliverable_link ? (
-                                        <a href={c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`} target="_blank" rel="noreferrer" className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 mt-1">
+                                        <a href={c.deliverable_link.startsWith('http') ? c.deliverable_link : `https://${c.deliverable_link}`} target="_blank" rel="noreferrer" className="text-xs text-[#9a73ff] hover:text-[#a78bfa] flex items-center gap-1 mt-1">
                                           <LinkIcon size={12}/> View Live Post
                                         </a>
                                       ) : (
@@ -2668,8 +2675,8 @@ export default function InfluencerOS() {
 
                                   <td className="px-5 py-4">
                                      <div className="flex flex-col gap-1">
-                                      <span className="text-orange-400 font-medium tabular-nums">{formatMicroMoney(metrics.cpv)} <span className="text-stone-600 text-xs font-normal">CPV</span></span>
-                                      <span className="text-cyan-400 text-xs font-medium tabular-nums">{formatMicroMoney(metrics.cpe)} <span className="text-stone-600 font-normal">CPE</span></span>
+                                      <span className="text-[#9a73ff] font-medium tabular-nums">{formatMicroMoney(metrics.cpv)} <span className="text-stone-600 text-xs font-normal">CPV</span></span>
+                                      <span className="text-[#ffb829] text-xs font-medium tabular-nums">{formatMicroMoney(metrics.cpe)} <span className="text-stone-600 font-normal">CPE</span></span>
                                     </div>
                                   </td>
 
@@ -2691,16 +2698,16 @@ export default function InfluencerOS() {
                                       <button
                                         onClick={() => openComments(c)}
                                         title="Comments"
-                                        className={`relative transition-colors ${cCount > 0 ? 'text-orange-400 hover:text-orange-300' : 'text-stone-500 hover:text-orange-400 opacity-100 md:opacity-60 group-hover:opacity-100'}`}
+                                        className={`relative transition-colors ${cCount > 0 ? 'text-[#9a73ff] hover:text-[#a78bfa]' : 'text-stone-500 hover:text-[#9a73ff] opacity-100 md:opacity-60 group-hover:opacity-100'}`}
                                       >
                                         <MessageSquare size={16}/>
                                         {cCount > 0 && (
-                                          <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{cCount}</span>
+                                          <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-[#8052ff] text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{cCount}</span>
                                         )}
                                       </button>
                                       {canManageActive && (<>
                                       <span className="w-px h-4 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                                      <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-stone-500 hover:text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity"><Edit2 size={16}/></button>
+                                      <button onClick={() => { setEditingCreator(c); setCreatorModalOpen(true); }} className="text-stone-500 hover:text-[#9a73ff] opacity-0 group-hover:opacity-100 transition-opacity"><Edit2 size={16}/></button>
                                       <button onClick={(e) => requestDelete(e, 'creator', c.creator_deal_id, c.creator_name)} className="text-stone-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                       </>)}
                                     </div>
@@ -2743,13 +2750,13 @@ export default function InfluencerOS() {
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={() => setExportModal({ isOpen: true, type: 'finance' })}
-                    className="bg-orange-500/15 text-orange-300 hover:bg-orange-500/25 border border-orange-500/30 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                    className="bg-[#8052ff]/15 text-[#a78bfa] hover:bg-[#8052ff]/25 border border-[#8052ff]/30 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
                   >
                     <Download size={16}/> Export Financials
                   </button>
                   {computations.variance !== 0 && (
-                    <div className="bg-orange-500/10 border border-orange-500/25 text-orange-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-[0_0_24px_-8px_rgba(249,115,22,0.5)] backdrop-blur-sm">
-                      <AlertCircle className="text-orange-400" size={16}/>
+                    <div className="bg-[#8052ff]/10 border border-[#8052ff]/25 text-[#a78bfa] px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium shadow-[0_0_24px_-8px_rgba(128,82,255,0.5)] backdrop-blur-sm">
+                      <AlertCircle className="text-[#9a73ff]" size={16}/>
                       Variance Detected: <span className="tabular-nums">{formatMoney(Math.abs(computations.variance))}</span>
                     </div>
                   )}
@@ -2787,16 +2794,16 @@ export default function InfluencerOS() {
                   </div>
                 </div>
 
-                <div className="bg-white/[0.025] border border-orange-500/20 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group shadow-[0_0_30px_-14px_rgba(249,115,22,0.5)]">
-                  <div className="p-5 border-b border-white/[0.06] flex justify-between items-center bg-orange-500/[0.04]">
+                <div className="bg-white/[0.025] border border-[#8052ff]/20 rounded-xl overflow-hidden backdrop-blur-sm flex flex-col relative group shadow-[0_0_30px_-14px_rgba(128,82,255,0.5)]">
+                  <div className="p-5 border-b border-white/[0.06] flex justify-between items-center bg-[#8052ff]/[0.04]">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_2px_rgba(249,115,22,0.7)]"></div>
+                      <div className="w-2 h-2 rounded-full bg-[#8052ff] shadow-[0_0_8px_2px_rgba(128,82,255,0.7)]"></div>
                       <h3 className="font-medium text-stone-200">Finance Expense ({targetMonth})</h3>
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-orange-400 border border-orange-500/30 px-2 py-1 rounded bg-orange-500/10">Counted by Bill Date</span>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9a73ff] border border-[#8052ff]/30 px-2 py-1 rounded bg-[#8052ff]/10">Counted by Bill Date</span>
                   </div>
                   <div className="p-6">
-                    <p className="text-4xl font-normal tracking-tight text-stone-100 mb-5 tabular-nums [text-shadow:0_0_30px_rgba(249,115,22,0.3)]">{formatMoney(computations.financeTotal)}</p>
+                    <p className="text-4xl font-normal tracking-tight text-stone-100 mb-5 tabular-nums [text-shadow:0_0_30px_rgba(128,82,255,0.3)]">{formatMoney(computations.financeTotal)}</p>
                     
                     {Object.keys(computations.financeBreakdown).length > 0 ? (
                       <div className="space-y-2 border-t border-white/[0.06] pt-4">
@@ -2818,7 +2825,7 @@ export default function InfluencerOS() {
 
               </div>
 
-              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-hidden shadow-2xl">
+              <div className="bg-[#0b0b0f] rounded-xl border border-white/[0.07] overflow-hidden shadow-2xl">
                 <div className="p-5 border-b border-white/[0.07] bg-white/[0.02]">
                   <h3 className="font-medium text-stone-200">System Mismatch Intelligence</h3>
                 </div>
@@ -2835,7 +2842,7 @@ export default function InfluencerOS() {
                       <tr key={i} className="hover:bg-white/[0.025] transition-colors">
                         <td className="px-6 py-4 font-medium text-stone-200">{mr.creator}</td>
                         <td className="px-6 py-4 text-stone-400">{mr.reason}</td>
-                        <td className="px-6 py-4 text-right font-medium text-orange-400 tabular-nums">{mr.impact}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[#9a73ff] tabular-nums">{mr.impact}</td>
                       </tr>
                     )) : (
                       <tr>
@@ -2852,8 +2859,8 @@ export default function InfluencerOS() {
             <div className="max-w-[1400px] mx-auto mb-5 flex items-center justify-between gap-4 animate-in fade-in duration-300">
               <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Reports &amp; Analytics</h2>
               <div className="inline-flex items-center rounded-lg border border-white/10 overflow-hidden bg-white/[0.025] shrink-0">
-                <button onClick={() => setReportsView('reports')} className={`px-5 py-2.5 text-sm font-medium transition-colors ${reportsView === 'reports' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Reports</button>
-                <button onClick={() => setReportsView('analytics')} className={`px-5 py-2.5 text-sm font-medium transition-colors border-l border-white/10 ${reportsView === 'analytics' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Analytics</button>
+                <button onClick={() => setReportsView('reports')} className={`px-5 py-2.5 text-sm font-medium transition-colors ${reportsView === 'reports' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Reports</button>
+                <button onClick={() => setReportsView('analytics')} className={`px-5 py-2.5 text-sm font-medium transition-colors border-l border-white/10 ${reportsView === 'analytics' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Analytics</button>
               </div>
             </div>
           )}
@@ -2866,17 +2873,17 @@ export default function InfluencerOS() {
                   <p className="text-sm text-stone-500 mt-1">A visual snapshot across all campaigns and creators.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select value={analyticsCampaign} onChange={(e) => setAnalyticsCampaign(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                    <option value="all" className="bg-[#0c0a08]">All campaigns</option>
-                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                  <select value={analyticsCampaign} onChange={(e) => setAnalyticsCampaign(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                    <option value="all" className="bg-[#0b0b0f]">All campaigns</option>
+                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0b0b0f]">{c.ip_name}</option>)}
                   </select>
-                  <select value={analyticsPlatform} onChange={(e) => setAnalyticsPlatform(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                    <option value="all" className="bg-[#0c0a08]">All platforms</option>
-                    {allPlatforms.map(p => <option key={p} value={p} className="bg-[#0c0a08]">{p}</option>)}
+                  <select value={analyticsPlatform} onChange={(e) => setAnalyticsPlatform(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                    <option value="all" className="bg-[#0b0b0f]">All platforms</option>
+                    {allPlatforms.map(p => <option key={p} value={p} className="bg-[#0b0b0f]">{p}</option>)}
                   </select>
-                  <select value={analyticsMonth} onChange={(e) => setAnalyticsMonth(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                    <option value="all" className="bg-[#0c0a08]">All months</option>
-                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0c0a08]">{m}</option>)}
+                  <select value={analyticsMonth} onChange={(e) => setAnalyticsMonth(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                    <option value="all" className="bg-[#0b0b0f]">All months</option>
+                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0b0b0f]">{m}</option>)}
                   </select>
                 </div>
               </div>
@@ -2940,31 +2947,31 @@ export default function InfluencerOS() {
                   <button onClick={() => setReportExport({ open: true, format: 'csv' })} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-200 px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
                     <Download size={15}/> CSV
                   </button>
-                  <button onClick={() => setReportExport({ open: true, format: 'pdf' })} className="bg-orange-500 hover:bg-orange-400 text-white px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                  <button onClick={() => setReportExport({ open: true, format: 'pdf' })} className="bg-[#8052ff] hover:bg-[#9a73ff] text-white px-3.5 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                     <Download size={15}/> PDF
                   </button>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 bg-white/[0.025] border border-white/[0.07] rounded-xl p-3">
-                <select value={reportCampaign} onChange={(e) => setReportCampaign(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                  <option value="all" className="bg-[#0c0a08]">All campaigns</option>
-                  {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                <select value={reportCampaign} onChange={(e) => setReportCampaign(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                  <option value="all" className="bg-[#0b0b0f]">All campaigns</option>
+                  {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0b0b0f]">{c.ip_name}</option>)}
                 </select>
                 <div className="flex items-center rounded-md border border-white/10 overflow-hidden">
-                  <button onClick={() => setReportDateMode('month')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'month' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Month</button>
-                  <button onClick={() => setReportDateMode('custom')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'custom' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Custom</button>
+                  <button onClick={() => setReportDateMode('month')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'month' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Month</button>
+                  <button onClick={() => setReportDateMode('custom')} className={`px-3 py-2 text-sm transition-colors ${reportDateMode === 'custom' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Custom</button>
                 </div>
                 {reportDateMode === 'month' ? (
-                  <select value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                    <option value="all" className="bg-[#0c0a08]">All months</option>
-                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0c0a08]">{m}</option>)}
+                  <select value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                    <option value="all" className="bg-[#0b0b0f]">All months</option>
+                    {ALL_MONTHS.map(m => <option key={m} value={m} className="bg-[#0b0b0f]">{m}</option>)}
                   </select>
                 ) : (
                   <>
-                    <input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                    <input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                     <span className="text-stone-500 text-sm">to</span>
-                    <input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                    <input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} className="bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                   </>
                 )}
               </div>
@@ -2992,8 +2999,8 @@ export default function InfluencerOS() {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Views</p>
                     <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
-                      <button onClick={() => setViewsMode('cumulative')} className={`px-2.5 py-1 ${viewsMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
-                      <button onClick={() => setViewsMode('daily')} className={`px-2.5 py-1 ${viewsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                      <button onClick={() => setViewsMode('cumulative')} className={`px-2.5 py-1 ${viewsMode === 'cumulative' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setViewsMode('daily')} className={`px-2.5 py-1 ${viewsMode === 'daily' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
                   <MultiSeriesChart dates={report.dateSet} series={report.viewsSeries} mode={viewsMode} format={formatNumber} />
@@ -3002,8 +3009,8 @@ export default function InfluencerOS() {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Likes</p>
                     <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
-                      <button onClick={() => setLikesMode('cumulative')} className={`px-2.5 py-1 ${likesMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
-                      <button onClick={() => setLikesMode('daily')} className={`px-2.5 py-1 ${likesMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                      <button onClick={() => setLikesMode('cumulative')} className={`px-2.5 py-1 ${likesMode === 'cumulative' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setLikesMode('daily')} className={`px-2.5 py-1 ${likesMode === 'daily' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
                   <MultiSeriesChart dates={report.dateSet} series={report.likesSeries} mode={likesMode} format={formatNumber} />
@@ -3012,8 +3019,8 @@ export default function InfluencerOS() {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Comments</p>
                     <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-xs">
-                      <button onClick={() => setCommentsMode('cumulative')} className={`px-2.5 py-1 ${commentsMode === 'cumulative' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Cumulative</button>
-                      <button onClick={() => setCommentsMode('daily')} className={`px-2.5 py-1 ${commentsMode === 'daily' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400'}`}>Daily</button>
+                      <button onClick={() => setCommentsMode('cumulative')} className={`px-2.5 py-1 ${commentsMode === 'cumulative' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Cumulative</button>
+                      <button onClick={() => setCommentsMode('daily')} className={`px-2.5 py-1 ${commentsMode === 'daily' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400'}`}>Daily</button>
                     </div>
                   </div>
                   <MultiSeriesChart dates={report.dateSet} series={report.commentsSeries} mode={commentsMode} format={formatNumber} />
@@ -3041,8 +3048,8 @@ export default function InfluencerOS() {
 
               <div className="flex flex-wrap gap-2">
                 <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-sm shrink-0">
-                  <button onClick={() => setScrapePlatform('instagram')} className={`px-3 py-2.5 transition-colors ${scrapePlatform === 'instagram' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Instagram</button>
-                  <button onClick={() => setScrapePlatform('youtube')} className={`px-3 py-2.5 transition-colors border-l border-white/10 ${scrapePlatform === 'youtube' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>YouTube</button>
+                  <button onClick={() => setScrapePlatform('instagram')} className={`px-3 py-2.5 transition-colors ${scrapePlatform === 'instagram' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>Instagram</button>
+                  <button onClick={() => setScrapePlatform('youtube')} className={`px-3 py-2.5 transition-colors border-l border-white/10 ${scrapePlatform === 'youtube' ? 'bg-[#8052ff]/20 text-[#a78bfa]' : 'text-stone-400 hover:text-stone-200'}`}>YouTube</button>
                 </div>
                 <div className="flex-1 relative min-w-[220px]">
                   <ScanSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"/>
@@ -3051,16 +3058,16 @@ export default function InfluencerOS() {
                     onChange={(e) => setScrapeQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleScrape(); }}
                     placeholder={scrapePlatform === 'youtube' ? 'youtube.com/@channel  ·  video link  ·  or a name' : 'instagram.com/username  ·  or a creator name'}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                   />
                 </div>
-                <button onClick={handleScrape} disabled={scrapeLoading} className="bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white px-5 py-2.5 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                <button onClick={handleScrape} disabled={scrapeLoading} className="bg-[#8052ff] hover:bg-[#9a73ff] disabled:opacity-50 text-white px-5 py-2.5 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                   {scrapeLoading ? <Loader2 size={16} className="animate-spin"/> : <ScanSearch size={16}/>} {scrapeLoading ? 'Scraping…' : 'Search'}
                 </button>
               </div>
 
               {scrapeNote && (
-                <div className="flex items-start gap-2 text-sm text-orange-200 bg-orange-500/[0.07] border border-orange-500/25 px-4 py-2.5 rounded-lg">
+                <div className="flex items-start gap-2 text-sm text-[#c4b5fd] bg-[#8052ff]/[0.07] border border-[#8052ff]/25 px-4 py-2.5 rounded-lg">
                   <Info size={16} className="mt-0.5 shrink-0"/> <span>{scrapeNote}</span>
                 </div>
               )}
@@ -3081,15 +3088,15 @@ export default function InfluencerOS() {
                   return (
                     <div key={idx} className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5 backdrop-blur-sm">
                       <div className="flex items-start gap-3">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-bold text-white shrink-0">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8052ff] to-[#6d3fef] flex items-center justify-center text-xl font-bold text-white shrink-0">
                           {(r.fullName || r.username || '?').trim().charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <h3 className="font-semibold text-stone-100 truncate">{r.fullName || r.username}</h3>
-                            {r.isVerified && <BadgeCheck size={15} className="text-orange-400 shrink-0"/>}
+                            {r.isVerified && <BadgeCheck size={15} className="text-[#9a73ff] shrink-0"/>}
                           </div>
-                          <a href={r.profileUrl} target="_blank" rel="noreferrer" className="text-sm text-orange-300/90 hover:text-orange-200 truncate block">@{r.username}</a>
+                          <a href={r.profileUrl} target="_blank" rel="noreferrer" className="text-sm text-[#a78bfa]/90 hover:text-[#c4b5fd] truncate block">@{r.username}</a>
                           {r.category && <span className="inline-block mt-1 mr-1.5 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.category}</span>}
                           <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400">{r.platform || 'Instagram'}</span>
                         </div>
@@ -3098,7 +3105,7 @@ export default function InfluencerOS() {
                       <div className="grid grid-cols-3 gap-2 mt-4">
                         <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Followers</p><p className="text-sm font-semibold text-stone-200 tabular-nums mt-0.5">{formatNumber(r.followers || 0)}</p></div>
                         <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Avg Views</p><p className="text-sm font-semibold text-stone-200 tabular-nums mt-0.5">{formatNumber(r.avgViews || 0)}</p></div>
-                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Eng. Rate</p><p className="text-sm font-semibold text-orange-300 tabular-nums mt-0.5">{(r.engagementRate || 0).toFixed(2)}%</p></div>
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-2 text-center"><p className="text-[10px] uppercase tracking-wide text-stone-500">Eng. Rate</p><p className="text-sm font-semibold text-[#a78bfa] tabular-nums mt-0.5">{(r.engagementRate || 0).toFixed(2)}%</p></div>
                       </div>
 
                       <div className="flex items-center gap-2 mt-3">
@@ -3108,34 +3115,34 @@ export default function InfluencerOS() {
                             type="number" value={r.fee}
                             onChange={(e) => setScrapeResults(scrapeResults.map((x, i) => i === idx ? { ...x, fee: e.target.value } : x))}
                             placeholder="Expected fee"
-                            className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                            className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                           />
                         </div>
                         <div className="text-xs text-stone-400 tabular-nums whitespace-nowrap">CPV {cpv == null ? '—' : formatMicroMoney(cpv)} · CPE {cpe == null ? '—' : formatMicroMoney(cpe)}</div>
                       </div>
 
                       <div className="mt-4 relative">
-                        <button onClick={() => { setLeadPickerFor(leadPickerFor === idx ? null : idx); setLeadAssignCampaign(''); setLeadAssignPoc(''); }} className="w-full flex items-center justify-center gap-2 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-sm font-medium py-2 rounded-md transition-colors">
+                        <button onClick={() => { setLeadPickerFor(leadPickerFor === idx ? null : idx); setLeadAssignCampaign(''); setLeadAssignPoc(''); }} className="w-full flex items-center justify-center gap-2 bg-[#8052ff]/15 hover:bg-[#8052ff]/25 border border-[#8052ff]/30 text-[#a78bfa] text-sm font-medium py-2 rounded-md transition-colors">
                           <UserPlus size={15}/> Add to a campaign's talks
                         </button>
                         {leadPickerFor === idx && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-3 space-y-2.5">
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-[#0b0b0f] border border-white/10 rounded-lg shadow-2xl z-20 p-3 space-y-2.5">
                             {campaigns.length === 0 ? (
                               <p className="text-xs text-stone-500 p-1">No campaigns yet — create one first.</p>
                             ) : (
                               <>
                                 <div>
                                   <label className="block text-[10px] uppercase tracking-[0.15em] text-stone-500 mb-1">Campaign</label>
-                                  <select value={leadAssignCampaign} onChange={(e) => setLeadAssignCampaign(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                                    <option value="" className="bg-[#0c0a08]">Select campaign…</option>
-                                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0c0a08]">{c.ip_name}</option>)}
+                                  <select value={leadAssignCampaign} onChange={(e) => setLeadAssignCampaign(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                                    <option value="" className="bg-[#0b0b0f]">Select campaign…</option>
+                                    {campaigns.map(c => <option key={c.ip_id} value={c.ip_id} className="bg-[#0b0b0f]">{c.ip_name}</option>)}
                                   </select>
                                 </div>
                                 <div>
                                   <label className="block text-[10px] uppercase tracking-[0.15em] text-stone-500 mb-1">POC <span className="normal-case tracking-normal text-stone-600">(who's talking to them)</span></label>
-                                  <input list="poc-options" value={leadAssignPoc} onChange={(e) => setLeadAssignPoc(e.target.value)} placeholder="Search team by name…" className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                                  <input list="poc-options" value={leadAssignPoc} onChange={(e) => setLeadAssignPoc(e.target.value)} placeholder="Search team by name…" className="w-full bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                                 </div>
-                                <button onClick={() => addLeadToCampaign(r, leadAssignCampaign, leadAssignPoc)} disabled={!leadAssignCampaign} className="w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-40 text-white text-sm font-semibold py-1.5 rounded-md transition-colors">
+                                <button onClick={() => addLeadToCampaign(r, leadAssignCampaign, leadAssignPoc)} disabled={!leadAssignCampaign} className="w-full bg-[#8052ff] hover:bg-[#9a73ff] disabled:opacity-40 text-white text-sm font-semibold py-1.5 rounded-md transition-colors">
                                   Send to In-Talks
                                 </button>
                               </>
@@ -3154,10 +3161,10 @@ export default function InfluencerOS() {
           {activeTab === 'payments' && (
             <div className="h-full flex items-center justify-center animate-in fade-in duration-500">
               <div className="text-center max-w-md px-6">
-                <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center bg-orange-500/10 border border-orange-500/20 text-orange-400 shadow-[0_0_30px_-8px_rgba(249,115,22,0.6)]">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center bg-[#8052ff]/10 border border-[#8052ff]/20 text-[#9a73ff] shadow-[0_0_30px_-8px_rgba(128,82,255,0.6)]">
                   <CreditCard size={28}/>
                 </div>
-                <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400/80 font-semibold mb-2">Coming soon</p>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-[#9a73ff]/80 font-semibold mb-2">Coming soon</p>
                 <h2 className="text-2xl font-semibold text-stone-100 tracking-tight capitalize">Payments</h2>
                 <p className="text-sm text-stone-500 mt-3 leading-relaxed">
                   We're still building this out. Payment tracking and payout schedules will land here soon.
@@ -3169,8 +3176,8 @@ export default function InfluencerOS() {
       </main>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#0c0a08] border border-orange-500/30 text-stone-100 text-sm px-4 py-2.5 rounded-lg shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <Check size={15} className="text-orange-400"/> {toast}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#0b0b0f] border border-[#8052ff]/30 text-stone-100 text-sm px-4 py-2.5 rounded-lg shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check size={15} className="text-[#9a73ff]"/> {toast}
         </div>
       )}
 
@@ -3181,7 +3188,7 @@ export default function InfluencerOS() {
       {/* Timeline Day — deliverables posted that day */}
       {reportExport.open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReportExport({ ...reportExport, open: false })}>
-          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[88vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0b0b0f] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[88vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold text-stone-100">Export {reportExport.format.toUpperCase()} report</h3>
               <button onClick={() => setReportExport({ ...reportExport, open: false })} className="text-stone-500 hover:text-stone-200 text-sm">Close</button>
@@ -3198,7 +3205,7 @@ export default function InfluencerOS() {
                     <p className="text-sm font-medium text-stone-200">{opt.label}</p>
                     <p className="text-[11px] text-stone-500 mt-0.5">{opt.desc}</p>
                   </div>
-                  <span className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${exportOpts[opt.key] ? 'bg-orange-500' : 'bg-white/10'}`}>
+                  <span className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${exportOpts[opt.key] ? 'bg-[#8052ff]' : 'bg-white/10'}`}>
                     <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${exportOpts[opt.key] ? 'translate-x-4' : 'translate-x-0'}`}></span>
                   </span>
                 </button>
@@ -3210,7 +3217,7 @@ export default function InfluencerOS() {
                 <div className="flex items-center justify-between mb-2.5">
                   <p className="text-[11px] uppercase tracking-[0.15em] text-stone-500">Columns</p>
                   <div className="flex gap-1.5">
-                    <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = true); return n; })} className="text-[11px] text-orange-300 hover:text-orange-200 px-2 py-0.5 rounded border border-orange-500/25 bg-orange-500/10">All</button>
+                    <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = true); return n; })} className="text-[11px] text-[#a78bfa] hover:text-[#c4b5fd] px-2 py-0.5 rounded border border-[#8052ff]/25 bg-[#8052ff]/10">All</button>
                     <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = false); return n; })} className="text-[11px] text-stone-400 hover:text-stone-200 px-2 py-0.5 rounded border border-white/10">None</button>
                   </div>
                 </div>
@@ -3232,8 +3239,8 @@ export default function InfluencerOS() {
                           {cols.map(col => {
                             const on = exportOpts[col.key];
                             return (
-                              <button key={col.key} onClick={() => setExportOpts(o => ({ ...o, [col.key]: !o[col.key] }))} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${on ? 'bg-orange-500/20 border-orange-500/40 text-orange-200' : 'bg-white/[0.02] border-white/10 text-stone-500 hover:text-stone-300'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-orange-400' : 'bg-stone-600'}`}></span>
+                              <button key={col.key} onClick={() => setExportOpts(o => ({ ...o, [col.key]: !o[col.key] }))} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${on ? 'bg-[#8052ff]/20 border-[#8052ff]/40 text-[#c4b5fd]' : 'bg-white/[0.02] border-white/10 text-stone-500 hover:text-stone-300'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-[#9a73ff]' : 'bg-stone-600'}`}></span>
                                 {col.label}
                               </button>
                             );
@@ -3246,7 +3253,7 @@ export default function InfluencerOS() {
               </div>
             )}
 
-            <button onClick={runReportExport} className="mt-5 w-full bg-orange-500 hover:bg-orange-400 text-white py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+            <button onClick={runReportExport} className="mt-5 w-full bg-[#8052ff] hover:bg-[#9a73ff] text-white py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
               <Download size={15}/> Download {reportExport.format.toUpperCase()}
             </button>
           </div>
@@ -3255,10 +3262,10 @@ export default function InfluencerOS() {
 
       {timelineDay && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setTimelineDay(null)}>
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
               <div>
-                <h3 className="font-medium text-stone-100 flex items-center gap-2"><CalendarDays size={16} className="text-orange-400"/> {fmtDateFull(timelineDay.date)}</h3>
+                <h3 className="font-medium text-stone-100 flex items-center gap-2"><CalendarDays size={16} className="text-[#9a73ff]"/> {fmtDateFull(timelineDay.date)}</h3>
                 <p className="text-xs text-stone-500 mt-0.5">{timelineDay.creators.length} deliverable{timelineDay.creators.length === 1 ? '' : 's'} posted</p>
               </div>
               <button onClick={() => setTimelineDay(null)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
@@ -3270,11 +3277,11 @@ export default function InfluencerOS() {
                   <div key={c.creator_deal_id} className="flex items-center gap-3 bg-white/[0.025] border border-white/[0.06] rounded-lg p-3">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: getPlatformColor(c.platform) }}></span>
                     <div className="min-w-0 flex-1">
-                      <button onClick={() => { setTimelineDay(null); setProfileCardCreator(c); }} className="font-medium text-stone-200 hover:text-orange-300 transition-colors text-left truncate block">{c.creator_name}</button>
+                      <button onClick={() => { setTimelineDay(null); setProfileCardCreator(c); }} className="font-medium text-stone-200 hover:text-[#a78bfa] transition-colors text-left truncate block">{c.creator_name}</button>
                       <p className="text-xs text-stone-500 truncate">{c.platform} · {c.content_type} · {formatNumber(c.views || 0)} views</p>
                     </div>
                     {href ? (
-                      <a href={href} target="_blank" rel="noreferrer" className="shrink-0 inline-flex items-center gap-1.5 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
+                      <a href={href} target="_blank" rel="noreferrer" className="shrink-0 inline-flex items-center gap-1.5 bg-[#8052ff]/15 hover:bg-[#8052ff]/25 border border-[#8052ff]/30 text-[#a78bfa] text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
                         <ExternalLink size={13}/> View post
                       </a>
                     ) : (
@@ -3299,7 +3306,7 @@ export default function InfluencerOS() {
         const profileHref = c.profile_link ? (c.profile_link.startsWith('http') ? c.profile_link : `https://${c.profile_link}`) : '';
         return (
           <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setProfileCardCreator(null)}>
-            <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
               <div className="p-5 border-b border-white/[0.07] bg-white/[0.02] shrink-0">
                 <div className="flex items-start gap-4">
                   <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${grad} ring-2 ring-white/10 flex items-center justify-center text-2xl font-bold text-white shrink-0`}>
@@ -3310,7 +3317,7 @@ export default function InfluencerOS() {
                       <h3 className="font-semibold text-stone-100 truncate">{c.creator_name}</h3>
                       <span className="text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-white/10 text-stone-400 shrink-0">{c.platform}</span>
                     </div>
-                    {handle && <p className="text-sm text-orange-300/90 truncate">{handle}</p>}
+                    {handle && <p className="text-sm text-[#a78bfa]/90 truncate">{handle}</p>}
                     <div className="flex gap-4 mt-2 text-xs">
                       <div><span className="text-stone-200 font-semibold tabular-nums">{formatNumber(c.followers)}</span> <span className="text-stone-500">followers</span></div>
                       <div><span className="text-stone-200 font-semibold tabular-nums">{formatNumber(c.views || 0)}</span> <span className="text-stone-500">views</span></div>
@@ -3326,7 +3333,7 @@ export default function InfluencerOS() {
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Deliverable</p><p className="text-stone-200">{c.content_type}</p></div>
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Fee</p><p className="text-stone-200 tabular-nums">{formatMoney(c.deal_value)}</p></div>
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Go-Live</p><p className="text-stone-200 tabular-nums">{c.planned_go_live_date || '—'}</p></div>
-                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Eng. Rate</p><p className="text-orange-300 tabular-nums">{c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(1) : '0.0'}%</p></div>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Eng. Rate</p><p className="text-[#a78bfa] tabular-nums">{c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(1) : '0.0'}%</p></div>
                 </div>
 
                 {embed.url ? (
@@ -3349,7 +3356,7 @@ export default function InfluencerOS() {
                 )}
 
                 {profileHref && (
-                  <a href={profileHref} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold py-2.5 rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                  <a href={profileHref} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#8052ff] hover:bg-[#9a73ff] text-white text-sm font-semibold py-2.5 rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                     <ExternalLink size={15}/> Open full profile on {c.platform}
                   </a>
                 )}
@@ -3362,19 +3369,19 @@ export default function InfluencerOS() {
       {/* Settings */}
       {settingsOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
-              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Settings size={16} className="text-orange-400"/> Settings</h3>
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Settings size={16} className="text-[#9a73ff]"/> Settings</h3>
               <button onClick={() => setSettingsOpen(false)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
             </div>
             <div className="p-6 space-y-6">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium">Appearance</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setTheme('dark')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
+                  <button onClick={() => setTheme('dark')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-[#8052ff]/15 border-[#8052ff]/40 text-[#a78bfa]' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
                     <Moon size={16}/> Dark
                   </button>
-                  <button onClick={() => setTheme('light')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'light' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
+                  <button onClick={() => setTheme('light')} className={`flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors ${theme === 'light' ? 'bg-[#8052ff]/15 border-[#8052ff]/40 text-[#a78bfa]' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>
                     <Sun size={16}/> Light
                   </button>
                 </div>
@@ -3383,7 +3390,7 @@ export default function InfluencerOS() {
                 <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium flex items-center gap-1.5"><Type size={12}/> Font Size</p>
                 <div className="grid grid-cols-3 gap-3">
                   {[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([val, label]) => (
-                    <button key={val} onClick={() => setFontSize(val)} className={`py-3 rounded-lg border font-medium transition-colors ${fontSize === val ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'} ${val === 'small' ? 'text-xs' : val === 'large' ? 'text-base' : 'text-sm'}`}>
+                    <button key={val} onClick={() => setFontSize(val)} className={`py-3 rounded-lg border font-medium transition-colors ${fontSize === val ? 'bg-[#8052ff]/15 border-[#8052ff]/40 text-[#a78bfa]' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'} ${val === 'small' ? 'text-xs' : val === 'large' ? 'text-base' : 'text-sm'}`}>
                       {label}
                     </button>
                   ))}
@@ -3398,10 +3405,10 @@ export default function InfluencerOS() {
       {/* Comments Modal */}
       {commentModal.isOpen && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
               <div className="flex items-center gap-2">
-                <MessageSquare size={16} className="text-orange-400"/>
+                <MessageSquare size={16} className="text-[#9a73ff]"/>
                 <h3 className="font-medium text-stone-100">Comments — {commentModal.creator?.creator_name}</h3>
               </div>
               <button type="button" onClick={() => setCommentModal({ isOpen: false, creator: null })} className="text-stone-500 hover:text-stone-300">Close</button>
@@ -3417,7 +3424,7 @@ export default function InfluencerOS() {
                 commentsFor(commentModal.creator?.creator_deal_id).map((cm) => (
                   <div key={cm.id} className="flex flex-col">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-xs font-semibold text-orange-300">{cm.author}</span>
+                      <span className="text-xs font-semibold text-[#a78bfa]">{cm.author}</span>
                       <span className="text-[10px] text-stone-600 tabular-nums">
                         {cm.created_at ? new Date(cm.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
@@ -3437,7 +3444,7 @@ export default function InfluencerOS() {
                   value={commentFrom}
                   onChange={(e) => setCommentFrom(e.target.value)}
                   placeholder="Who is this from?"
-                  className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                  className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                 />
               </div>
               <div className="flex items-end gap-2">
@@ -3447,12 +3454,12 @@ export default function InfluencerOS() {
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }}
                   rows={2}
                   placeholder="Write a comment…  (Enter to send, Shift+Enter for new line)"
-                  className="flex-1 resize-none bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                  className="flex-1 resize-none bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                 />
                 <button
                   onClick={sendComment}
                   disabled={!commentBody.trim()}
-                  className="h-[42px] px-4 bg-orange-500 hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md flex items-center justify-center transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"
+                  className="h-[42px] px-4 bg-[#8052ff] hover:bg-[#9a73ff] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md flex items-center justify-center transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]"
                 >
                   <Send size={16}/>
                 </button>
@@ -3465,9 +3472,9 @@ export default function InfluencerOS() {
       {/* Profile Editor Modal */}
       {isProfileEditorOpen && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
-              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Edit2 size={16} className="text-orange-400"/> Edit profile</h3>
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Edit2 size={16} className="text-[#9a73ff]"/> Edit profile</h3>
               <button type="button" onClick={() => setProfileEditorOpen(false)} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
             <div className="p-6">
@@ -3478,7 +3485,7 @@ export default function InfluencerOS() {
                   <input
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                    className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                   />
                 </div>
               </div>
@@ -3488,7 +3495,7 @@ export default function InfluencerOS() {
                 <input
                   value={profileTitle}
                   onChange={(e) => setProfileTitle(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                  className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                   placeholder="e.g. Account Manager"
                 />
               </div>
@@ -3500,7 +3507,7 @@ export default function InfluencerOS() {
 
               <div className="mt-7 flex justify-end gap-3">
                 <button onClick={() => setProfileEditorOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
-                <button onClick={saveProfile} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">Save changes</button>
+                <button onClick={saveProfile} className="px-6 py-2.5 bg-[#8052ff] hover:bg-[#9a73ff] text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">Save changes</button>
               </div>
             </div>
           </div>
@@ -3510,10 +3517,10 @@ export default function InfluencerOS() {
       {/* Date Range Export Modal */}
       {exportModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
               <h3 className="font-medium text-stone-100 flex items-center gap-2">
-                <Download className="text-orange-400" size={18}/> 
+                <Download className="text-[#9a73ff]" size={18}/> 
                 Export {exportModal.type === 'finance' ? 'Finance' : 'Ops'} Report
               </h3>
               <button type="button" onClick={() => setExportModal({ isOpen: false, type: '' })} className="text-stone-500 hover:text-stone-300">Close</button>
@@ -3528,28 +3535,28 @@ export default function InfluencerOS() {
                 </p>
                 
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Select Range Type</label>
-                <select name="filter_type" defaultValue="month" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 mb-4" onChange={(e) => {
+                <select name="filter_type" defaultValue="month" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 mb-4" onChange={(e) => {
                   document.getElementById('custom-date-row').style.display = e.target.value === 'custom' ? 'grid' : 'none';
                 }}>
-                  <option value="month" className="bg-[#0c0a08]">Current Filtered Month ({targetMonth})</option>
-                  <option value="custom" className="bg-[#0c0a08]">Custom Date Range</option>
-                  <option value="all" className="bg-[#0c0a08]">All Available Data</option>
+                  <option value="month" className="bg-[#0b0b0f]">Current Filtered Month ({targetMonth})</option>
+                  <option value="custom" className="bg-[#0b0b0f]">Custom Date Range</option>
+                  <option value="all" className="bg-[#0b0b0f]">All Available Data</option>
                 </select>
 
                 <div id="custom-date-row" className="grid-cols-2 gap-4 hidden">
                   <div>
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Start Date</label>
-                    <input name="start_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                    <input name="start_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">End Date</label>
-                    <input name="end_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                    <input name="end_date" type="date" className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 flex justify-end gap-3">
-                <button type="submit" className="px-6 py-2.5 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)] bg-orange-500 hover:bg-orange-400">
+                <button type="submit" className="px-6 py-2.5 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)] bg-[#8052ff] hover:bg-[#9a73ff]">
                   Download CSV
                 </button>
               </div>
@@ -3560,7 +3567,7 @@ export default function InfluencerOS() {
 
       {isCampaignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
               <h3 className="font-medium text-stone-100">{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</h3>
               <button type="button" onClick={() => { setCampaignModalOpen(false); setEditingCampaign(null); setEditorsList([]); setEditorInput(''); setCampaignImage(''); }} className="text-stone-500 hover:text-stone-300">Close</button>
@@ -3591,11 +3598,11 @@ export default function InfluencerOS() {
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Name</label>
-                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(responsible — gets edit access)</span></label>
-                <input name="owner" type="email" defaultValue={editingCampaign?.owner} required placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                <input name="owner" type="email" defaultValue={editingCampaign?.owner} required placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional — can also edit, sync &amp; delete)</span></label>
@@ -3606,16 +3613,16 @@ export default function InfluencerOS() {
                     onChange={(e) => setEditorInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditor(); } }}
                     placeholder="editor@yaas.studio"
-                    className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                    className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70"
                   />
                   <button type="button" onClick={addEditor} className="px-3 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-stone-200 text-sm rounded-md transition-colors">Add</button>
                 </div>
                 {editorsList.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2.5">
                     {editorsList.map((em) => (
-                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-200 text-xs">
+                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#8052ff]/10 border border-[#8052ff]/30 text-[#c4b5fd] text-xs">
                         {em}
-                        <button type="button" onClick={() => removeEditor(em)} className="text-orange-300/70 hover:text-orange-100">×</button>
+                        <button type="button" onClick={() => removeEditor(em)} className="text-[#a78bfa]/70 hover:text-[#ddd6fe]">×</button>
                       </span>
                     ))}
                   </div>
@@ -3624,10 +3631,10 @@ export default function InfluencerOS() {
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Total Budget</label>
-                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="submit" className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                <button type="submit" className="px-4 py-2 bg-[#8052ff] hover:bg-[#9a73ff] text-white text-sm font-medium rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                   {editingCampaign ? 'Update Campaign' : 'Create Campaign'}
                 </button>
               </div>
@@ -3638,40 +3645,40 @@ export default function InfluencerOS() {
 
       {importModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
-              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Download size={16} className="text-orange-400 rotate-180"/> Import Campaign from CSV</h3>
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Download size={16} className="text-[#9a73ff] rotate-180"/> Import Campaign from CSV</h3>
               <button type="button" onClick={() => setImportModalOpen(false)} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
 
             <div className="p-6 space-y-5 overflow-y-auto">
-              <div className="bg-orange-500/[0.06] border border-orange-500/20 rounded-lg px-4 py-3 text-sm text-orange-200 flex items-center gap-2">
+              <div className="bg-[#8052ff]/[0.06] border border-[#8052ff]/20 rounded-lg px-4 py-3 text-sm text-[#c4b5fd] flex items-center gap-2">
                 <Check size={16}/> Found <strong>{importRows.length}</strong> creator{importRows.length === 1 ? '' : 's'} across the sheet. Invoice details are skipped — add bill dates later by editing each creator.
               </div>
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Campaign Name</label>
-                  <input value={importName} onChange={(e) => setImportName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                  <input value={importName} onChange={(e) => setImportName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(required)</span></label>
-                  <input type="email" value={importOwner} onChange={(e) => setImportOwner(e.target.value)} placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                  <input type="email" value={importOwner} onChange={(e) => setImportOwner(e.target.value)} placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional)</span></label>
                 <div className="flex gap-2">
-                  <input type="email" value={importEditorInput} onChange={(e) => setImportEditorInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImportEditor(); } }} placeholder="editor@yaas.studio" className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                  <input type="email" value={importEditorInput} onChange={(e) => setImportEditorInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImportEditor(); } }} placeholder="editor@yaas.studio" className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                   <button type="button" onClick={addImportEditor} className="px-3 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-stone-200 text-sm rounded-md transition-colors">Add</button>
                 </div>
                 {importEditorsList.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2.5">
                     {importEditorsList.map((em) => (
-                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-200 text-xs">
+                      <span key={em} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#8052ff]/10 border border-[#8052ff]/30 text-[#c4b5fd] text-xs">
                         {em}
-                        <button type="button" onClick={() => setImportEditorsList(importEditorsList.filter(x => x !== em))} className="text-orange-300/70 hover:text-orange-100">×</button>
+                        <button type="button" onClick={() => setImportEditorsList(importEditorsList.filter(x => x !== em))} className="text-[#a78bfa]/70 hover:text-[#ddd6fe]">×</button>
                       </span>
                     ))}
                   </div>
@@ -3700,7 +3707,7 @@ export default function InfluencerOS() {
                           <td className="px-3 py-2">{r.month || '—'}</td>
                           <td className="px-3 py-2 tabular-nums">{formatMoney(r.spend)}</td>
                           <td className="px-3 py-2 tabular-nums">{formatNumber(r.views)}</td>
-                          <td className="px-3 py-2">{r.deliverable ? <Check size={13} className="text-orange-400"/> : <span className="text-stone-600">—</span>}</td>
+                          <td className="px-3 py-2">{r.deliverable ? <Check size={13} className="text-[#9a73ff]"/> : <span className="text-stone-600">—</span>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3709,13 +3716,13 @@ export default function InfluencerOS() {
               </div>
 
               <label className="flex items-center gap-2.5 text-sm text-stone-300 cursor-pointer">
-                <input type="checkbox" checked={importAutoSync} onChange={(e) => setImportAutoSync(e.target.checked)} className="accent-orange-500 w-4 h-4" />
+                <input type="checkbox" checked={importAutoSync} onChange={(e) => setImportAutoSync(e.target.checked)} className="accent-[#8052ff] w-4 h-4" />
                 Auto-sync live metrics from deliverable links after import
                 <span className="text-stone-600 text-xs">(slower — pulls each link)</span>
               </label>
 
               {importError && (
-                <div className="flex items-center gap-2 text-sm text-orange-200 bg-orange-500/[0.08] border border-orange-500/30 px-4 py-2.5 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-[#c4b5fd] bg-[#8052ff]/[0.08] border border-[#8052ff]/30 px-4 py-2.5 rounded-lg">
                   <AlertCircle size={16}/> {importError}
                 </div>
               )}
@@ -3723,7 +3730,7 @@ export default function InfluencerOS() {
 
             <div className="p-5 border-t border-white/[0.07] flex justify-end gap-3 shrink-0 bg-white/[0.02]">
               <button type="button" onClick={() => setImportModalOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
-              <button type="button" onClick={executeImport} disabled={importing} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+              <button type="button" onClick={executeImport} disabled={importing} className="px-6 py-2.5 bg-[#8052ff] hover:bg-[#9a73ff] disabled:opacity-50 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                 {importing ? 'Importing…' : `Import ${importRows.length} creator${importRows.length === 1 ? '' : 's'}`}
               </button>
             </div>
@@ -3733,7 +3740,7 @@ export default function InfluencerOS() {
 
       {isCreatorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-[#0b0b0f] border border-white/[0.08] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
               <h3 className="font-medium text-stone-100">{editingCreator ? 'Edit Creator Booking' : 'Book Creator'}</h3>
               <button type="button" onClick={() => {setCreatorModalOpen(false); setEditingCreator(null);}} className="text-stone-500 hover:text-stone-300">Close</button>
@@ -3747,20 +3754,20 @@ export default function InfluencerOS() {
                   <div className="grid grid-cols-3 gap-5">
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Creator Name</label>
-                      <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="creator_name" defaultValue={editingCreator?.creator_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Platform</label>
-                      <select name="platform" value={modalPlatform} onChange={(e) => onModalPlatformChange(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                        <option className="bg-[#0c0a08]">Instagram</option>
-                        <option className="bg-[#0c0a08]">YouTube</option>
-                        <option className="bg-[#0c0a08]">TikTok</option>
-                        <option className="bg-[#0c0a08]">LinkedIn</option>
+                      <select name="platform" value={modalPlatform} onChange={(e) => onModalPlatformChange(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                        <option className="bg-[#0b0b0f]">Instagram</option>
+                        <option className="bg-[#0b0b0f]">YouTube</option>
+                        <option className="bg-[#0b0b0f]">TikTok</option>
+                        <option className="bg-[#0b0b0f]">LinkedIn</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Profile Link</label>
-                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/@channel' : 'instagram.com/username'} />
+                      <input name="profile_link" defaultValue={editingCreator?.profile_link} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/@channel' : 'instagram.com/username'} />
                     </div>
                   </div>
                 </div>
@@ -3770,23 +3777,23 @@ export default function InfluencerOS() {
                   <div className="grid grid-cols-4 gap-5">
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Spend / Fee</label>
-                      <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="deal_value" type="number" required defaultValue={editingCreator?.deal_value} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Payment Model</label>
-                      <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                        <option value="100_advance" className="bg-[#0c0a08]">100% Advance</option>
-                        <option value="50_50" className="bg-[#0c0a08]">50-50 Split</option>
-                        <option value="full_later" className="bg-[#0c0a08]">Full Post-Live</option>
+                      <select name="payment_model" defaultValue={editingCreator?.payment_model || '100_advance'} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                        <option value="100_advance" className="bg-[#0b0b0f]">100% Advance</option>
+                        <option value="50_50" className="bg-[#0b0b0f]">50-50 Split</option>
+                        <option value="full_later" className="bg-[#0b0b0f]">Full Post-Live</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Target Go-Live Date</label>
-                      <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                      <input name="planned_go_live_date" type="date" required defaultValue={editingCreator?.planned_go_live_date} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Finance Bill Date</label>
-                      <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                      <input name="invoice_date" type="date" required defaultValue={editingCreator ? getCreatorBillDate(editingCreator.creator_deal_id) : ''} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70 [color-scheme:dark]" />
                     </div>
                   </div>
                 </div>
@@ -3798,7 +3805,7 @@ export default function InfluencerOS() {
                       type="button" 
                       onClick={handleAutoSync}
                       disabled={isSyncing}
-                      className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] bg-orange-500/15 text-orange-400 px-3 py-1.5 rounded-full border border-orange-500/30 hover:bg-orange-500/25 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] bg-[#8052ff]/15 text-[#9a73ff] px-3 py-1.5 rounded-full border border-[#8052ff]/30 hover:bg-[#8052ff]/25 transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={isSyncing ? "animate-spin" : ""} size={12}/>
                       {isSyncing ? "Fetching Live Data..." : "Auto-Sync Live Metrics"}
@@ -3808,50 +3815,50 @@ export default function InfluencerOS() {
                   <div className="grid grid-cols-2 gap-5 mb-5">
                      <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Deliverable Link (URL)</label>
-                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/watch?v=…  ·  /shorts/…' : 'https://instagram.com/p/...'} />
+                      <input name="deliverable_link" defaultValue={editingCreator?.deliverable_link} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" placeholder={modalPlatform === 'YouTube' ? 'youtube.com/watch?v=…  ·  /shorts/…' : 'https://instagram.com/p/...'} />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                       <div>
                         <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Content Type</label>
-                        <select name="content_type" value={modalContentType} onChange={(e) => setModalContentType(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70">
-                          {contentTypesFor(modalPlatform).map(ct => <option key={ct} className="bg-[#0c0a08]">{ct}</option>)}
-                          {!contentTypesFor(modalPlatform).includes(modalContentType) && modalContentType && <option className="bg-[#0c0a08]">{modalContentType}</option>}
+                        <select name="content_type" value={modalContentType} onChange={(e) => setModalContentType(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70">
+                          {contentTypesFor(modalPlatform).map(ct => <option key={ct} className="bg-[#0b0b0f]">{ct}</option>)}
+                          {!contentTypesFor(modalPlatform).includes(modalContentType) && modalContentType && <option className="bg-[#0b0b0f]">{modalContentType}</option>}
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">{modalPlatform === 'YouTube' ? 'Subscribers' : 'Followers'}</label>
-                        <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                        <input name="followers" type="number" defaultValue={editingCreator?.followers} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-5 gap-4">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-[0.2em] text-orange-300 mb-1.5 font-medium">Views</label>
-                      <input name="views" type="number" defaultValue={editingCreator?.views} className="w-full bg-orange-950/30 border border-orange-500/30 rounded-md px-3 py-2 text-sm text-orange-100 focus:outline-none focus:border-orange-500" />
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-[#a78bfa] mb-1.5 font-medium">Views</label>
+                      <input name="views" type="number" defaultValue={editingCreator?.views} className="w-full bg-[#1d1147]/30 border border-[#8052ff]/30 rounded-md px-3 py-2 text-sm text-[#ddd6fe] focus:outline-none focus:border-[#8052ff]" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Likes</label>
-                      <input name="likes" type="number" defaultValue={editingCreator?.likes} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="likes" type="number" defaultValue={editingCreator?.likes} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Comments</label>
-                      <input name="comments" type="number" defaultValue={editingCreator?.comments} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="comments" type="number" defaultValue={editingCreator?.comments} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Shares</label>
-                      <input name="shares" type="number" defaultValue={editingCreator?.shares} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="shares" type="number" defaultValue={editingCreator?.shares} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Saves</label>
-                      <input name="saves" type="number" defaultValue={editingCreator?.saves} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                      <input name="saves" type="number" defaultValue={editingCreator?.saves} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-[#8052ff]/70" />
                     </div>
                   </div>
                 </div>
 
               </div>
               <div className="p-5 border-t border-white/[0.07] flex justify-end shrink-0 bg-white/[0.02]">
-                <button type="submit" className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                <button type="submit" className="px-6 py-2.5 bg-[#8052ff] hover:bg-[#9a73ff] text-white text-sm font-semibold rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(128,82,255,0.7)]">
                   {editingCreator ? 'Update Creator Booking' : 'Save Booking'}
                 </button>
               </div>
@@ -3862,7 +3869,7 @@ export default function InfluencerOS() {
 
       {deletePrompt.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-red-900/50 rounded-2xl w-full max-w-sm shadow-[0_0_40px_rgba(220,38,38,0.15)] overflow-hidden">
+          <div className="bg-[#0b0b0f] border border-red-900/50 rounded-2xl w-full max-w-sm shadow-[0_0_40px_rgba(220,38,38,0.15)] overflow-hidden">
             <div className="p-6 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4">
                 <AlertTriangle size={24}/>
