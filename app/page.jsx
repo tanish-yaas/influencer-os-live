@@ -8,7 +8,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minimize2, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minimize2, Pin, Hash, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -665,6 +665,14 @@ export default function InfluencerOS() {
   const [leadAssignCampaign, setLeadAssignCampaign] = useState('');
   const [leadAssignPoc, setLeadAssignPoc] = useState('');
   const [teamProfiles, setTeamProfiles] = useState([]);
+  // ---- messaging ----
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [msgChannel, setMsgChannel] = useState('group:all');
+  const [allMsgs, setAllMsgs] = useState([]);
+  const [msgText, setMsgText] = useState('');
+  const [msgSearch, setMsgSearch] = useState('');
+  const [msgSeen, setMsgSeen] = useState({});
+  const msgEndRef = useRef(null);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
@@ -831,6 +839,65 @@ export default function InfluencerOS() {
     } catch {}
     return () => { try { document.documentElement.style.fontSize = ''; } catch {} };
   }, [fontSize, currentUser]);
+
+  // ---- messaging: load + poll ----
+  const refreshMessages = async () => {
+    try {
+      const { data, error } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(300);
+      if (!error && Array.isArray(data)) setAllMsgs(data.slice().reverse());
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    refreshMessages();
+    const id = setInterval(refreshMessages, messagesOpen ? 4000 : 12000);
+    return () => clearInterval(id);
+  }, [currentUser, messagesOpen]);
+
+  useEffect(() => {
+    if (!currentUser) { setMsgSeen({}); return; }
+    try {
+      const s = localStorage.getItem('ios_msgseen_' + (currentUser.email || '').toLowerCase());
+      setMsgSeen(s ? JSON.parse(s) : {});
+    } catch { setMsgSeen({}); }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (messagesOpen && msgEndRef.current) msgEndRef.current.scrollIntoView({ block: 'end' });
+  }, [allMsgs, msgChannel, messagesOpen]);
+
+  const dmChannelId = (a, b) => 'dm:' + [(a || '').toLowerCase(), (b || '').toLowerCase()].sort().join('|');
+  const nameForEmail = (email) => {
+    const e = (email || '').toLowerCase();
+    const p = teamProfiles.find(p => (p.email || '').toLowerCase() === e);
+    if (p) return p.display_name;
+    const m = [...allMsgs].reverse().find(m => (m.sender_email || '').toLowerCase() === e && m.sender_name);
+    return m?.sender_name || email;
+  };
+
+  const markSeen = (ch) => {
+    const me = (currentUser?.email || '').toLowerCase();
+    setMsgSeen(prev => {
+      const n = { ...prev, [ch]: new Date().toISOString() };
+      try { localStorage.setItem('ios_msgseen_' + me, JSON.stringify(n)); } catch {}
+      return n;
+    });
+  };
+
+  const openChannel = (ch) => { setMsgChannel(ch); markSeen(ch); };
+  const startDm = (email) => { const ch = dmChannelId((currentUser?.email || ''), email); setMsgChannel(ch); markSeen(ch); setMsgSearch(''); };
+
+  const sendMessage = async () => {
+    const body = msgText.trim();
+    if (!body || !currentUser) return;
+    const me = (currentUser.email || '').toLowerCase();
+    const row = { channel: msgChannel, sender_email: me, sender_name: profile?.display_name || currentUser.email, body };
+    setMsgText('');
+    setAllMsgs(prev => [...prev, { ...row, id: 'tmp-' + Date.now(), created_at: new Date().toISOString() }]);
+    markSeen(msgChannel);
+    try { await supabase.from('messages').insert(row); await refreshMessages(); } catch (e) { console.error('send message failed:', e); }
+  };
 
   useEffect(() => { setCampaignView('live'); }, [activeCampaignId]);
 
@@ -2049,6 +2116,23 @@ export default function InfluencerOS() {
 
   const isAdmin = !!currentUser?.isAdmin;
   const myEmail = (currentUser?.email || '').toLowerCase();
+  // ---- messaging derived ----
+  const msgUnread = (ch) => {
+    const seen = msgSeen[ch];
+    return allMsgs.filter(m => m.channel === ch && (m.sender_email || '').toLowerCase() !== myEmail && (!seen || new Date(m.created_at) > new Date(seen))).length;
+  };
+  const myDmChannels = [...new Set(allMsgs.filter(m => m.channel.startsWith('dm:') && m.channel.slice(3).split('|').includes(myEmail)).map(m => m.channel))];
+  const unreadTotal = msgUnread('group:all') + myDmChannels.reduce((s, ch) => s + msgUnread(ch), 0);
+  const otherEmail = (ch) => ch.slice(3).split('|').find(e => e !== myEmail) || myEmail;
+  const dmThreads = myDmChannels.map(ch => {
+    const ms = allMsgs.filter(m => m.channel === ch);
+    const last = ms[ms.length - 1];
+    return { ch, name: nameForEmail(otherEmail(ch)), last: last?.body || '', lastAt: last?.created_at, unread: msgUnread(ch) };
+  }).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0));
+  const channelMsgs = allMsgs.filter(m => m.channel === msgChannel);
+  const peopleResults = msgSearch.trim()
+    ? teamProfiles.filter(p => (p.email || '').toLowerCase() !== myEmail && (p.display_name || '').toLowerCase().includes(msgSearch.toLowerCase()))
+    : [];
   const canManageCampaign = (camp) => {
     if (isAdmin) return true;
     if (!camp) return false;
@@ -2470,7 +2554,22 @@ export default function InfluencerOS() {
             </div>
 
             <div className="h-4 w-px bg-white/10"></div>
-            <Bell className="text-stone-500 hover:text-stone-300 cursor-pointer" size={18}/>
+            <button
+              onClick={() => { setMessagesOpen(true); openChannel(msgChannel); }}
+              title="Messages"
+              className="relative text-stone-500 hover:text-stone-300 transition-colors"
+            >
+              <MessageSquare size={18}/>
+              {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
+            </button>
+            <button
+              onClick={() => { setMessagesOpen(true); openChannel(msgChannel); }}
+              title="Notifications"
+              className="relative text-stone-500 hover:text-stone-300 transition-colors"
+            >
+              <Bell size={18}/>
+              {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-[#0a0807]"></span>}
+            </button>
             <button onClick={() => setSettingsOpen(true)} title="Settings" className="text-stone-500 hover:text-stone-300 transition-colors">
               <Settings size={18}/>
             </button>
@@ -2856,7 +2955,7 @@ export default function InfluencerOS() {
               </div>
               );
               return tableExpanded ? createPortal((
-                <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-stretch justify-center p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => { setTableExpanded(false); setSearchQuery(''); }}>
+                <div className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-stretch justify-center p-3 sm:p-5 animate-in fade-in duration-200 ${theme === 'light' ? 'theme-light' : ''}`} onClick={() => { setTableExpanded(false); setSearchQuery(''); }}>
                   <div className="bg-[#0c0a08] rounded-2xl border border-white/10 shadow-2xl w-full max-w-[1600px] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.07] shrink-0 flex-wrap">
                       <h3 className="text-base font-semibold text-stone-100 tracking-tight mr-auto truncate">{activeCampaign?.ip_name} · Live Creators</h3>
@@ -3340,6 +3439,113 @@ export default function InfluencerOS() {
           )}
         </div>
       </main>
+
+      {/* ============ MESSAGES ============ */}
+      {messagesOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setMessagesOpen(false)}>
+          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl h-[82vh] flex overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* conversation list */}
+            <div className="w-72 border-r border-white/[0.07] flex flex-col shrink-0">
+              <div className="px-4 py-3.5 border-b border-white/[0.07] flex items-center justify-between">
+                <h3 className="font-semibold text-stone-100 tracking-tight flex items-center gap-2"><MessageSquare size={16} className="text-orange-400"/> Messages</h3>
+              </div>
+              <div className="p-3 border-b border-white/[0.07]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" size={14}/>
+                  <input value={msgSearch} onChange={(e) => setMsgSearch(e.target.value)} placeholder="Search people to message..." className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {msgSearch.trim() ? (
+                  <div className="py-1">
+                    <p className="px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold">People</p>
+                    {peopleResults.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-stone-500">No people found.</p>
+                    ) : peopleResults.map(p => (
+                      <button key={p.email} onClick={() => startDm(p.email)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-xs font-bold text-white shrink-0">{(p.display_name || '?').charAt(0).toUpperCase()}</div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-stone-200 truncate">{p.display_name}</p>
+                          {p.title && <p className="text-xs text-stone-500 truncate">{p.title}</p>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {/* pinned team channel */}
+                    <button onClick={() => openChannel('group:all')} className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-l-2 ${msgChannel === 'group:all' ? 'bg-orange-500/10 border-orange-500' : 'border-transparent hover:bg-white/[0.04]'}`}>
+                      <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 shrink-0"><Hash size={16}/></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5"><span className="text-sm font-medium text-stone-200">Team Channel</span><Pin size={11} className="text-stone-500"/></div>
+                        <p className="text-xs text-stone-500 truncate">Everyone can post here</p>
+                      </div>
+                      {msgUnread('group:all') > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">{msgUnread('group:all')}</span>}
+                    </button>
+                    <p className="px-4 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold">Direct Messages</p>
+                    {dmThreads.length === 0 ? (
+                      <p className="px-4 py-2 text-xs text-stone-500">Search a person above to start a chat.</p>
+                    ) : dmThreads.map(t => (
+                      <button key={t.ch} onClick={() => openChannel(t.ch)} className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left border-l-2 ${msgChannel === t.ch ? 'bg-orange-500/10 border-orange-500' : 'border-transparent hover:bg-white/[0.04]'}`}>
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center text-xs font-bold text-white shrink-0">{(t.name || '?').charAt(0).toUpperCase()}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-stone-200 truncate">{t.name}</p>
+                          <p className="text-xs text-stone-500 truncate">{t.last}</p>
+                        </div>
+                        {t.unread > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">{t.unread}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* chat pane */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="px-5 py-3.5 border-b border-white/[0.07] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {msgChannel === 'group:all'
+                    ? <><div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 shrink-0"><Hash size={15}/></div><div className="min-w-0"><p className="text-sm font-semibold text-stone-100 truncate">Team Channel</p><p className="text-[11px] text-stone-500">Pinned · visible to everyone</p></div></>
+                    : <><div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center text-xs font-bold text-white shrink-0">{(nameForEmail(otherEmail(msgChannel)) || '?').charAt(0).toUpperCase()}</div><div className="min-w-0"><p className="text-sm font-semibold text-stone-100 truncate">{nameForEmail(otherEmail(msgChannel))}</p><p className="text-[11px] text-stone-500">Direct message</p></div></>}
+                </div>
+                <button onClick={() => setMessagesOpen(false)} title="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-100 hover:bg-white/[0.06] transition-colors shrink-0"><X size={18}/></button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                {channelMsgs.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-stone-500 gap-2">
+                    <MessageSquare size={28} className="opacity-40"/>
+                    <p className="text-sm">No messages yet. Say hello 👋</p>
+                  </div>
+                ) : channelMsgs.map(m => {
+                  const mine = (m.sender_email || '').toLowerCase() === myEmail;
+                  return (
+                    <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                      {!mine && msgChannel === 'group:all' && <span className="text-[11px] text-stone-500 mb-0.5 ml-1">{m.sender_name || nameForEmail(m.sender_email)}</span>}
+                      <div className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${mine ? 'bg-orange-500 text-white rounded-br-sm' : 'bg-white/[0.06] text-stone-200 rounded-bl-sm'}`}>{m.body}</div>
+                      <span className="text-[10px] text-stone-600 mt-0.5 mx-1">{new Date(m.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  );
+                })}
+                <div ref={msgEndRef}></div>
+              </div>
+
+              <div className="p-3 border-t border-white/[0.07] flex items-center gap-2">
+                <input
+                  value={msgText}
+                  onChange={(e) => setMsgText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder={msgChannel === 'group:all' ? 'Message the team...' : 'Type a message...'}
+                  className="flex-1 bg-white/[0.03] border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"
+                />
+                <button onClick={sendMessage} disabled={!msgText.trim()} className="bg-orange-500 hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-lg transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                  <Send size={16}/>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#0c0a08] border border-orange-500/30 text-stone-100 text-sm px-4 py-2.5 rounded-lg shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
