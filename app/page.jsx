@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import { 
   FolderKanban, Users, ArrowRightLeft, 
@@ -797,12 +798,14 @@ export default function InfluencerOS() {
     } catch {}
   }, []);
 
-  // When a user signs in, apply that account's saved theme preference (if any)
+  // When a user signs in, apply that account's saved preferences (default to light/medium)
   useEffect(() => {
     if (!currentUser) return;
     try {
       const t = localStorage.getItem('ios_theme_' + currentUser.email);
-      if (t === 'light' || t === 'dark') setTheme(t);
+      setTheme((t === 'light' || t === 'dark') ? t : 'light');
+      const f = localStorage.getItem('ios_fontsize_' + currentUser.email);
+      setFontSize((f === 'small' || f === 'medium' || f === 'large') ? f : 'medium');
     } catch {}
   }, [currentUser]);
 
@@ -821,9 +824,13 @@ export default function InfluencerOS() {
 
   useEffect(() => {
     const px = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px';
-    try { document.documentElement.style.fontSize = px; localStorage.setItem('ios_fontsize', fontSize); } catch {}
+    try {
+      document.documentElement.style.fontSize = px;
+      localStorage.setItem('ios_fontsize', fontSize);
+      if (currentUser) localStorage.setItem('ios_fontsize_' + currentUser.email, fontSize);
+    } catch {}
     return () => { try { document.documentElement.style.fontSize = ''; } catch {} };
-  }, [fontSize]);
+  }, [fontSize, currentUser]);
 
   useEffect(() => { setCampaignView('live'); }, [activeCampaignId]);
 
@@ -1958,7 +1965,8 @@ export default function InfluencerOS() {
   );
 
   const getGroupedCreators = () => {
-    const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead');
+    const q = (tableExpanded && searchQuery.trim()) ? searchQuery.toLowerCase() : '';
+    const campaignCreators = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead' && (!q || (c.creator_name || '').toLowerCase().includes(q)));
     campaignCreators.sort((a, b) => new Date(a.planned_go_live_date) - new Date(b.planned_go_live_date));
 
     const groups = campaignCreators.reduce((acc, creator) => {
@@ -2062,20 +2070,11 @@ export default function InfluencerOS() {
   // ============ LOGIN SCREEN ============
   if (!currentUser) {
     return (
-      <div className={`flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden ${theme === 'light' ? 'theme-light' : ''}`}>
+      <div className="flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden">
         {/* Ambient techy backdrop across the whole screen */}
-        <div className="login-ambient pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
-        <div className="login-ambient pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
-        <div className="login-ambient pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
-
-        {/* Light / dark toggle (works on the login screen too) */}
-        <button
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          aria-label="Toggle light or dark mode"
-          className="absolute top-5 right-5 z-30 h-10 w-10 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-stone-300 hover:bg-white/[0.08] hover:text-stone-100 transition-colors backdrop-blur-sm"
-        >
-          {theme === 'light' ? <Moon size={16}/> : <Sun size={16}/>}
-        </button>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
+        <div className="pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
 
         {/* Left visual panel */}
         <div className="hidden lg:flex relative w-[52%] overflow-hidden">
@@ -2083,7 +2082,7 @@ export default function InfluencerOS() {
           <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)] z-20"></div>
 
           {/* cool tech illustration filling the panel */}
-          <OrbitalScene light={theme === 'light'} className="absolute inset-0 w-full h-full" />
+          <OrbitalScene light={false} className="absolute inset-0 w-full h-full" />
 
           <div className="relative z-10 flex flex-col justify-between p-14 w-full">
             {/* Brand lockup top-left */}
@@ -2642,7 +2641,7 @@ export default function InfluencerOS() {
           )}
 
           {activeTab === 'campaigns' && activeCampaignId && (
-             <div className={`animate-in fade-in duration-300 space-y-6 ${tableExpanded ? 'max-w-none' : 'max-w-[1400px] mx-auto'}`}>
+             <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col gap-4 mb-6">
                 <button 
                   onClick={() => setActiveCampaignId(null)}
@@ -2707,7 +2706,7 @@ export default function InfluencerOS() {
                       <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
                     </div>
                     <button
-                      onClick={() => { const nv = !tableExpanded; setTableExpanded(nv); setSidebarCollapsed(nv); }}
+                      onClick={() => setTableExpanded(v => !v)}
                       title={tableExpanded ? 'Exit full screen' : 'Expand table'}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.03] text-stone-300 hover:text-stone-100 hover:bg-white/[0.06] text-sm font-medium transition-colors shrink-0"
                     >
@@ -2718,8 +2717,9 @@ export default function InfluencerOS() {
                 );
               })()}
 
-              {campaignView === 'live' && (
-              <div className={`bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-auto shadow-xl ${tableExpanded ? 'max-h-[calc(100vh-13rem)]' : 'max-h-[calc(100vh-19rem)]'}`}>
+              {campaignView === 'live' && (() => {
+              const tableEl = (
+              <div className={`bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-auto shadow-xl ${tableExpanded ? 'max-h-[calc(100vh-10rem)]' : 'max-h-[calc(100vh-19rem)]'}`}>
                  <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-[#0c0a08] text-stone-500 border-b border-white/[0.07] sticky top-0 z-10">
                     <tr>
@@ -2854,7 +2854,41 @@ export default function InfluencerOS() {
                   )}
                  </table>
               </div>
-              )}
+              );
+              return tableExpanded ? createPortal((
+                <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-stretch justify-center p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => { setTableExpanded(false); setSearchQuery(''); }}>
+                  <div className="bg-[#0c0a08] rounded-2xl border border-white/10 shadow-2xl w-full max-w-[1600px] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.07] shrink-0 flex-wrap">
+                      <h3 className="text-base font-semibold text-stone-100 tracking-tight mr-auto truncate">{activeCampaign?.ip_name} · Live Creators</h3>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" size={15}/>
+                        <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Filter creators..." className="bg-white/[0.03] border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70 w-56"/>
+                      </div>
+                      {canManageActive && (
+                        <button onClick={() => handleCampaignSync(activeCampaignId)} disabled={isCampaignSyncing} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50">
+                          <RefreshCw className={isCampaignSyncing ? "animate-spin text-orange-400" : "text-orange-400"} size={15}/>
+                          {isCampaignSyncing ? "Syncing..." : "Sync Metrics"}
+                        </button>
+                      )}
+                      <button onClick={() => setExportModal({ isOpen: true, type: 'ops' })} className="bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-stone-300 px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors">
+                        <Download size={15}/> Export
+                      </button>
+                      {canManageActive && (
+                        <button onClick={() => { setEditingCreator(null); setCreatorModalOpen(true); }} className="bg-orange-500 hover:bg-orange-400 text-white px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                          <Plus size={15}/> Book Creator
+                        </button>
+                      )}
+                      <button onClick={() => { setTableExpanded(false); setSearchQuery(''); }} title="Close" className="ml-1 h-9 w-9 flex items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-stone-300 hover:text-stone-100 hover:bg-white/[0.06] transition-colors">
+                        <X size={18}/>
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-4">
+                      {tableEl}
+                    </div>
+                  </div>
+                </div>
+              ), document.body) : tableEl;
+              })()}
 
               {campaignView === 'talks' && (() => {
                 const campLeads = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead');
