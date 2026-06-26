@@ -65,13 +65,13 @@ const GoogleG = ({ size = 18 }) => (
 // Animated orbital "atom" scene. Reused on the login art and as a faint backdrop in the app.
 const OrbitalScene = ({ className = '', light = false }) => {
   const c = light ? {
-    g1: '#fde68a', g2: '#d97706', hz1: '#fcd34d', hz2: '#ffffff', hzO: 0.22,
-    trace: '#b45309', trO: 0.30, node: '#d97706', ndO: 0.85, hex: '#b45309', hxO: 0.28,
-    con: '#a16207', cnO: 0.30, star: '#ca8a04', stO: 0.85,
-    el1: '#b45309', e1O: 0.28, el2: '#a16207', e2O: 0.18,
-    r1: '#d97706', r1O: 0.35, d1: '#b45309', d2: '#d97706', d3: '#ca8a04',
-    r2: '#ca8a04', r2O: 0.30, d4: '#b45309', d5: '#d97706',
-    core: '#d97706', coreRing: '#92400e', crO: 0.6, coreDot: '#fffbeb'
+    g1: '#fed7aa', g2: '#f97316', hz1: '#fdba74', hz2: '#ffffff', hzO: 0.20,
+    trace: '#ea580c', trO: 0.28, node: '#f97316', ndO: 0.85, hex: '#ea580c', hxO: 0.26,
+    con: '#c2410c', cnO: 0.28, star: '#f97316', stO: 0.85,
+    el1: '#ea580c', e1O: 0.26, el2: '#c2410c', e2O: 0.18,
+    r1: '#f97316', r1O: 0.32, d1: '#ea580c', d2: '#f97316', d3: '#fb923c',
+    r2: '#fb923c', r2O: 0.30, d4: '#ea580c', d5: '#f97316',
+    core: '#f97316', coreRing: '#9a3412', crO: 0.6, coreDot: '#fff7ed'
   } : {
     g1: '#fed7aa', g2: '#f97316', hz1: '#7c2d12', hz2: '#000000', hzO: 0.40,
     trace: '#f97316', trO: 0.22, node: '#fb923c', ndO: 0.8, hex: '#f59e0b', hxO: 0.16,
@@ -2278,36 +2278,22 @@ export default function InfluencerOS() {
         .theme-light [class~="text-orange-400"]{color:#c2410c!important}
         /* cyan accent -> teal for white bg */
         .theme-light [class~="text-cyan-300"],.theme-light [class~="text-cyan-400"]{color:#0d9488!important}
-        /* ===== YAAS mustard: orange -> yellow (light mode only) ===== */
-        /* filled actions -> mustard */
-        .theme-light [class~="bg-orange-500"],.theme-light [class~="bg-orange-400"]{background-color:#d9a521!important}
-        .theme-light [class~="hover:bg-orange-400"]:hover,.theme-light [class~="hover:bg-orange-500"]:hover{background-color:#c2901a!important}
-        /* tints */
-        .theme-light [class~="bg-orange-500/10"],.theme-light [class~="bg-orange-500/[0.06]"],.theme-light [class~="bg-orange-500/[0.08]"]{background-color:rgba(217,165,33,0.12)!important}
-        .theme-light [class~="bg-orange-500/15"]{background-color:rgba(217,165,33,0.14)!important}
-        .theme-light [class~="bg-orange-500/20"],.theme-light [class~="bg-orange-500/25"],.theme-light [class~="bg-orange-500/30"]{background-color:rgba(217,165,33,0.18)!important}
-        .theme-light [class~="hover:bg-orange-500/25"]:hover{background-color:rgba(217,165,33,0.24)!important}
-        .theme-light [class~="bg-orange-950/30"]{background-color:rgba(217,165,33,0.10)!important}
-        /* orange text -> dark mustard (legible) */
-        .theme-light [class~="text-orange-100"]{color:#7a5c08!important}
-        .theme-light [class~="text-orange-200"]{color:#8a6a0a!important}
-        .theme-light [class~="text-orange-300"]{color:#a16207!important}
-        .theme-light [class~="text-orange-400"]{color:#a16207!important}
-        /* orange borders -> mustard */
-        .theme-light [class~="border-orange-500"]{border-color:rgba(217,165,33,0.6)!important}
-        .theme-light [class~="border-orange-500/20"],.theme-light [class~="border-orange-500/25"],.theme-light [class~="border-orange-500/30"],.theme-light [class~="border-orange-500/40"],.theme-light [class~="border-orange-500/50"],.theme-light [class~="border-orange-500/60"],.theme-light [class~="border-orange-500/70"]{border-color:rgba(217,165,33,0.4)!important}
-        .theme-light [class~="hover:border-orange-500/30"]:hover{border-color:rgba(217,165,33,0.5)!important}
-        .theme-light [class~="focus:border-orange-500/70"]:focus{border-color:#d9a521!important}
-        .theme-light [class~="ring-orange-500"]{--tw-ring-color:#d9a521!important}
-        /* gradients -> mustard */
-        .theme-light [class*="from-orange-"]{--tw-gradient-from:#d9a521 var(--tw-gradient-from-position)!important}
-        .theme-light [class*="to-amber-"],.theme-light [class*="to-orange-"]{--tw-gradient-to:#b8860b var(--tw-gradient-to-position)!important}
-        .theme-light [class*="from-amber-"]{--tw-gradient-from:#e0a526 var(--tw-gradient-from-position)!important}
-        /* white text -> dark in light mode (headline + yellow buttons need dark text) */
-        .theme-light [class~="text-white"]{color:#241b04!important}
-        /* logo recolored to mustard */
-        .theme-light .app-logo{filter:brightness(0) saturate(100%) invert(72%) sepia(46%) saturate(680%) hue-rotate(2deg) brightness(93%) contrast(89%)!important}
-        /* atom backdrop: shown again in light mode (now mustard) */
+        /* ===== Orange accent kept; fix faint orange on white (light mode) ===== */
+        /* all orange text -> readable dark orange (covers /70 /80 /90 opacity variants too) */
+        .theme-light [class*="text-orange-"]{color:#c2410c!important}
+        /* faint orange tints -> actually visible on white (group headers, active pills, etc.) */
+        .theme-light [class~="bg-orange-500/[0.04]"],.theme-light [class~="bg-orange-500/[0.06]"],.theme-light [class~="bg-orange-500/[0.07]"],.theme-light [class~="bg-orange-500/[0.08]"],.theme-light [class~="bg-orange-500/10"]{background-color:rgba(249,115,22,0.11)!important}
+        .theme-light [class~="bg-orange-500/15"]{background-color:rgba(249,115,22,0.14)!important}
+        .theme-light [class~="bg-orange-500/20"]{background-color:rgba(249,115,22,0.17)!important}
+        .theme-light [class~="bg-orange-500/25"],.theme-light [class~="bg-orange-500/30"]{background-color:rgba(249,115,22,0.2)!important}
+        .theme-light [class~="bg-orange-950/30"]{background-color:rgba(249,115,22,0.1)!important}
+        /* faint left-borders on group headers -> more present */
+        .theme-light [class~="border-orange-500/60"]{border-color:rgba(249,115,22,0.85)!important}
+        /* white text -> dark in light mode EXCEPT on filled orange buttons (keep white there) */
+        .theme-light [class~="text-white"]:not([class~="bg-orange-500"]):not([class~="bg-orange-400"]){color:#1c1917!important}
+        /* logo recolored to orange */
+        .theme-light .app-logo{filter:brightness(0) saturate(100%) invert(52%) sepia(89%) saturate(1746%) hue-rotate(346deg) brightness(101%) contrast(96%)!important}
+        /* atom backdrop: shown in light mode (orange variant) */
         .theme-light .orbital-bg{display:block!important;opacity:0.13!important}
         /* login ambient orange/brown glows off in light */
         .theme-light .login-ambient{display:none!important}
