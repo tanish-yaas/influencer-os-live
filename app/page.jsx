@@ -1931,8 +1931,24 @@ export default function InfluencerOS() {
     }, {});
   };
 
+  const NAV_COLORS = { campaigns: '#6366f1', finance_vs_ops: '#10b981', scraper: '#0ea5e9', payments: '#8b5cf6', reports: '#f43f5e' };
   const NavItem = ({ id, icon: Icon, label }) => {
     const active = activeTab === id && !activeCampaignId;
+    const light = theme === 'light';
+    if (light) {
+      const c = NAV_COLORS[id] || '#6366f1';
+      return (
+        <button
+          onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
+          style={active ? { backgroundColor: c + '14', borderColor: c + '40', color: c } : undefined}
+          className={`group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative border ${active ? 'shadow-[0_1px_2px_rgba(16,24,40,0.05)]' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-black/[0.035]'}`}
+        >
+          {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full" style={{ backgroundColor: c }}></span>}
+          <Icon size={16} style={active ? { color: c } : undefined} className={active ? '' : 'text-stone-400 group-hover:text-stone-700'} />
+          {label}
+        </button>
+      );
+    }
     return (
       <button 
         onClick={() => { setActiveTab(id); setActiveCampaignId(null); setSelectedCampaigns([]); }}
@@ -2199,51 +2215,51 @@ export default function InfluencerOS() {
   return (
     <div className={`flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30 ${theme === 'light' ? 'theme-light' : ''}`}>
       <style>{`
-        /* ---------- LIGHT MODE — canvas & surfaces ---------- */
-        .theme-light main{background-color:#f5f4f1!important;background-image:none!important}
-        .theme-light [class~="bg-[#0a0807]"]{background-color:#f5f4f1!important}
-        .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:transparent!important}
+        /* ============ LIGHT MODE — clean neutral palette ============ */
+        /* canvas + kill dark backdrop */
+        .theme-light main{background-color:#f4f5f7!important;background-image:none!important}
+        .theme-light .orbital-bg{display:none!important}
+        .theme-light [class~="bg-[#0a0807]"]{background-color:#f4f5f7!important}
+        .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:#f4f5f7!important}
+        /* surfaces */
         .theme-light [class~="bg-[#0c0a08]"]{background-color:#ffffff!important}
-        .theme-light [class~="bg-[#070605]"]{background-color:#efedea!important}
-        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(255,255,255,0.85)!important}
+        .theme-light [class~="bg-[#070605]"]{background-color:#eceef1!important}
+        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(255,255,255,0.92)!important}
         .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:#ffffff!important}
-        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#efece8!important}
-        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e4dfd9!important}
+        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#f1f3f6!important}
+        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e7eaef!important}
         .theme-light [class~="bg-black/30"],.theme-light [class~="bg-black/40"]{background-color:#ffffff!important}
+        /* sidebar = clean white */
+        .theme-light aside{background-color:#ffffff!important;border-color:#e6e8ec!important}
         /* card depth */
-        .theme-light [class~="bg-[#0c0a08]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{box-shadow:0 1px 2px rgba(28,25,23,0.04),0 1px 3px rgba(28,25,23,0.06)}
+        .theme-light [class~="bg-[#0c0a08]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{box-shadow:0 1px 2px rgba(16,24,40,0.04),0 4px 14px -6px rgba(16,24,40,0.08)}
+        /* soften orange glows into clean neutral shadows */
+        .theme-light [class*="rgba(249,115,22"]{box-shadow:0 1px 2px rgba(16,24,40,0.05),0 6px 16px -8px rgba(16,24,40,0.12)!important}
         /* borders */
-        .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:rgba(28,25,23,0.09)!important}
-        .theme-light [class~="border-white/10"],.theme-light [class~="border-white/[0.1]"]{border-color:rgba(28,25,23,0.14)!important}
-        /* text */
-        .theme-light [class~="text-stone-100"]{color:#1c1917!important}
-        .theme-light [class~="text-stone-200"]{color:#292524!important}
-        .theme-light [class~="text-stone-300"]{color:#403c39!important}
-        .theme-light [class~="text-stone-400"]{color:#57534e!important}
-        .theme-light [class~="text-stone-500"]{color:#6b6660!important}
-        .theme-light [class~="text-stone-600"]{color:#8a847d!important}
-        /* accents legible on white */
+        .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:#e6e8ec!important}
+        .theme-light [class~="border-white/10"],.theme-light [class~="border-white/[0.1]"]{border-color:#dde0e6!important}
+        /* text — slate scale */
+        .theme-light [class~="text-stone-100"]{color:#0e121b!important}
+        .theme-light [class~="text-stone-200"]{color:#1d2433!important}
+        .theme-light [class~="text-stone-300"]{color:#344054!important}
+        .theme-light [class~="text-stone-400"]{color:#475467!important}
+        .theme-light [class~="text-stone-500"]{color:#667085!important}
+        .theme-light [class~="text-stone-600"]{color:#98a2b3!important}
+        .theme-light [class~="placeholder-stone-600"]::placeholder{color:#98a2b3!important}
+        /* keep orange ACTIONS punchy but make orange TEXT legible on white */
+        .theme-light [class~="text-orange-100"]{color:#7c2d12!important}
         .theme-light [class~="text-orange-200"]{color:#9a3412!important}
         .theme-light [class~="text-orange-300"]{color:#c2410c!important}
         .theme-light [class~="text-orange-400"]{color:#c2410c!important}
-        .theme-light [class~="text-cyan-300"],.theme-light [class~="text-cyan-400"]{color:#0e7490!important}
-        /* ---------- DARK SIDEBAR retained in light mode ---------- */
-        .theme-light aside{background-color:#0c0a08!important;border-color:rgba(255,255,255,0.07)!important}
-        .theme-light aside [class~="text-stone-100"]{color:#fafaf9!important}
-        .theme-light aside [class~="text-stone-200"]{color:#e7e5e4!important}
-        .theme-light aside [class~="text-stone-300"]{color:#d6d3d1!important}
-        .theme-light aside [class~="text-stone-400"]{color:#a8a29e!important}
-        .theme-light aside [class~="text-stone-500"]{color:#78716c!important}
-        .theme-light aside [class~="text-orange-300"]{color:#fdba74!important}
-        .theme-light aside [class~="text-orange-400"]{color:#fb923c!important}
-        .theme-light aside [class~="bg-white/[0.04]"],.theme-light aside [class~="bg-white/[0.05]"],.theme-light aside [class~="bg-white/[0.06]"]{background-color:rgba(255,255,255,0.06)!important;box-shadow:none!important}
-        .theme-light aside [class~="bg-white/[0.02]"],.theme-light aside [class~="bg-white/[0.025]"],.theme-light aside [class~="bg-white/[0.03]"]{background-color:rgba(255,255,255,0.03)!important;box-shadow:none!important}
-        .theme-light aside [class~="border-white/[0.06]"],.theme-light aside [class~="border-white/[0.07]"],.theme-light aside [class~="border-white/10"]{border-color:rgba(255,255,255,0.08)!important}
+        /* cyan accent -> teal for white bg */
+        .theme-light [class~="text-cyan-300"],.theme-light [class~="text-cyan-400"]{color:#0d9488!important}
+        /* logo: white mark -> black on the light sidebar */
+        .theme-light aside img{filter:brightness(0)!important}
       `}</style>
       <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
         <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-7 w-auto max-w-[92px] object-contain"/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-9 w-auto max-w-[120px] object-contain"/>
           ) : (
             <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
           )}
@@ -2262,7 +2278,7 @@ export default function InfluencerOS() {
 
       <main className="relative flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
         {/* faint animated orbital backdrop */}
-        <OrbitalScene className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
+        <OrbitalScene className="orbital-bg absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
         
         <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-30 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
           <div className="flex items-center gap-6">
