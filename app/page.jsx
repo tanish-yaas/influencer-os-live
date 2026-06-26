@@ -668,6 +668,7 @@ export default function InfluencerOS() {
     likes: true, comments: true, shares: true, saves: true, engagement: true, er: true,
     cpv: true, cpe: true
   });
+  const [exportGroupsOpen, setExportGroupsOpen] = useState({});
 
   // ---- Auth helpers ----
   const loadProfile = async (email) => {
@@ -3213,22 +3214,35 @@ export default function InfluencerOS() {
                     <button onClick={() => setExportOpts(o => { const n = { ...o }; reportColumnDefs.forEach(c => n[c.key] = false); return n; })} className="text-[11px] text-stone-400 hover:text-stone-200 px-2 py-0.5 rounded border border-white/10">None</button>
                   </div>
                 </div>
-                {['Profile', 'Engagement', 'Cost'].map(group => (
-                  <div key={group} className="mb-3 last:mb-0">
-                    <p className="text-[10px] uppercase tracking-wider text-stone-600 mb-1.5">{group}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {reportColumnDefs.filter(c => c.group === group).map(col => {
-                        const on = exportOpts[col.key];
-                        return (
-                          <button key={col.key} onClick={() => setExportOpts(o => ({ ...o, [col.key]: !o[col.key] }))} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${on ? 'bg-orange-500/20 border-orange-500/40 text-orange-200' : 'bg-white/[0.02] border-white/10 text-stone-500 hover:text-stone-300'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-orange-400' : 'bg-stone-600'}`}></span>
-                            {col.label}
-                          </button>
-                        );
-                      })}
+                {['Profile', 'Engagement', 'Cost'].map(group => {
+                  const cols = reportColumnDefs.filter(c => c.group === group);
+                  const selected = cols.filter(c => exportOpts[c.key]).length;
+                  const open = !!exportGroupsOpen[group];
+                  return (
+                    <div key={group} className="mb-2 last:mb-0 border border-white/[0.07] rounded-lg overflow-hidden">
+                      <button onClick={() => setExportGroupsOpen(s => ({ ...s, [group]: !s[group] }))} className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
+                        <span className="text-sm text-stone-200">{group}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-[11px] text-stone-500 tabular-nums">{selected}/{cols.length}</span>
+                          <span className={`text-stone-500 transition-transform ${open ? 'rotate-180' : ''}`}><ChevronDown size={15}/></span>
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0.5">
+                          {cols.map(col => {
+                            const on = exportOpts[col.key];
+                            return (
+                              <button key={col.key} onClick={() => setExportOpts(o => ({ ...o, [col.key]: !o[col.key] }))} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${on ? 'bg-orange-500/20 border-orange-500/40 text-orange-200' : 'bg-white/[0.02] border-white/10 text-stone-500 hover:text-stone-300'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-orange-400' : 'bg-stone-600'}`}></span>
+                                {col.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
