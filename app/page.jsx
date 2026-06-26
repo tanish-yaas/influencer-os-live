@@ -63,84 +63,100 @@ const GoogleG = ({ size = 18 }) => (
 );
 
 // Animated orbital "atom" scene. Reused on the login art and as a faint backdrop in the app.
-const OrbitalScene = ({ className = '' }) => (
+const OrbitalScene = ({ className = '', light = false }) => {
+  const c = light ? {
+    g1: '#fde68a', g2: '#d97706', hz1: '#fcd34d', hz2: '#ffffff', hzO: 0.22,
+    trace: '#b45309', trO: 0.30, node: '#d97706', ndO: 0.85, hex: '#b45309', hxO: 0.28,
+    con: '#a16207', cnO: 0.30, star: '#ca8a04', stO: 0.85,
+    el1: '#b45309', e1O: 0.28, el2: '#a16207', e2O: 0.18,
+    r1: '#d97706', r1O: 0.35, d1: '#b45309', d2: '#d97706', d3: '#ca8a04',
+    r2: '#ca8a04', r2O: 0.30, d4: '#b45309', d5: '#d97706',
+    core: '#d97706', coreRing: '#92400e', crO: 0.6, coreDot: '#fffbeb'
+  } : {
+    g1: '#fed7aa', g2: '#f97316', hz1: '#7c2d12', hz2: '#000000', hzO: 0.40,
+    trace: '#f97316', trO: 0.22, node: '#fb923c', ndO: 0.8, hex: '#f59e0b', hxO: 0.16,
+    con: '#fbbf24', cnO: 0.14, star: '#fde68a', stO: 0.7,
+    el1: '#f97316', e1O: 0.20, el2: '#f59e0b', e2O: 0.12,
+    r1: '#fb923c', r1O: 0.30, d1: '#f97316', d2: '#fdba74', d3: '#fbbf24',
+    r2: '#fdba74', r2O: 0.25, d4: '#f59e0b', d5: '#fb923c',
+    core: '#fb923c', coreRing: '#fed7aa', crO: 0.7, coreDot: '#fff7ed'
+  };
+  const sfx = light ? 'l' : 'd';
+  return (
   <svg className={className} viewBox="0 0 620 840" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <defs>
-      <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#fed7aa" stopOpacity="0.95"/>
-        <stop offset="35%" stopColor="#f97316" stopOpacity="0.55"/>
-        <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+      <radialGradient id={`coreGlow-${sfx}`} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={c.g1} stopOpacity="0.95"/>
+        <stop offset="35%" stopColor={c.g2} stopOpacity="0.55"/>
+        <stop offset="100%" stopColor={c.g2} stopOpacity="0"/>
       </radialGradient>
-      <radialGradient id="haze" cx="55%" cy="42%" r="62%">
-        <stop offset="0%" stopColor="#7c2d12" stopOpacity="0.40"/>
-        <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
+      <radialGradient id={`haze-${sfx}`} cx="55%" cy="42%" r="62%">
+        <stop offset="0%" stopColor={c.hz1} stopOpacity={c.hzO}/>
+        <stop offset="100%" stopColor={c.hz2} stopOpacity="0"/>
       </radialGradient>
     </defs>
 
-    <rect width="620" height="840" fill="url(#haze)"/>
+    <rect width="620" height="840" fill={`url(#haze-${sfx})`}/>
 
-    {/* circuit traces */}
-    <g stroke="#f97316" strokeOpacity="0.22" strokeWidth="1.2" fill="none">
+    <g stroke={c.trace} strokeOpacity={c.trO} strokeWidth="1.2" fill="none">
       <path d="M40 120 H150 V210 H230"/>
       <path d="M60 700 H180 V610 H300"/>
       <path d="M520 90 V180 H430"/>
       <path d="M560 760 V650 H470 V560"/>
     </g>
-    <g fill="#fb923c" fillOpacity="0.8">
+    <g fill={c.node} fillOpacity={c.ndO}>
       <circle cx="40" cy="120" r="3"/><circle cx="230" cy="210" r="3"/>
       <circle cx="60" cy="700" r="3"/><circle cx="300" cy="610" r="3"/>
       <circle cx="520" cy="90" r="3"/><circle cx="430" cy="180" r="3"/>
       <circle cx="560" cy="760" r="3"/><circle cx="470" cy="560" r="3"/>
     </g>
 
-    {/* floating hexagons */}
-    <g stroke="#f59e0b" strokeOpacity="0.16" strokeWidth="1.2" fill="none">
+    <g stroke={c.hex} strokeOpacity={c.hxO} strokeWidth="1.2" fill="none">
       <polygon points="110,300 140,285 170,300 170,335 140,350 110,335"/>
       <polygon points="480,400 506,386 532,400 532,430 506,444 480,430"/>
       <polygon points="430,690 452,678 474,690 474,714 452,726 430,714"/>
     </g>
 
-    {/* constellation */}
-    <g stroke="#fbbf24" strokeOpacity="0.14" strokeWidth="1">
+    <g stroke={c.con} strokeOpacity={c.cnO} strokeWidth="1">
       <line x1="90" y1="470" x2="200" y2="540"/>
       <line x1="200" y1="540" x2="120" y2="640"/>
       <line x1="500" y1="250" x2="560" y2="340"/>
     </g>
-    <g fill="#fde68a" fillOpacity="0.7">
+    <g fill={c.star} fillOpacity={c.stO}>
       <circle cx="90" cy="470" r="2.5"/><circle cx="200" cy="540" r="2.5"/>
       <circle cx="120" cy="640" r="2.5"/><circle cx="500" cy="250" r="2.5"/>
       <circle cx="560" cy="340" r="2.5"/>
     </g>
 
-    {/* orbital hub */}
     <g transform="translate(310 440)">
-      <circle r="160" fill="url(#coreGlow)">
+      <circle r="160" fill={`url(#coreGlow-${sfx})`}>
         <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite"/>
       </circle>
 
-      <ellipse rx="210" ry="80" fill="none" stroke="#f97316" strokeOpacity="0.20" strokeWidth="1.2" transform="rotate(-22)"/>
-      <ellipse rx="250" ry="150" fill="none" stroke="#f59e0b" strokeOpacity="0.12" strokeWidth="1" transform="rotate(14)"/>
+      <ellipse rx="210" ry="80" fill="none" stroke={c.el1} strokeOpacity={c.e1O} strokeWidth="1.2" transform="rotate(-22)"/>
+      <ellipse rx="250" ry="150" fill="none" stroke={c.el2} strokeOpacity={c.e2O} strokeWidth="1" transform="rotate(14)"/>
 
       <g>
         <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="70s" repeatCount="indefinite"/>
-        <circle r="120" fill="none" stroke="#fb923c" strokeOpacity="0.30" strokeWidth="1.2"/>
-        <circle cx="120" cy="0" r="6" fill="#f97316"/>
-        <circle cx="-120" cy="0" r="4" fill="#fdba74"/>
-        <circle cx="0" cy="120" r="3" fill="#fbbf24"/>
+        <circle r="120" fill="none" stroke={c.r1} strokeOpacity={c.r1O} strokeWidth="1.2"/>
+        <circle cx="120" cy="0" r="6" fill={c.d1}/>
+        <circle cx="-120" cy="0" r="4" fill={c.d2}/>
+        <circle cx="0" cy="120" r="3" fill={c.d3}/>
       </g>
       <g>
         <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/>
-        <circle r="70" fill="none" stroke="#fdba74" strokeOpacity="0.25" strokeWidth="1"/>
-        <circle cx="70" cy="0" r="4" fill="#f59e0b"/>
-        <circle cx="-70" cy="0" r="3" fill="#fb923c"/>
+        <circle r="70" fill="none" stroke={c.r2} strokeOpacity={c.r2O} strokeWidth="1"/>
+        <circle cx="70" cy="0" r="4" fill={c.d4}/>
+        <circle cx="-70" cy="0" r="3" fill={c.d5}/>
       </g>
 
-      <circle r="22" fill="#fb923c"/>
-      <circle r="22" fill="none" stroke="#fed7aa" strokeOpacity="0.7" strokeWidth="1.5"/>
-      <circle r="9" fill="#fff7ed"/>
+      <circle r="22" fill={c.core}/>
+      <circle r="22" fill="none" stroke={c.coreRing} strokeOpacity={c.crO} strokeWidth="1.5"/>
+      <circle r="9" fill={c.coreDot}/>
     </g>
   </svg>
-);
+  );
+};
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -2009,11 +2025,20 @@ export default function InfluencerOS() {
   // ============ LOGIN SCREEN ============
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden">
+      <div className={`flex min-h-screen bg-[#070605] font-sans text-stone-200 selection:bg-orange-500/30 relative overflow-hidden ${theme === 'light' ? 'theme-light' : ''}`}>
         {/* Ambient techy backdrop across the whole screen */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
-        <div className="pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
+        <div className="login-ambient pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,_rgba(249,115,22,0.20),_transparent_45%)]"></div>
+        <div className="login-ambient pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,_rgba(120,53,15,0.22),_transparent_40%)]"></div>
+        <div className="login-ambient pointer-events-none absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
+
+        {/* Light / dark toggle (works on the login screen too) */}
+        <button
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          aria-label="Toggle light or dark mode"
+          className="absolute top-5 right-5 z-30 h-10 w-10 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-stone-300 hover:bg-white/[0.08] hover:text-stone-100 transition-colors backdrop-blur-sm"
+        >
+          {theme === 'light' ? <Moon size={16}/> : <Sun size={16}/>}
+        </button>
 
         {/* Left visual panel */}
         <div className="hidden lg:flex relative w-[52%] overflow-hidden">
@@ -2021,7 +2046,7 @@ export default function InfluencerOS() {
           <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent shadow-[0_0_18px_2px_rgba(249,115,22,0.45)] z-20"></div>
 
           {/* cool tech illustration filling the panel */}
-          <OrbitalScene className="absolute inset-0 w-full h-full" />
+          <OrbitalScene light={theme === 'light'} className="absolute inset-0 w-full h-full" />
 
           <div className="relative z-10 flex flex-col justify-between p-14 w-full">
             {/* Brand lockup top-left */}
@@ -2031,7 +2056,7 @@ export default function InfluencerOS() {
                   src={LOGO_URL}
                   alt="YAAS"
                   onError={() => setLogoError(true)}
-                  className="h-10 w-auto max-w-[160px] object-contain"
+                  className="app-logo h-16 w-auto max-w-[260px] object-contain"
                 />
               ) : (
                 <div className="h-10 px-3 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] flex items-center font-bold tracking-tight text-white">YAAS</div>
@@ -2253,13 +2278,44 @@ export default function InfluencerOS() {
         .theme-light [class~="text-orange-400"]{color:#c2410c!important}
         /* cyan accent -> teal for white bg */
         .theme-light [class~="text-cyan-300"],.theme-light [class~="text-cyan-400"]{color:#0d9488!important}
-        /* logo: white mark -> black on the light sidebar */
-        .theme-light aside img{filter:brightness(0)!important}
+        /* ===== YAAS mustard: orange -> yellow (light mode only) ===== */
+        /* filled actions -> mustard */
+        .theme-light [class~="bg-orange-500"],.theme-light [class~="bg-orange-400"]{background-color:#d9a521!important}
+        .theme-light [class~="hover:bg-orange-400"]:hover,.theme-light [class~="hover:bg-orange-500"]:hover{background-color:#c2901a!important}
+        /* tints */
+        .theme-light [class~="bg-orange-500/10"],.theme-light [class~="bg-orange-500/[0.06]"],.theme-light [class~="bg-orange-500/[0.08]"]{background-color:rgba(217,165,33,0.12)!important}
+        .theme-light [class~="bg-orange-500/15"]{background-color:rgba(217,165,33,0.14)!important}
+        .theme-light [class~="bg-orange-500/20"],.theme-light [class~="bg-orange-500/25"],.theme-light [class~="bg-orange-500/30"]{background-color:rgba(217,165,33,0.18)!important}
+        .theme-light [class~="hover:bg-orange-500/25"]:hover{background-color:rgba(217,165,33,0.24)!important}
+        .theme-light [class~="bg-orange-950/30"]{background-color:rgba(217,165,33,0.10)!important}
+        /* orange text -> dark mustard (legible) */
+        .theme-light [class~="text-orange-100"]{color:#7a5c08!important}
+        .theme-light [class~="text-orange-200"]{color:#8a6a0a!important}
+        .theme-light [class~="text-orange-300"]{color:#a16207!important}
+        .theme-light [class~="text-orange-400"]{color:#a16207!important}
+        /* orange borders -> mustard */
+        .theme-light [class~="border-orange-500"]{border-color:rgba(217,165,33,0.6)!important}
+        .theme-light [class~="border-orange-500/20"],.theme-light [class~="border-orange-500/25"],.theme-light [class~="border-orange-500/30"],.theme-light [class~="border-orange-500/40"],.theme-light [class~="border-orange-500/50"],.theme-light [class~="border-orange-500/60"],.theme-light [class~="border-orange-500/70"]{border-color:rgba(217,165,33,0.4)!important}
+        .theme-light [class~="hover:border-orange-500/30"]:hover{border-color:rgba(217,165,33,0.5)!important}
+        .theme-light [class~="focus:border-orange-500/70"]:focus{border-color:#d9a521!important}
+        .theme-light [class~="ring-orange-500"]{--tw-ring-color:#d9a521!important}
+        /* gradients -> mustard */
+        .theme-light [class*="from-orange-"]{--tw-gradient-from:#d9a521 var(--tw-gradient-from-position)!important}
+        .theme-light [class*="to-amber-"],.theme-light [class*="to-orange-"]{--tw-gradient-to:#b8860b var(--tw-gradient-to-position)!important}
+        .theme-light [class*="from-amber-"]{--tw-gradient-from:#e0a526 var(--tw-gradient-from-position)!important}
+        /* white text -> dark in light mode (headline + yellow buttons need dark text) */
+        .theme-light [class~="text-white"]{color:#241b04!important}
+        /* logo recolored to mustard */
+        .theme-light .app-logo{filter:brightness(0) saturate(100%) invert(72%) sepia(46%) saturate(680%) hue-rotate(2deg) brightness(93%) contrast(89%)!important}
+        /* atom backdrop: shown again in light mode (now mustard) */
+        .theme-light .orbital-bg{display:block!important;opacity:0.13!important}
+        /* login ambient orange/brown glows off in light */
+        .theme-light .login-ambient{display:none!important}
       `}</style>
       <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
         <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="h-9 w-auto max-w-[120px] object-contain"/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className="app-logo h-12 w-auto max-w-[170px] object-contain"/>
           ) : (
             <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)]"></div>
           )}
@@ -2278,7 +2334,7 @@ export default function InfluencerOS() {
 
       <main className="relative flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-900/15 via-[#0a0807] to-[#0a0807]">
         {/* faint animated orbital backdrop */}
-        <OrbitalScene className="orbital-bg absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
+        <OrbitalScene light={theme === 'light'} className="orbital-bg absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none z-0" />
         
         <header className="h-16 border-b border-white/[0.06] flex items-center justify-between px-8 backdrop-blur-md bg-[#0a0807]/80 z-30 sticky top-0 shadow-[0_1px_0_rgba(249,115,22,0.08)]">
           <div className="flex items-center gap-6">
