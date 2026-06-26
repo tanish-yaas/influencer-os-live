@@ -672,7 +672,12 @@ export default function InfluencerOS() {
   const [msgText, setMsgText] = useState('');
   const [msgSearch, setMsgSearch] = useState('');
   const [msgSeen, setMsgSeen] = useState({});
+  const [editingMsgId, setEditingMsgId] = useState(null);
+  const [editMsgText, setEditMsgText] = useState('');
+  const [notifs, setNotifs] = useState([]);
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState(null);
   const msgEndRef = useRef(null);
+  const lastNotifiedRef = useRef(null);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
@@ -898,6 +903,65 @@ export default function InfluencerOS() {
     markSeen(msgChannel);
     try { await supabase.from('messages').insert(row); await refreshMessages(); } catch (e) { console.error('send message failed:', e); }
   };
+
+  const saveEditMessage = async (m) => {
+    const body = editMsgText.trim();
+    setEditingMsgId(null);
+    if (!body || body === m.body) return;
+    setAllMsgs(prev => prev.map(x => x.id === m.id ? { ...x, body, edited: true } : x));
+    try {
+      const { error } = await supabase.from('messages').update({ body, edited: true }).eq('id', m.id);
+      if (error) { await supabase.from('messages').update({ body }).eq('id', m.id); }
+    } catch (e) { console.error('edit message failed:', e); }
+  };
+
+  const deleteMessage = async (m) => {
+    setAllMsgs(prev => prev.filter(x => x.id !== m.id));
+    if (String(m.id).startsWith('tmp-')) return;
+    try { await supabase.from('messages').delete().eq('id', m.id); await refreshMessages(); } catch (e) { console.error('delete message failed:', e); }
+  };
+
+  const deleteComment = async (cm) => {
+    if (!cm) return;
+    setComments(prev => prev.filter(x => x.id !== cm.id));
+    setDeleteCommentTarget(null);
+    try { await supabase.from('creator_comments').delete().eq('id', cm.id); } catch (e) { console.error('delete comment failed:', e); }
+  };
+
+  const timeAgo = (iso) => {
+    const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (s < 60) return 'just now';
+    const mn = Math.floor(s / 60); if (mn < 60) return `${mn}m ago`;
+    const h = Math.floor(mn / 60); if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  // Phone-style notifications when a new message arrives
+  useEffect(() => {
+    if (!currentUser || allMsgs.length === 0) return;
+    const me = (currentUser.email || '').toLowerCase();
+    const maxAt = allMsgs[allMsgs.length - 1].created_at;
+    if (lastNotifiedRef.current === null) { lastNotifiedRef.current = maxAt; return; }
+    const fresh = allMsgs.filter(m =>
+      new Date(m.created_at) > new Date(lastNotifiedRef.current) &&
+      (m.sender_email || '').toLowerCase() !== me &&
+      !String(m.id).startsWith('tmp-') &&
+      !(messagesOpen && m.channel === msgChannel)
+    );
+    if (fresh.length) {
+      setNotifs(prev => [
+        ...prev,
+        ...fresh.map(m => ({ key: String(m.id) + '-' + Math.random().toString(36).slice(2), channel: m.channel, name: m.sender_name || m.sender_email, body: m.body, at: m.created_at }))
+      ].slice(-4));
+    }
+    lastNotifiedRef.current = maxAt;
+  }, [allMsgs, currentUser, messagesOpen, msgChannel]);
+
+  useEffect(() => {
+    if (notifs.length === 0) return;
+    const t = setTimeout(() => setNotifs(prev => prev.slice(1)), 6000);
+    return () => clearTimeout(t);
+  }, [notifs]);
 
   useEffect(() => { setCampaignView('live'); }, [activeCampaignId]);
 
@@ -3519,11 +3583,29 @@ export default function InfluencerOS() {
                   </div>
                 ) : channelMsgs.map(m => {
                   const mine = (m.sender_email || '').toLowerCase() === myEmail;
+                  const canEdit = mine && !String(m.id).startsWith('tmp-') && (Date.now() - new Date(m.created_at).getTime() < 15 * 60 * 1000);
+                  const editing = editingMsgId === m.id;
                   return (
-                    <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                    <div key={m.id} className={`flex flex-col group/msg ${mine ? 'items-end' : 'items-start'}`}>
                       {!mine && msgChannel === 'group:all' && <span className="text-[11px] text-stone-500 mb-0.5 ml-1">{m.sender_name || nameForEmail(m.sender_email)}</span>}
-                      <div className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${mine ? 'bg-orange-500 text-white rounded-br-sm' : 'bg-white/[0.06] text-stone-200 rounded-bl-sm'}`}>{m.body}</div>
-                      <span className="text-[10px] text-stone-600 mt-0.5 mx-1">{new Date(m.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      {editing ? (
+                        <div className="w-[82%] flex items-center gap-1.5">
+                          <input value={editMsgText} onChange={(e) => setEditMsgText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEditMessage(m); } if (e.key === 'Escape') setEditingMsgId(null); }} autoFocus className="flex-1 bg-white/[0.04] border border-orange-500/60 rounded-lg px-3 py-2 text-sm text-stone-100 focus:outline-none"/>
+                          <button onClick={() => saveEditMessage(m)} title="Save" className="text-orange-400 hover:text-orange-300 p-1"><Check size={16}/></button>
+                          <button onClick={() => setEditingMsgId(null)} title="Cancel" className="text-stone-500 hover:text-stone-300 p-1"><X size={16}/></button>
+                        </div>
+                      ) : (
+                        <div className={`flex items-center gap-1 max-w-[85%] ${mine ? 'flex-row-reverse' : ''}`}>
+                          <div className={`min-w-0 px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${mine ? 'bg-orange-500 text-white rounded-br-sm' : 'bg-white/[0.06] text-stone-200 rounded-bl-sm'}`}>{m.body}</div>
+                          {mine && (
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity shrink-0">
+                              {canEdit && <button onClick={() => { setEditingMsgId(m.id); setEditMsgText(m.body); }} title="Edit (within 15 min)" className="text-stone-500 hover:text-stone-300 p-1"><Edit2 size={13}/></button>}
+                              <button onClick={() => deleteMessage(m)} title="Delete" className="text-stone-500 hover:text-red-400 p-1"><Trash2 size={13}/></button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <span className="text-[10px] text-stone-600 mt-0.5 mx-1">{new Date(m.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}{m.edited ? ' · edited' : ''}</span>
                     </div>
                   );
                 })}
@@ -3542,6 +3624,51 @@ export default function InfluencerOS() {
                   <Send size={16}/>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ MESSAGE NOTIFICATIONS (phone-style) ============ */}
+      {notifs.length > 0 && (
+        <div className="fixed top-20 right-5 z-[75] flex flex-col gap-2 w-80 max-w-[calc(100vw-2.5rem)]">
+          {notifs.map(n => (
+            <button
+              key={n.key}
+              onClick={() => { setMessagesOpen(true); openChannel(n.channel); setNotifs([]); }}
+              className="text-left bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl p-3.5 flex items-start gap-3 hover:border-orange-500/40 transition-colors animate-in slide-in-from-right-4 fade-in duration-200"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                {n.channel === 'group:all' ? <Hash size={16}/> : (n.name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-stone-100 truncate">{n.channel === 'group:all' ? 'Team Channel' : n.name}</p>
+                  <span className="text-[10px] text-stone-500 shrink-0">{timeAgo(n.at)}</span>
+                </div>
+                {n.channel === 'group:all' && <p className="text-[11px] text-stone-500 leading-tight">{n.name}</p>}
+                <p className="text-xs text-stone-400 truncate mt-0.5">{n.body}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ============ DELETE COMMENT CONFIRM ============ */}
+      {deleteCommentTarget && (
+        <div className="fixed inset-0 z-[78] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setDeleteCommentTarget(null)}>
+          <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-red-400 mb-2">
+              <AlertTriangle size={18}/>
+              <h3 className="font-semibold text-stone-100">Delete this comment?</h3>
+            </div>
+            <p className="text-sm text-stone-400">
+              This permanently deletes <span className="text-stone-200 font-medium">{deleteCommentTarget.author}</span>'s comment. Anyone can delete comments, and this can't be undone.
+            </p>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-stone-300 my-3 max-h-28 overflow-auto whitespace-pre-wrap break-words">{deleteCommentTarget.body}</div>
+            <div className="flex gap-2 justify-end mt-4">
+              <button onClick={() => setDeleteCommentTarget(null)} className="px-4 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors">Cancel</button>
+              <button onClick={() => deleteComment(deleteCommentTarget)} className="px-4 py-2 rounded-md text-sm bg-red-500 hover:bg-red-400 text-white font-semibold transition-colors">Delete</button>
             </div>
           </div>
         </div>
@@ -3794,12 +3921,13 @@ export default function InfluencerOS() {
                 </div>
               ) : (
                 commentsFor(commentModal.creator?.creator_deal_id).map((cm) => (
-                  <div key={cm.id} className="flex flex-col">
+                  <div key={cm.id} className="flex flex-col group/cmt">
                     <div className="flex items-baseline gap-2 mb-1">
                       <span className="text-xs font-semibold text-orange-300">{cm.author}</span>
                       <span className="text-[10px] text-stone-600 tabular-nums">
                         {cm.created_at ? new Date(cm.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
+                      <button onClick={() => setDeleteCommentTarget(cm)} title="Delete comment" className="ml-auto opacity-0 group-hover/cmt:opacity-100 text-stone-600 hover:text-red-400 transition-all p-0.5"><Trash2 size={13}/></button>
                     </div>
                     <div className="bg-white/[0.04] border border-white/[0.06] rounded-lg rounded-tl-none px-3 py-2 text-sm text-stone-200 whitespace-pre-wrap break-words">
                       {cm.body}
