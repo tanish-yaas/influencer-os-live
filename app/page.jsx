@@ -7,7 +7,7 @@ import {
   Search, Bell, AlertCircle, ArrowLeft, 
   Edit2, Trash2, ExternalLink, AlertTriangle, Link as LinkIcon, RefreshCw,
   Download, CheckSquare, Square, Lock, Mail,
-  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ChevronLeft, ChevronRight, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
+  MessageSquare, Send, LogOut, Shield, Sparkles, Check, ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minimize2, ImagePlus, X, PieChart, Info, Settings, Sun, Moon, Type, ScanSearch, UserPlus, BadgeCheck, Loader2
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -652,6 +652,7 @@ export default function InfluencerOS() {
   const [timelineDay, setTimelineDay] = useState(null);
   const [theme, setTheme] = useState('light');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(false);
   const [fontSize, setFontSize] = useState('medium');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrapeQuery, setScrapeQuery] = useState('');
@@ -815,6 +816,8 @@ export default function InfluencerOS() {
   useEffect(() => {
     try { localStorage.setItem('ios_sidebar', sidebarCollapsed ? 'collapsed' : 'expanded'); } catch {}
   }, [sidebarCollapsed]);
+
+  useEffect(() => { setTableExpanded(false); }, [activeCampaignId]);
 
   useEffect(() => {
     const px = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px';
@@ -2639,7 +2642,7 @@ export default function InfluencerOS() {
           )}
 
           {activeTab === 'campaigns' && activeCampaignId && (
-             <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
+             <div className={`animate-in fade-in duration-300 space-y-6 ${tableExpanded ? 'max-w-none' : 'max-w-[1400px] mx-auto'}`}>
               <div className="flex flex-col gap-4 mb-6">
                 <button 
                   onClick={() => setActiveCampaignId(null)}
@@ -2647,7 +2650,7 @@ export default function InfluencerOS() {
                 >
                   <ArrowLeft size={16}/> Back to Campaigns
                 </button>
-                <div className="sticky top-0 z-30 py-3 bg-[#0a0807]/80 backdrop-blur-md border-b border-white/[0.06] flex justify-between items-end">
+                <div className="sticky top-0 z-20 py-3 bg-[#0a0807] flex justify-between items-end">
                   <div className="flex items-center gap-4">
                     {activeCampaign?.image_url && (
                       <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
@@ -2698,15 +2701,25 @@ export default function InfluencerOS() {
                 const liveCount = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status !== 'lead').length;
                 const talkCount = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead').length;
                 return (
-                  <div className="flex items-center rounded-lg border border-white/10 overflow-hidden w-fit">
-                    <button onClick={() => setCampaignView('live')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${campaignView === 'live' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Live Creators <span className="text-xs opacity-70">({liveCount})</span></button>
-                    <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center rounded-lg border border-white/10 overflow-hidden w-fit">
+                      <button onClick={() => setCampaignView('live')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${campaignView === 'live' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>Live Creators <span className="text-xs opacity-70">({liveCount})</span></button>
+                      <button onClick={() => setCampaignView('talks')} className={`px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 border-l border-white/10 ${campaignView === 'talks' ? 'bg-orange-500/20 text-orange-300' : 'text-stone-400 hover:text-stone-200'}`}>In-Talks <span className="text-xs opacity-70">({talkCount})</span></button>
+                    </div>
+                    <button
+                      onClick={() => { const nv = !tableExpanded; setTableExpanded(nv); setSidebarCollapsed(nv); }}
+                      title={tableExpanded ? 'Exit full screen' : 'Expand table'}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.03] text-stone-300 hover:text-stone-100 hover:bg-white/[0.06] text-sm font-medium transition-colors shrink-0"
+                    >
+                      {tableExpanded ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}
+                      <span className="hidden sm:inline">{tableExpanded ? 'Minimize' : 'Expand'}</span>
+                    </button>
                   </div>
                 );
               })()}
 
               {campaignView === 'live' && (
-              <div className="bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-auto shadow-xl max-h-[calc(100vh-19rem)]">
+              <div className={`bg-[#0c0a08] rounded-xl border border-white/[0.07] overflow-auto shadow-xl ${tableExpanded ? 'max-h-[calc(100vh-13rem)]' : 'max-h-[calc(100vh-19rem)]'}`}>
                  <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-[#0c0a08] text-stone-500 border-b border-white/[0.07] sticky top-0 z-10">
                     <tr>
