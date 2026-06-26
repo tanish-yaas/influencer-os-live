@@ -2199,24 +2199,46 @@ export default function InfluencerOS() {
   return (
     <div className={`flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30 ${theme === 'light' ? 'theme-light' : ''}`}>
       <style>{`
-        .theme-light [class~="bg-[#0a0807]"]{background-color:#f4f2ef!important}
+        /* ---------- LIGHT MODE — canvas & surfaces ---------- */
+        .theme-light main{background-color:#f5f4f1!important;background-image:none!important}
+        .theme-light [class~="bg-[#0a0807]"]{background-color:#f5f4f1!important}
+        .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:transparent!important}
         .theme-light [class~="bg-[#0c0a08]"]{background-color:#ffffff!important}
-        .theme-light [class~="bg-[#070605]"]{background-color:#ece9e5!important}
-        .theme-light main{background-color:#f4f2ef!important;background-image:none!important}
-        .theme-light [class~="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))]"]{background-image:none!important;background-color:#f4f2ef!important}
-        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(244,242,239,0.88)!important}
+        .theme-light [class~="bg-[#070605]"]{background-color:#efedea!important}
+        .theme-light [class~="bg-[#0a0807]/80"]{background-color:rgba(255,255,255,0.85)!important}
         .theme-light [class~="bg-white/[0.015]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{background-color:#ffffff!important}
-        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#f0ebe5!important}
-        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e6e0d9!important}
+        .theme-light [class~="bg-white/[0.04]"],.theme-light [class~="bg-white/[0.05]"],.theme-light [class~="bg-white/[0.06]"]{background-color:#efece8!important}
+        .theme-light [class~="bg-white/[0.1]"],.theme-light [class~="bg-white/10"],.theme-light [class~="bg-white/15"]{background-color:#e4dfd9!important}
         .theme-light [class~="bg-black/30"],.theme-light [class~="bg-black/40"]{background-color:#ffffff!important}
-        .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:rgba(0,0,0,0.1)!important}
-        .theme-light [class~="border-white/10"]{border-color:rgba(0,0,0,0.14)!important}
+        /* card depth */
+        .theme-light [class~="bg-[#0c0a08]"],.theme-light [class~="bg-white/[0.02]"],.theme-light [class~="bg-white/[0.025]"],.theme-light [class~="bg-white/[0.03]"]{box-shadow:0 1px 2px rgba(28,25,23,0.04),0 1px 3px rgba(28,25,23,0.06)}
+        /* borders */
+        .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:rgba(28,25,23,0.09)!important}
+        .theme-light [class~="border-white/10"],.theme-light [class~="border-white/[0.1]"]{border-color:rgba(28,25,23,0.14)!important}
+        /* text */
         .theme-light [class~="text-stone-100"]{color:#1c1917!important}
         .theme-light [class~="text-stone-200"]{color:#292524!important}
-        .theme-light [class~="text-stone-300"]{color:#44403c!important}
+        .theme-light [class~="text-stone-300"]{color:#403c39!important}
         .theme-light [class~="text-stone-400"]{color:#57534e!important}
-        .theme-light [class~="text-stone-500"]{color:#78716c!important}
-        .theme-light [class~="text-stone-600"]{color:#a8a29e!important}
+        .theme-light [class~="text-stone-500"]{color:#6b6660!important}
+        .theme-light [class~="text-stone-600"]{color:#8a847d!important}
+        /* accents legible on white */
+        .theme-light [class~="text-orange-200"]{color:#9a3412!important}
+        .theme-light [class~="text-orange-300"]{color:#c2410c!important}
+        .theme-light [class~="text-orange-400"]{color:#c2410c!important}
+        .theme-light [class~="text-cyan-300"],.theme-light [class~="text-cyan-400"]{color:#0e7490!important}
+        /* ---------- DARK SIDEBAR retained in light mode ---------- */
+        .theme-light aside{background-color:#0c0a08!important;border-color:rgba(255,255,255,0.07)!important}
+        .theme-light aside [class~="text-stone-100"]{color:#fafaf9!important}
+        .theme-light aside [class~="text-stone-200"]{color:#e7e5e4!important}
+        .theme-light aside [class~="text-stone-300"]{color:#d6d3d1!important}
+        .theme-light aside [class~="text-stone-400"]{color:#a8a29e!important}
+        .theme-light aside [class~="text-stone-500"]{color:#78716c!important}
+        .theme-light aside [class~="text-orange-300"]{color:#fdba74!important}
+        .theme-light aside [class~="text-orange-400"]{color:#fb923c!important}
+        .theme-light aside [class~="bg-white/[0.04]"],.theme-light aside [class~="bg-white/[0.05]"],.theme-light aside [class~="bg-white/[0.06]"]{background-color:rgba(255,255,255,0.06)!important;box-shadow:none!important}
+        .theme-light aside [class~="bg-white/[0.02]"],.theme-light aside [class~="bg-white/[0.025]"],.theme-light aside [class~="bg-white/[0.03]"]{background-color:rgba(255,255,255,0.03)!important;box-shadow:none!important}
+        .theme-light aside [class~="border-white/[0.06]"],.theme-light aside [class~="border-white/[0.07]"],.theme-light aside [class~="border-white/10"]{border-color:rgba(255,255,255,0.08)!important}
       `}</style>
       <aside className="w-64 border-r border-white/[0.06] bg-[#0a0807] flex flex-col p-4 z-20">
         <div className="flex items-center gap-2.5 mb-10 px-2 mt-2">
