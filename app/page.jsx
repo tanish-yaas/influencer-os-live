@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPoratal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import { 
   FolderKanban, Users, ArrowRightLeft, 
@@ -42,11 +42,21 @@ const AVATARS = [
 // YAAS logo. For a crisp version you control, drop a file in /public and set LOGO_URL = '/yaas-logo.png'.
 const LOGO_URL = 'https://framerusercontent.com/images/6ilTb1mEivC7MRT4niIsyIMktbs.png';
 
-const AvatarBadge = ({ index = 0, size = 40, ring = false }) => {
+const AvatarBadge = ({ index = 0, size = 40, ring = false, photo = null, className = '' }) => {
   const a = AVATARS[index] || AVATARS[0];
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt=""
+        style={{ width: size, height: size }}
+        className={`rounded-full object-cover shrink-0 ring-1 ring-white/10 ${ring ? 'outline outline-2 outline-offset-2 outline-orange-500/70' : ''} ${className}`}
+      />
+    );
+  }
   return (
     <div
-      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${ring ? 'outline outline-2 outline-offset-2 outline-orange-500/70' : ''}`}
+      className={`rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${ring ? 'outline outline-2 outline-offset-2 outline-orange-500/70' : ''} ${className}`}
       style={{ width: size, height: size, fontSize: size * 0.5, lineHeight: 1 }}
     >
       <span>{a.emoji}</span>
@@ -558,141 +568,6 @@ const hashIndex = (str, n) => {
   return h;
 };
 
-// ===== Easter egg: YAAS Runner (Chrome-dino style) =====
-const RunnerGame = ({ onClose, logoUrl, light }) => {
-  const canvasRef = useRef(null);
-  const stateRef = useRef(null);
-  const [over, setOver] = useState(false);
-  const [score, setScore] = useState(0);
-  const [best, setBest] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  useEffect(() => {
-    let b = 0; try { b = parseInt(localStorage.getItem('ios_runner_best')) || 0; } catch {}
-    setBest(b);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    const groundY = H - 46;
-    const P = { x: 64, w: 40, h: 40 };
-    const EMOJIS = ['💻', '📚', '🌲', '🖥️', '📖', '🌳', '🖱️', '⌨️'];
-
-    const logo = new Image();
-    let logoOk = false;
-    logo.onload = () => { logoOk = true; };
-    logo.src = logoUrl;
-
-    const g = { py: groundY - P.h, vy: 0, jumping: false, obs: [], spawn: 40, speed: 6.2, score: 0, over: false, started: false, best: b };
-    stateRef.current = g;
-
-    const reset = () => { g.py = groundY - P.h; g.vy = 0; g.jumping = false; g.obs = []; g.spawn = 40; g.speed = 6.2; g.score = 0; g.over = false; g.started = true; setOver(false); setScore(0); setStarted(true); };
-    const jump = () => {
-      if (g.over) { reset(); return; }
-      if (!g.started) { g.started = true; setStarted(true); }
-      if (!g.jumping) { g.vy = -12.6; g.jumping = true; }
-    };
-    g.reset = reset; g.jump = jump;
-
-    const onKey = (e) => { if (e.code === 'Space' || e.key === ' ' || e.code === 'ArrowUp') { e.preventDefault(); jump(); } if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    const onPoint = () => jump();
-    canvas.addEventListener('pointerdown', onPoint);
-
-    const roundRect = (x, y, w, h, r) => {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    };
-
-    let raf;
-    const loop = () => {
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = light ? '#f4f5f7' : '#0c0a08';
-      ctx.fillRect(0, 0, W, H);
-      // ground
-      ctx.strokeStyle = light ? '#cbd5e1' : '#3f3f46';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, groundY + 1); ctx.lineTo(W, groundY + 1); ctx.stroke();
-
-      if (g.started && !g.over) {
-        g.score += 1;
-        g.speed = 6.2 + g.score / 700;
-        g.vy += 0.62; g.py += g.vy;
-        if (g.py >= groundY - P.h) { g.py = groundY - P.h; g.vy = 0; g.jumping = false; }
-        g.spawn -= 1;
-        if (g.spawn <= 0) {
-          g.obs.push({ x: W + 24, emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)], size: 30 + Math.floor(Math.random() * 10) });
-          g.spawn = Math.max(34, 64 + Math.random() * 70 - g.score / 110);
-        }
-        g.obs.forEach(o => { o.x -= g.speed; });
-        g.obs = g.obs.filter(o => o.x > -60);
-        for (const o of g.obs) {
-          const ox = o.x + o.size * 0.12, oy = groundY - o.size + 4, ow = o.size * 0.7, oh = o.size * 0.78;
-          if (P.x + 5 < ox + ow && P.x + P.w - 5 > ox && g.py + 4 < oy + oh && g.py + P.h - 2 > oy) {
-            g.over = true; setOver(true);
-            const nb = Math.max(g.best, Math.floor(g.score / 10));
-            g.best = nb; setBest(nb);
-            try { localStorage.setItem('ios_runner_best', String(nb)); } catch {}
-          }
-        }
-        setScore(Math.floor(g.score / 10));
-      }
-
-      // obstacles
-      g.obs.forEach(o => { ctx.font = `${o.size}px serif`; ctx.textBaseline = 'alphabetic'; ctx.fillText(o.emoji, o.x, groundY); });
-
-      // player: orange squircle + logo so it shows on any background
-      ctx.save();
-      ctx.fillStyle = '#f97316';
-      roundRect(P.x, g.py, P.w, P.h, 9);
-      ctx.fill();
-      if (logoOk) { try { ctx.drawImage(logo, P.x + 6, g.py + 6, P.w - 12, P.h - 12); } catch {} }
-      ctx.restore();
-
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
-
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); canvas.removeEventListener('pointerdown', onPoint); };
-  }, [logoUrl, light, onClose]);
-
-  return (
-    <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-white/[0.07] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-orange-400"/>
-            <h3 className="text-sm font-semibold text-stone-100 tracking-tight">YAAS Runner</h3>
-            <span className="text-[11px] text-stone-500 hidden sm:inline">— press Space to jump</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-stone-400 tabular-nums">Score <span className="text-stone-100 font-semibold">{score}</span></span>
-            <span className="text-xs text-stone-400 tabular-nums">Best <span className="text-orange-300 font-semibold">{best}</span></span>
-            <button onClick={onClose} title="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-100 hover:bg-white/[0.06] transition-colors"><X size={18}/></button>
-          </div>
-        </div>
-        <div className="relative">
-          <canvas ref={canvasRef} width={760} height={300} className="w-full block" style={{ touchAction: 'none' }}></canvas>
-          {(!started || over) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-              <p className="text-lg font-semibold text-stone-100">{over ? 'Game Over' : 'YAAS Runner'}</p>
-              <p className="text-sm text-stone-400">{over ? `You scored ${score}` : 'Dodge the obstacles!'}</p>
-              <button onClick={() => stateRef.current && stateRef.current.reset()} className="pointer-events-auto bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
-                {over ? 'Play again' : 'Start'} <span className="opacity-70 font-normal">(Space)</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function InfluencerOS() {
   // ---- Auth / profile state ----
   const [currentUser, setCurrentUser] = useState(null); // { email, isAdmin }
@@ -707,6 +582,11 @@ export default function InfluencerOS() {
   const [profileName, setProfileName] = useState('');
   const [profileTitle, setProfileTitle] = useState('');
   const [profileAvatar, setProfileAvatar] = useState(0);
+  const [profileBio, setProfileBio] = useState('');
+  const [profileInterests, setProfileInterests] = useState([]);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [newInterest, setNewInterest] = useState('');
+  const [viewProfileEmail, setViewProfileEmail] = useState(null);
   const [isProfileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
@@ -789,6 +669,7 @@ export default function InfluencerOS() {
   const [theme, setTheme] = useState('light');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tableExpanded, setTableExpanded] = useState(false);
+  const [talksExpanded, setTalksExpanded] = useState(false);
   const [fontSize, setFontSize] = useState('medium');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrapeQuery, setScrapeQuery] = useState('');
@@ -815,7 +696,7 @@ export default function InfluencerOS() {
   const lastNotifiedRef = useRef(null);
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
-  const [gameOpen, setGameOpen] = useState(false);
+  const [orbitOpen, setOrbitOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
@@ -849,6 +730,9 @@ export default function InfluencerOS() {
       setProfileName(local.display_name || '');
       setProfileTitle(local.title || '');
       setProfileAvatar(local.avatar_index ?? 0);
+      setProfileBio(local.bio || '');
+      setProfileInterests(Array.isArray(local.interests) ? local.interests : []);
+      setProfilePhoto(local.avatar_photo || null);
     } else {
       setProfileName(defaultNameFromEmail(email));
       setProfileTitle('');
@@ -861,6 +745,9 @@ export default function InfluencerOS() {
         setProfileName(data.display_name || '');
         setProfileTitle(data.title || '');
         setProfileAvatar(data.avatar_index ?? 0);
+        setProfileBio(data.bio || '');
+        setProfileInterests(Array.isArray(data.interests) ? data.interests : []);
+        setProfilePhoto(data.avatar_photo || null);
         try { localStorage.setItem('ios_profile_' + email, JSON.stringify(data)); } catch {}
       }
     } catch {}
@@ -925,18 +812,71 @@ export default function InfluencerOS() {
   const saveProfile = async () => {
     if (!currentUser) return;
     if (!profileName.trim()) { alert('Please enter a display name.'); return; }
+    const cleanInterests = profileInterests.map(s => (s || '').trim()).filter(Boolean).slice(0, 5);
     const row = {
       email: currentUser.email,
       display_name: profileName.trim(),
       title: profileTitle.trim(),
       avatar_index: profileAvatar,
+      bio: profileBio.trim(),
+      interests: cleanInterests,
+      avatar_photo: profilePhoto || null,
       is_admin: !!currentUser.isAdmin
     };
     setProfile(row);
+    setProfileInterests(cleanInterests);
+    // reflect in the team list immediately so messages/search update
+    setTeamProfiles(prev => {
+      const others = prev.filter(p => (p.email || '').toLowerCase() !== currentUser.email.toLowerCase());
+      return [...others, row];
+    });
     try { localStorage.setItem('ios_profile_' + currentUser.email, JSON.stringify(row)); } catch {}
     setProfileEditorOpen(false);
-    try { await supabase.from('profiles').upsert(row, { onConflict: 'email' }); } catch (e) { console.error('profile save (db) failed:', e); }
+    try {
+      const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'email' });
+      if (error) throw error;
+    } catch (e) {
+      // bio/interests/avatar_photo columns may not exist yet — fall back to the core fields
+      console.error('profile save (full) failed, retrying core fields:', e);
+      try {
+        const { email, display_name, title, avatar_index, is_admin } = row;
+        await supabase.from('profiles').upsert({ email, display_name, title, avatar_index, is_admin }, { onConflict: 'email' });
+      } catch (e2) { console.error('profile save (core) failed:', e2); }
+    }
   };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const S = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = S; canvas.height = S;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(S / img.width, S / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+        try { setProfilePhoto(canvas.toDataURL('image/jpeg', 0.82)); } catch { alert('Could not process that image.'); }
+      };
+      img.onerror = () => alert('Could not read that image.');
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const addInterest = () => {
+    const v = newInterest.trim();
+    if (!v) return;
+    if (profileInterests.length >= 5) { setNewInterest(''); return; }
+    if (profileInterests.some(x => x.toLowerCase() === v.toLowerCase())) { setNewInterest(''); return; }
+    setProfileInterests([...profileInterests, v]);
+    setNewInterest('');
+  };
+  const removeInterest = (i) => setProfileInterests(profileInterests.filter((_, idx) => idx !== i));
 
   useEffect(() => {
     try {
@@ -972,6 +912,41 @@ export default function InfluencerOS() {
   }, [sidebarCollapsed]);
 
   useEffect(() => { setTableExpanded(false); }, [activeCampaignId]);
+  useEffect(() => { setTalksExpanded(false); }, [activeCampaignId, campaignView]);
+
+  // ---- Browser back/forward support for the dashboard view ----
+  const isPoppingRef = useRef(false);
+  const navReadyRef = useRef(false);
+  const lastViewRef = useRef('');
+  useEffect(() => {
+    if (!currentUser || !profile) return;
+    if (isPoppingRef.current) { isPoppingRef.current = false; return; }
+    const key = (activeTab || '') + '|' + (activeCampaignId || '');
+    if (key === lastViewRef.current) return;
+    lastViewRef.current = key;
+    const st = { ios: true, tab: activeTab, camp: activeCampaignId };
+    try {
+      if (!navReadyRef.current) { window.history.replaceState(st, ''); navReadyRef.current = true; }
+      else { window.history.pushState(st, ''); }
+    } catch {}
+  }, [activeTab, activeCampaignId, currentUser, profile]);
+  useEffect(() => {
+    const onPop = (e) => {
+      isPoppingRef.current = true;
+      // close any open overlays so nothing floats over the restored view
+      setMessagesOpen(false); setSettingsOpen(false); setProfileEditorOpen(false);
+      setViewProfileEmail(null); setOrbitOpen(false); setNotifPanelOpen(false);
+      setAddLeadOpen(false); setTableExpanded(false); setTalksExpanded(false);
+      const s = e.state;
+      const tab = (s && s.ios) ? (s.tab || 'campaigns') : 'campaigns';
+      const camp = (s && s.ios) ? (s.camp ?? null) : null;
+      lastViewRef.current = (tab || '') + '|' + (camp || '');
+      setActiveTab(tab);
+      setActiveCampaignId(camp);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     const px = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px';
@@ -1108,11 +1083,12 @@ export default function InfluencerOS() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('profiles').select('email, display_name, title, avatar_index');
+        let { data, error } = await supabase.from('profiles').select('email, display_name, title, avatar_index, bio, interests, avatar_photo');
+        if (error) { const r = await supabase.from('profiles').select('email, display_name, title, avatar_index'); data = r.data; }
         if (Array.isArray(data)) setTeamProfiles(data.filter(p => p.display_name));
       } catch {}
     })();
-  }, []);
+  }, [currentUser, isProfileEditorOpen]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1371,13 +1347,15 @@ export default function InfluencerOS() {
   };
 
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return { campaigns: [], creators: [] };
+    if (!searchQuery.trim()) return { campaigns: [], creators: [], people: [] };
     const q = searchQuery.toLowerCase();
+    const meEmail = (currentUser?.email || '').toLowerCase();
     return {
       campaigns: campaigns.filter(c => c.ip_name.toLowerCase().includes(q) || c.owner.toLowerCase().includes(q)),
-      creators: creators.filter(c => c.creator_name.toLowerCase().includes(q))
+      creators: creators.filter(c => c.creator_name.toLowerCase().includes(q)),
+      people: teamProfiles.filter(p => (p.email || '').toLowerCase() !== meEmail && ((p.display_name || '').toLowerCase().includes(q) || (p.title || '').toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)))
     };
-  }, [searchQuery, campaigns, creators]);
+  }, [searchQuery, campaigns, creators, teamProfiles, currentUser]);
 
   const handleSearchResultClick = (type, item) => {
     setActiveTab('campaigns');
@@ -2333,22 +2311,42 @@ export default function InfluencerOS() {
 
   // Reusable avatar picker grid
   const AvatarPicker = () => (
-    <div className="grid grid-cols-6 gap-3">
-      {AVATARS.map((a, i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => setProfileAvatar(i)}
-          className={`relative aspect-square rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center text-xl transition-transform hover:scale-105 ${profileAvatar === i ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0c0a08]' : 'opacity-70 hover:opacity-100'}`}
-        >
-          <span>{a.emoji}</span>
-          {profileAvatar === i && (
-            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
-              <Check size={12} className="text-white"/>
-            </span>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <AvatarBadge index={profileAvatar} photo={profilePhoto} size={56} ring />
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25 transition-colors">
+            <ImagePlus size={14}/> Upload photo
+            <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden"/>
+          </label>
+          {profilePhoto && (
+            <button type="button" onClick={() => setProfilePhoto(null)} className="px-3 py-2 rounded-md text-xs font-medium border border-white/10 text-stone-400 hover:bg-white/[0.06] transition-colors">Remove</button>
           )}
-        </button>
-      ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 mb-2 font-medium">{profilePhoto ? 'Or pick an animal instead' : 'Pick an animal'}</p>
+        <div className="grid grid-cols-6 gap-3">
+          {AVATARS.map((a, i) => {
+            const active = !profilePhoto && profileAvatar === i;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => { setProfilePhoto(null); setProfileAvatar(i); }}
+                className={`relative aspect-square rounded-full bg-gradient-to-br ${a.grad} flex items-center justify-center text-xl transition-transform hover:scale-105 ${active ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0c0a08]' : 'opacity-70 hover:opacity-100'}`}
+              >
+                <span>{a.emoji}</span>
+                {active && (
+                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
+                    <Check size={12} className="text-white"/>
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 
@@ -2362,6 +2360,15 @@ export default function InfluencerOS() {
   const myDmChannels = [...new Set(allMsgs.filter(m => m.channel.startsWith('dm:') && m.channel.slice(3).split('|').includes(myEmail)).map(m => m.channel))];
   const unreadTotal = msgUnread('group:all') + myDmChannels.reduce((s, ch) => s + msgUnread(ch), 0);
   const otherEmail = (ch) => ch.slice(3).split('|').find(e => e !== myEmail) || myEmail;
+  const profileForEmail = (email) => {
+    const e = (email || '').toLowerCase();
+    if (e === myEmail) return { email: myEmail, display_name: profileName || profile?.display_name || myEmail, title: profileTitle, bio: profileBio, interests: profileInterests, avatar_index: profileAvatar, avatar_photo: profilePhoto };
+    return teamProfiles.find(p => (p.email || '').toLowerCase() === e) || null;
+  };
+  const avatarPropsForEmail = (email) => {
+    const p = profileForEmail(email);
+    return { index: p?.avatar_index ?? hashIndex(email || '', AVATARS.length), photo: p?.avatar_photo || null };
+  };
   const dmThreads = myDmChannels.map(ch => {
     const ms = allMsgs.filter(m => m.channel === ch);
     const last = ms[ms.length - 1];
@@ -2558,7 +2565,7 @@ export default function InfluencerOS() {
           </p>
 
           <div className="mt-7 flex items-center gap-4">
-            <AvatarBadge index={profileAvatar} size={64} ring />
+            <AvatarBadge index={profileAvatar} photo={profilePhoto} size={64} ring />
             <div className="flex-1">
               <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Display Name</label>
               <input
@@ -2657,7 +2664,7 @@ export default function InfluencerOS() {
         /* chart hover tooltip (and any /95 dark cards) -> light so text is legible */
         .theme-light [class~="bg-[#0c0a08]/95"]{background-color:rgba(255,255,255,0.98)!important}
         /* logo recolored to orange */
-        .theme-light .app-logo{filter:brightness(0) saturate(100%) invert(52%) sepia(89%) saturate(1746%) hue-rotate(346deg) brightness(101%) contrast(96%)!important}
+        .app-logo{filter:brightness(0) saturate(100%) invert(52%) sepia(89%) saturate(1746%) hue-rotate(346deg) brightness(101%) contrast(96%)!important}
         /* atom backdrop: shown in light mode (orange variant) */
         .theme-light .orbital-bg{display:block!important;opacity:0.13!important}
         /* login ambient orange/brown glows off in light */
@@ -2674,7 +2681,7 @@ export default function InfluencerOS() {
           {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
         </button>
 
-        <button onClick={() => setGameOpen(true)} title="psst — click me 🎮" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
+        <button onClick={() => setOrbitOpen(true)} title="psst — click me ✨" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
           {!logoError ? (
             <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain transition-transform duration-200 group-hover/logo:scale-105 ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-12 w-auto max-w-[170px]'}`}/>
           ) : (
@@ -2734,7 +2741,7 @@ export default function InfluencerOS() {
                 <Search className="text-stone-500" size={16}/>
                 <input 
                   type="text"
-                  placeholder="Search campaigns or creators..."
+                  placeholder="Search campaigns, creators, people..."
                   className="bg-transparent border-none outline-none text-sm text-stone-200 ml-2 w-56 placeholder-stone-600"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -2786,7 +2793,26 @@ export default function InfluencerOS() {
                       </div>
                     )}
 
-                    {searchResults.campaigns.length === 0 && searchResults.creators.length === 0 && (
+                    {searchResults.people.length > 0 && (
+                      <div className="p-2 border-t border-white/[0.06]">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold mb-1 px-2">People</p>
+                        {searchResults.people.map(p => (
+                          <button
+                            key={p.email}
+                            onMouseDown={() => { setViewProfileEmail(p.email); setSearchQuery(''); setIsSearchFocused(false); }}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
+                          >
+                            <AvatarBadge {...avatarPropsForEmail(p.email)} size={28}/>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-stone-200 truncate">{p.display_name}</p>
+                              <p className="text-xs text-stone-500 truncate">{p.title || p.email}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchResults.campaigns.length === 0 && searchResults.creators.length === 0 && searchResults.people.length === 0 && (
                       <div className="p-4 text-center text-sm text-stone-500">
                         No results found for "{searchQuery}"
                       </div>
@@ -2800,16 +2826,16 @@ export default function InfluencerOS() {
             <button
               onClick={() => { setMessagesOpen(true); openChannel(msgChannel); }}
               title="Messages"
-              className="relative text-stone-500 hover:text-stone-300 transition-colors"
+              className="relative flex items-center text-stone-500 hover:text-stone-300 transition-colors"
             >
               <MessageSquare size={18}/>
               {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
             </button>
-            <div className="relative">
+            <div className="relative flex items-center">
               <button
                 onClick={() => setNotifPanelOpen(o => !o)}
                 title="Notifications"
-                className="relative text-stone-500 hover:text-stone-300 transition-colors"
+                className="relative flex items-center text-stone-500 hover:text-stone-300 transition-colors"
               >
                 <Bell size={18}/>
                 {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
@@ -2850,7 +2876,7 @@ export default function InfluencerOS() {
                 </>
               )}
             </div>
-            <button onClick={() => setSettingsOpen(true)} title="Settings" className="text-stone-500 hover:text-stone-300 transition-colors">
+            <button onClick={() => setSettingsOpen(true)} title="Settings" className="flex items-center text-stone-500 hover:text-stone-300 transition-colors">
               <Settings size={18}/>
             </button>
 
@@ -2860,7 +2886,7 @@ export default function InfluencerOS() {
                 onClick={() => setProfileMenuOpen(o => !o)}
                 className="flex items-center gap-2 rounded-full hover:bg-white/[0.04] pr-2 pl-0.5 py-0.5 transition-colors"
               >
-                <AvatarBadge index={profile.avatar_index ?? 0} size={32}/>
+                <AvatarBadge index={profile.avatar_index ?? 0} photo={profile?.avatar_photo || profilePhoto} size={32}/>
                 <ChevronDown size={14} className="text-stone-500"/>
               </button>
 
@@ -2869,7 +2895,7 @@ export default function InfluencerOS() {
                   <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)}></div>
                   <div className="absolute top-full right-0 mt-2 w-64 bg-[#0c0a08] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl">
                     <div className="p-4 flex items-center gap-3 border-b border-white/[0.06]">
-                      <AvatarBadge index={profile.avatar_index ?? 0} size={42}/>
+                      <AvatarBadge index={profile.avatar_index ?? 0} photo={profile?.avatar_photo || profilePhoto} size={42}/>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-stone-100 truncate flex items-center gap-1.5">
                           {profile.display_name}
@@ -3271,19 +3297,53 @@ export default function InfluencerOS() {
 
               {campaignView === 'talks' && (() => {
                 const campLeads = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead');
-                return (
-                  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between gap-3">
-                      <p className="text-sm text-stone-400">Talking phase — set a budget + go-live date, assign a POC, then confirm (✓) to move a creator into Live Creators.</p>
+                const header = (
+                  <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between gap-3">
+                    <p className="text-sm text-stone-400 hidden md:block">Talking phase — set a budget + go-live date, assign a POC, then confirm (✓) to move into Live Creators.</p>
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
+                      {campLeads.length > 0 && (
+                        <button onClick={() => setTalksExpanded(v => !v)} title={talksExpanded ? 'Exit full screen' : 'Expand table'} className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors">
+                          {talksExpanded ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}
+                          <span className="hidden sm:inline">{talksExpanded ? 'Minimize' : 'Expand'}</span>
+                        </button>
+                      )}
                       {canManageActive && (
-                        <button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-400 text-white px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shrink-0 shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                        <button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-400 text-white px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
                           <Plus size={15}/> Add Creator
                         </button>
                       )}
                     </div>
-                    {campLeads.length === 0 ? (
-                      <div className="text-center py-16 text-stone-600 text-sm">No creators in talks for this campaign yet. Add one above or from the Lead Scraper.</div>
-                    ) : inTalksTable(campLeads, canManageActive)}
+                  </div>
+                );
+                const body = campLeads.length === 0
+                  ? <div className="text-center py-16 text-stone-600 text-sm">No creators in talks for this campaign yet. Add one above or from the Lead Scraper.</div>
+                  : inTalksTable(campLeads, canManageActive);
+
+                if (talksExpanded) {
+                  return createPortal((
+                    <div className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex p-3 sm:p-5 animate-in fade-in duration-200 ${theme === 'light' ? 'theme-light' : ''}`} onClick={() => setTalksExpanded(false)}>
+                      <div className="bg-[#0c0a08] border border-white/[0.08] rounded-xl shadow-2xl w-full h-full flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-5 py-3.5 border-b border-white/[0.07] flex items-center justify-between gap-3 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h3 className="text-sm font-semibold text-stone-100 truncate">{activeCampaign?.ip_name || 'Campaign'} — In-Talks</h3>
+                            <span className="text-xs text-stone-500 shrink-0">({campLeads.length})</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {canManageActive && (
+                              <button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-400 text-white px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors"><Plus size={15}/> Add Creator</button>
+                            )}
+                            <button onClick={() => setTalksExpanded(false)} title="Close" className="h-9 w-9 flex items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-stone-300 hover:text-stone-100 hover:bg-white/[0.06] transition-colors"><Minimize2 size={16}/></button>
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-auto">{body}</div>
+                      </div>
+                    </div>
+                  ), document.body);
+                }
+                return (
+                  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
+                    {header}
+                    {body}
                   </div>
                 );
               })()}
@@ -3748,7 +3808,7 @@ export default function InfluencerOS() {
                       <p className="px-4 py-3 text-sm text-stone-500">No people found.</p>
                     ) : peopleResults.map(p => (
                       <button key={p.email} onClick={() => startDm(p.email)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-xs font-bold text-white shrink-0">{(p.display_name || '?').charAt(0).toUpperCase()}</div>
+                        <AvatarBadge {...avatarPropsForEmail(p.email)} size={32}/>
                         <div className="min-w-0">
                           <p className="text-sm text-stone-200 truncate">{p.display_name}</p>
                           {p.title && <p className="text-xs text-stone-500 truncate">{p.title}</p>}
@@ -3772,7 +3832,7 @@ export default function InfluencerOS() {
                       <p className="px-4 py-2 text-xs text-stone-500">Search a person above to start a chat.</p>
                     ) : dmThreads.map(t => (
                       <button key={t.ch} onClick={() => openChannel(t.ch)} className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left border-l-2 ${msgChannel === t.ch ? 'bg-orange-500/10 border-orange-500' : 'border-transparent hover:bg-white/[0.04]'}`}>
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center text-xs font-bold text-white shrink-0">{(t.name || '?').charAt(0).toUpperCase()}</div>
+                        <AvatarBadge {...avatarPropsForEmail(otherEmail(t.ch))} size={36}/>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-stone-200 truncate">{t.name}</p>
                           <p className="text-xs text-stone-500 truncate">{t.last}</p>
@@ -3791,7 +3851,7 @@ export default function InfluencerOS() {
                 <div className="flex items-center gap-2.5 min-w-0">
                   {msgChannel === 'group:all'
                     ? <><div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 shrink-0"><Hash size={15}/></div><div className="min-w-0"><p className="text-sm font-semibold text-stone-100 truncate">Team Channel</p><p className="text-[11px] text-stone-500">Pinned · visible to everyone</p></div></>
-                    : <><div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center text-xs font-bold text-white shrink-0">{(nameForEmail(otherEmail(msgChannel)) || '?').charAt(0).toUpperCase()}</div><div className="min-w-0"><p className="text-sm font-semibold text-stone-100 truncate">{nameForEmail(otherEmail(msgChannel))}</p><p className="text-[11px] text-stone-500">Direct message</p></div></>}
+                    : <><button onClick={() => setViewProfileEmail(otherEmail(msgChannel))} className="flex items-center gap-2.5 min-w-0 group/hdr text-left" title="View profile"><AvatarBadge {...avatarPropsForEmail(otherEmail(msgChannel))} size={32}/><div className="min-w-0"><p className="text-sm font-semibold text-stone-100 truncate group-hover/hdr:text-orange-300 transition-colors">{nameForEmail(otherEmail(msgChannel))}</p><p className="text-[11px] text-stone-500">View profile</p></div></button></>}
                 </div>
                 <button onClick={() => setMessagesOpen(false)} title="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-100 hover:bg-white/[0.06] transition-colors shrink-0"><X size={18}/></button>
               </div>
@@ -3808,7 +3868,7 @@ export default function InfluencerOS() {
                   const editing = editingMsgId === m.id;
                   return (
                     <div key={m.id} className={`flex flex-col group/msg ${mine ? 'items-end' : 'items-start'}`}>
-                      {!mine && msgChannel === 'group:all' && <span className="text-[11px] text-stone-500 mb-0.5 ml-1">{m.sender_name || nameForEmail(m.sender_email)}</span>}
+                      {!mine && msgChannel === 'group:all' && <span className="text-[11px] text-stone-500 mb-0.5 ml-9">{m.sender_name || nameForEmail(m.sender_email)}</span>}
                       {editing ? (
                         <div className="w-[82%] flex items-center gap-1.5">
                           <input value={editMsgText} onChange={(e) => setEditMsgText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEditMessage(m); } if (e.key === 'Escape') setEditingMsgId(null); }} autoFocus className="flex-1 bg-white/[0.04] border border-orange-500/60 rounded-lg px-3 py-2 text-sm text-stone-100 focus:outline-none"/>
@@ -3816,7 +3876,8 @@ export default function InfluencerOS() {
                           <button onClick={() => setEditingMsgId(null)} title="Cancel" className="text-stone-500 hover:text-stone-300 p-1"><X size={16}/></button>
                         </div>
                       ) : (
-                        <div className={`flex items-center gap-1 max-w-[85%] ${mine ? 'flex-row-reverse' : ''}`}>
+                        <div className={`flex items-end gap-2 max-w-[85%] ${mine ? 'flex-row-reverse' : ''}`}>
+                          {!mine && <button onClick={() => setViewProfileEmail(m.sender_email)} title="View profile" className="shrink-0 mb-0.5 hover:opacity-80 transition-opacity"><AvatarBadge {...avatarPropsForEmail(m.sender_email)} size={28}/></button>}
                           <div className={`min-w-0 px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${mine ? 'bg-orange-500 text-white rounded-br-sm' : 'bg-white/[0.06] text-stone-200 rounded-bl-sm'}`}>{m.body}</div>
                           {mine && (
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity shrink-0">
@@ -3850,8 +3911,63 @@ export default function InfluencerOS() {
         </div>
       )}
 
-      {/* ============ EASTER EGG GAME ============ */}
-      {gameOpen && <RunnerGame onClose={() => setGameOpen(false)} logoUrl={LOGO_URL} light={theme === 'light'} />}
+      {/* ============ ORBITAL SCENE (logo easter egg) ============ */}
+      {orbitOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setOrbitOpen(false)}>
+          <div className={`absolute inset-0 backdrop-blur-md ${theme === 'light' ? 'bg-orange-50/70' : 'bg-black/80'}`}></div>
+          <div className={`relative w-full max-w-lg h-[80vh] rounded-3xl overflow-hidden border shadow-2xl ${theme === 'light' ? 'border-orange-200/80 bg-gradient-to-b from-[#fff7ed] to-[#ffedd5]' : 'border-white/10 bg-[#0a0807]'}`} onClick={(e) => e.stopPropagation()}>
+            <OrbitalScene className="absolute inset-0 w-full h-full" light={theme === 'light'} />
+            <div className="absolute top-0 inset-x-0 p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-orange-400"/>
+                <span className={`text-sm font-semibold tracking-tight ${theme === 'light' ? 'text-orange-900' : 'text-stone-100'}`}>YAAS · in orbit</span>
+              </div>
+              <button onClick={() => setOrbitOpen(false)} title="Close" className={`h-9 w-9 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${theme === 'light' ? 'bg-white/70 text-orange-700 hover:bg-white' : 'bg-white/10 text-stone-200 hover:bg-white/20'}`}><X size={18}/></button>
+            </div>
+            <div className="absolute bottom-0 inset-x-0 p-6 text-center pointer-events-none">
+              {!logoError && <img src={LOGO_URL} alt="YAAS" className="app-logo h-9 w-auto max-w-[150px] object-contain mx-auto mb-3 opacity-90"/>}
+              <p className={`text-xs ${theme === 'light' ? 'text-orange-800/70' : 'text-stone-500'}`}>Every creator, campaign, and rupee — orbiting one system.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ PROFILE VIEW ============ */}
+      {viewProfileEmail && (() => {
+        const vp = profileForEmail(viewProfileEmail);
+        const isMe = (viewProfileEmail || '').toLowerCase() === myEmail;
+        const ints = Array.isArray(vp?.interests) ? vp.interests : [];
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setViewProfileEmail(null)}>
+            <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="h-20 bg-gradient-to-br from-orange-500/30 to-amber-600/10 relative">
+                <button onClick={() => setViewProfileEmail(null)} title="Close" className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center rounded-full bg-black/30 text-stone-200 hover:bg-black/50 transition-colors"><X size={16}/></button>
+              </div>
+              <div className="px-6 pb-6 -mt-10">
+                <AvatarBadge index={vp?.avatar_index ?? 0} photo={vp?.avatar_photo || null} size={80} ring />
+                <h3 className="text-lg font-semibold text-stone-100 mt-3">{vp?.display_name || viewProfileEmail}</h3>
+                {vp?.title && <p className="text-sm text-orange-300">{vp.title}</p>}
+                <p className="text-xs text-stone-500 mt-0.5 break-all">{vp?.email || viewProfileEmail}</p>
+                {vp?.bio && <p className="text-sm text-stone-300 mt-4 leading-relaxed whitespace-pre-wrap">{vp.bio}</p>}
+                {ints.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Interests</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ints.map((it, i) => <span key={i} className="px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/25 text-orange-200 text-xs">{it}</span>)}
+                    </div>
+                  </div>
+                )}
+                {!vp && <p className="text-sm text-stone-500 mt-4">This person hasn't set up a profile yet.</p>}
+                {!isMe ? (
+                  <button onClick={() => { setViewProfileEmail(null); setMessagesOpen(true); startDm(viewProfileEmail); }} className="mt-6 w-full bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"><MessageSquare size={15}/> Message</button>
+                ) : (
+                  <button onClick={() => { setViewProfileEmail(null); setProfileEditorOpen(true); }} className="mt-6 w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-stone-200 text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"><Edit2 size={15}/> Edit profile</button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ============ ADD IN-TALKS CREATOR ============ */}
       {addLeadOpen && (
@@ -4252,14 +4368,14 @@ export default function InfluencerOS() {
       {/* Profile Editor Modal */}
       {isProfileEditorOpen && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
               <h3 className="font-medium text-stone-100 flex items-center gap-2"><Edit2 size={16} className="text-orange-400"/> Edit profile</h3>
               <button type="button" onClick={() => setProfileEditorOpen(false)} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               <div className="flex items-center gap-4">
-                <AvatarBadge index={profileAvatar} size={64} ring />
+                <AvatarBadge index={profileAvatar} photo={profilePhoto} size={64} ring />
                 <div className="flex-1">
                   <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Display Name</label>
                   <input
@@ -4283,6 +4399,45 @@ export default function InfluencerOS() {
               <div className="mt-6">
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium">Avatar</label>
                 <AvatarPicker />
+              </div>
+
+              <div className="mt-6">
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Bio</label>
+                <textarea
+                  value={profileBio}
+                  onChange={(e) => setProfileBio(e.target.value)}
+                  rows={3}
+                  maxLength={300}
+                  placeholder="A short line about you…"
+                  className="w-full resize-none bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                />
+                <p className="text-[10px] text-stone-600 mt-1 text-right">{profileBio.length}/300</p>
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Interests <span className="text-stone-600 normal-case tracking-normal">({profileInterests.length}/5)</span></label>
+                {profileInterests.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {profileInterests.map((it, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/25 text-orange-200 text-xs">
+                        {it}
+                        <button type="button" onClick={() => removeInterest(i)} className="hover:text-white"><X size={12}/></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {profileInterests.length < 5 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newInterest}
+                      onChange={(e) => setNewInterest(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addInterest(); } }}
+                      placeholder="Add an interest + Enter"
+                      className="flex-1 bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
+                    />
+                    <button type="button" onClick={addInterest} disabled={!newInterest.trim()} className="px-3 py-2 rounded-md text-sm bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25 disabled:opacity-40 transition-colors">Add</button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-7 flex justify-end gap-3">
