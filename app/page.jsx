@@ -558,6 +558,141 @@ const hashIndex = (str, n) => {
   return h;
 };
 
+// ===== Easter egg: YAAS Runner (Chrome-dino style) =====
+const RunnerGame = ({ onClose, logoUrl, light }) => {
+  const canvasRef = useRef(null);
+  const stateRef = useRef(null);
+  const [over, setOver] = useState(false);
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    let b = 0; try { b = parseInt(localStorage.getItem('ios_runner_best')) || 0; } catch {}
+    setBest(b);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const groundY = H - 46;
+    const P = { x: 64, w: 40, h: 40 };
+    const EMOJIS = ['💻', '📚', '🌲', '🖥️', '📖', '🌳', '🖱️', '⌨️'];
+
+    const logo = new Image();
+    let logoOk = false;
+    logo.onload = () => { logoOk = true; };
+    logo.src = logoUrl;
+
+    const g = { py: groundY - P.h, vy: 0, jumping: false, obs: [], spawn: 40, speed: 6.2, score: 0, over: false, started: false, best: b };
+    stateRef.current = g;
+
+    const reset = () => { g.py = groundY - P.h; g.vy = 0; g.jumping = false; g.obs = []; g.spawn = 40; g.speed = 6.2; g.score = 0; g.over = false; g.started = true; setOver(false); setScore(0); setStarted(true); };
+    const jump = () => {
+      if (g.over) { reset(); return; }
+      if (!g.started) { g.started = true; setStarted(true); }
+      if (!g.jumping) { g.vy = -12.6; g.jumping = true; }
+    };
+    g.reset = reset; g.jump = jump;
+
+    const onKey = (e) => { if (e.code === 'Space' || e.key === ' ' || e.code === 'ArrowUp') { e.preventDefault(); jump(); } if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const onPoint = () => jump();
+    canvas.addEventListener('pointerdown', onPoint);
+
+    const roundRect = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    };
+
+    let raf;
+    const loop = () => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = light ? '#f4f5f7' : '#0c0a08';
+      ctx.fillRect(0, 0, W, H);
+      // ground
+      ctx.strokeStyle = light ? '#cbd5e1' : '#3f3f46';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, groundY + 1); ctx.lineTo(W, groundY + 1); ctx.stroke();
+
+      if (g.started && !g.over) {
+        g.score += 1;
+        g.speed = 6.2 + g.score / 700;
+        g.vy += 0.62; g.py += g.vy;
+        if (g.py >= groundY - P.h) { g.py = groundY - P.h; g.vy = 0; g.jumping = false; }
+        g.spawn -= 1;
+        if (g.spawn <= 0) {
+          g.obs.push({ x: W + 24, emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)], size: 30 + Math.floor(Math.random() * 10) });
+          g.spawn = Math.max(34, 64 + Math.random() * 70 - g.score / 110);
+        }
+        g.obs.forEach(o => { o.x -= g.speed; });
+        g.obs = g.obs.filter(o => o.x > -60);
+        for (const o of g.obs) {
+          const ox = o.x + o.size * 0.12, oy = groundY - o.size + 4, ow = o.size * 0.7, oh = o.size * 0.78;
+          if (P.x + 5 < ox + ow && P.x + P.w - 5 > ox && g.py + 4 < oy + oh && g.py + P.h - 2 > oy) {
+            g.over = true; setOver(true);
+            const nb = Math.max(g.best, Math.floor(g.score / 10));
+            g.best = nb; setBest(nb);
+            try { localStorage.setItem('ios_runner_best', String(nb)); } catch {}
+          }
+        }
+        setScore(Math.floor(g.score / 10));
+      }
+
+      // obstacles
+      g.obs.forEach(o => { ctx.font = `${o.size}px serif`; ctx.textBaseline = 'alphabetic'; ctx.fillText(o.emoji, o.x, groundY); });
+
+      // player: orange squircle + logo so it shows on any background
+      ctx.save();
+      ctx.fillStyle = '#f97316';
+      roundRect(P.x, g.py, P.w, P.h, 9);
+      ctx.fill();
+      if (logoOk) { try { ctx.drawImage(logo, P.x + 6, g.py + 6, P.w - 12, P.h - 12); } catch {} }
+      ctx.restore();
+
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); canvas.removeEventListener('pointerdown', onPoint); };
+  }, [logoUrl, light, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-white/[0.07] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-orange-400"/>
+            <h3 className="text-sm font-semibold text-stone-100 tracking-tight">YAAS Runner</h3>
+            <span className="text-[11px] text-stone-500 hidden sm:inline">— press Space to jump</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-stone-400 tabular-nums">Score <span className="text-stone-100 font-semibold">{score}</span></span>
+            <span className="text-xs text-stone-400 tabular-nums">Best <span className="text-orange-300 font-semibold">{best}</span></span>
+            <button onClick={onClose} title="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-100 hover:bg-white/[0.06] transition-colors"><X size={18}/></button>
+          </div>
+        </div>
+        <div className="relative">
+          <canvas ref={canvasRef} width={760} height={300} className="w-full block" style={{ touchAction: 'none' }}></canvas>
+          {(!started || over) && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+              <p className="text-lg font-semibold text-stone-100">{over ? 'Game Over' : 'YAAS Runner'}</p>
+              <p className="text-sm text-stone-400">{over ? `You scored ${score}` : 'Dodge the obstacles!'}</p>
+              <button onClick={() => stateRef.current && stateRef.current.reset()} className="pointer-events-auto bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                {over ? 'Play again' : 'Start'} <span className="opacity-70 font-normal">(Space)</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function InfluencerOS() {
   // ---- Auth / profile state ----
   const [currentUser, setCurrentUser] = useState(null); // { email, isAdmin }
@@ -678,6 +813,9 @@ export default function InfluencerOS() {
   const [deleteCommentTarget, setDeleteCommentTarget] = useState(null);
   const msgEndRef = useRef(null);
   const lastNotifiedRef = useRef(null);
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
   const [timelineStatusFilter, setTimelineStatusFilter] = useState('all');
@@ -946,6 +1084,8 @@ export default function InfluencerOS() {
       new Date(m.created_at) > new Date(lastNotifiedRef.current) &&
       (m.sender_email || '').toLowerCase() !== me &&
       !String(m.id).startsWith('tmp-') &&
+      m.channel.startsWith('dm:') &&
+      m.channel.slice(3).split('|').includes(me) &&
       !(messagesOpen && m.channel === msgChannel)
     );
     if (fresh.length) {
@@ -1843,6 +1983,40 @@ export default function InfluencerOS() {
     showToast(`Added ${newC.creator_name} to ${campaigns.find(c => c.ip_id === campId)?.ip_name || 'campaign'} → In-Talks`);
   };
 
+  const handleAddLead = async (e) => {
+    e.preventDefault();
+    if (!canManageCampaign(activeCampaign)) { alert('You do not have edit access to this campaign.'); return; }
+    const f = new FormData(e.target);
+    const name = (f.get('creator_name') || '').toString().trim();
+    if (!name) { alert('Enter a creator name.'); return; }
+    const poc = (f.get('poc') || '').toString().trim();
+    const newC = {
+      creator_deal_id: `cd_${Date.now()}`,
+      ip_id: activeCampaignId,
+      creator_name: name,
+      platform: f.get('platform') || 'Instagram',
+      profile_link: (f.get('profile_link') || '').toString().trim(),
+      followers: parseInt(f.get('followers')) || 0,
+      content_type: (f.get('content_type') || '').toString().trim() || 'Reel Collab',
+      deal_value: parseInt(f.get('deal_value')) || 0,
+      closed_month: null,
+      planned_go_live_date: null,
+      planned_go_live_month: null,
+      payment_model: '100_advance',
+      creator_status: 'lead',
+      deliverable_link: '',
+      views: 0, likes: 0, comments: 0, shares: 0, saves: 0
+    };
+    setCreators(prev => [...prev, { ...newC, poc: poc || null }]);
+    setAddLeadOpen(false);
+    try {
+      await supabase.from('creators').insert([newC]);
+      if (poc) { try { await supabase.from('creators').update({ poc }).eq('creator_deal_id', newC.creator_deal_id); } catch {} }
+    } catch (err) { console.error('add in-talks failed:', err); }
+    scheduleSheetSync();
+    showToast(`Added ${name} → In-Talks`);
+  };
+
   const updateCreatorGoLive = async (creator, date) => {
     const month = date ? new Date(date).toLocaleString('default', { month: 'long' }) : null;
     const status = date ? 'booked' : creator.creator_status;
@@ -2194,6 +2368,11 @@ export default function InfluencerOS() {
     return { ch, name: nameForEmail(otherEmail(ch)), last: last?.body || '', lastAt: last?.created_at, unread: msgUnread(ch) };
   }).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0));
   const channelMsgs = allMsgs.filter(m => m.channel === msgChannel);
+  const groupLastIncoming = [...allMsgs].reverse().find(m => m.channel === 'group:all' && (m.sender_email || '').toLowerCase() !== myEmail);
+  const unreadConvos = [
+    ...(msgUnread('group:all') > 0 ? [{ ch: 'group:all', name: 'Team Channel', who: groupLastIncoming?.sender_name || '', last: groupLastIncoming?.body || '', lastAt: groupLastIncoming?.created_at, unread: msgUnread('group:all'), group: true }] : []),
+    ...dmThreads.filter(t => t.unread > 0).map(t => ({ ch: t.ch, name: t.name, who: t.name, last: t.last, lastAt: t.lastAt, unread: t.unread, group: false }))
+  ].sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0));
   const peopleResults = msgSearch.trim()
     ? teamProfiles.filter(p => (p.email || '').toLowerCase() !== myEmail && (p.display_name || '').toLowerCase().includes(msgSearch.toLowerCase()))
     : [];
@@ -2495,14 +2674,14 @@ export default function InfluencerOS() {
           {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
         </button>
 
-        <div className={`flex items-center mb-10 mt-2 ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
+        <button onClick={() => setGameOpen(true)} title="psst — click me 🎮" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-12 w-auto max-w-[170px]'}`}/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain transition-transform duration-200 group-hover/logo:scale-105 ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-12 w-auto max-w-[170px]'}`}/>
           ) : (
             <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] shrink-0"></div>
           )}
           {!sidebarCollapsed && <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>}
-        </div>
+        </button>
         <nav className="flex flex-col gap-1.5 flex-1">
           <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
@@ -2626,14 +2805,51 @@ export default function InfluencerOS() {
               <MessageSquare size={18}/>
               {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
             </button>
-            <button
-              onClick={() => { setMessagesOpen(true); openChannel(msgChannel); }}
-              title="Notifications"
-              className="relative text-stone-500 hover:text-stone-300 transition-colors"
-            >
-              <Bell size={18}/>
-              {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-[#0a0807]"></span>}
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setNotifPanelOpen(o => !o)}
+                title="Notifications"
+                className="relative text-stone-500 hover:text-stone-300 transition-colors"
+              >
+                <Bell size={18}/>
+                {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
+              </button>
+              {notifPanelOpen && (
+                <>
+                  <div className="fixed inset-0 z-[55]" onClick={() => setNotifPanelOpen(false)}></div>
+                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl z-[56] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between">
+                      <span className="text-sm font-semibold text-stone-100">Notifications</span>
+                      {unreadTotal > 0 && <span className="text-[11px] text-stone-500">{unreadTotal} unread</span>}
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto">
+                      {unreadConvos.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-stone-500">You're all caught up 🎉</div>
+                      ) : unreadConvos.map(c => (
+                        <button
+                          key={c.ch}
+                          onClick={() => { setNotifPanelOpen(false); setMessagesOpen(true); openChannel(c.ch); }}
+                          className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left border-b border-white/[0.04] last:border-0"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                            {c.group ? <Hash size={16}/> : (c.name || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-stone-100 truncate">{c.name}</p>
+                              <span className="text-[10px] text-stone-500 shrink-0">{c.lastAt ? timeAgo(c.lastAt) : ''}</span>
+                            </div>
+                            {c.group && c.who && <p className="text-[11px] text-stone-500 leading-tight">{c.who}</p>}
+                            <p className="text-xs text-stone-400 truncate mt-0.5">{c.last}</p>
+                          </div>
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{c.unread}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <button onClick={() => setSettingsOpen(true)} title="Settings" className="text-stone-500 hover:text-stone-300 transition-colors">
               <Settings size={18}/>
             </button>
@@ -3057,11 +3273,16 @@ export default function InfluencerOS() {
                 const campLeads = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead');
                 return (
                   <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between gap-3">
                       <p className="text-sm text-stone-400">Talking phase — set a budget + go-live date, assign a POC, then confirm (✓) to move a creator into Live Creators.</p>
+                      {canManageActive && (
+                        <button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-400 text-white px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 transition-colors shrink-0 shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
+                          <Plus size={15}/> Add Creator
+                        </button>
+                      )}
                     </div>
                     {campLeads.length === 0 ? (
-                      <div className="text-center py-16 text-stone-600 text-sm">No creators in talks for this campaign yet. Add some from the Lead Scraper.</div>
+                      <div className="text-center py-16 text-stone-600 text-sm">No creators in talks for this campaign yet. Add one above or from the Lead Scraper.</div>
                     ) : inTalksTable(campLeads, canManageActive)}
                   </div>
                 );
@@ -3626,6 +3847,65 @@ export default function InfluencerOS() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ============ EASTER EGG GAME ============ */}
+      {gameOpen && <RunnerGame onClose={() => setGameOpen(false)} logoUrl={LOGO_URL} light={theme === 'light'} />}
+
+      {/* ============ ADD IN-TALKS CREATOR ============ */}
+      {addLeadOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setAddLeadOpen(false)}>
+          <form onSubmit={handleAddLead} className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-semibold text-stone-100 tracking-tight">Add In-Talks Creator</h3>
+              <button type="button" onClick={() => setAddLeadOpen(false)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
+            </div>
+            <p className="text-sm text-stone-500 mb-5">Add a creator you're in talks with. Confirm them later (✓) to move into Live Creators.</p>
+            <div className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Creator name</label>
+                <input name="creator_name" autoFocus required placeholder="e.g. Pari Dua" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Platform</label>
+                  <select name="platform" defaultValue="Instagram" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 focus:outline-none focus:border-orange-500/70">
+                    <option>Instagram</option><option>YouTube</option><option>TikTok</option><option>LinkedIn</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Content type</label>
+                  <input name="content_type" list="content-type-options" placeholder="Reel Collab" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+                  <datalist id="content-type-options">
+                    <option value="Reel Collab"/><option value="Static Post"/><option value="Story"/><option value="YouTube Integration"/><option value="YouTube Short"/><option value="Dedicated Video"/><option value="Carousel"/>
+                  </datalist>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Profile link</label>
+                <input name="profile_link" placeholder="instagram.com/username" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Followers</label>
+                  <input name="followers" type="number" min="0" placeholder="0" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+                </div>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">Est. fee (₹)</label>
+                  <input name="deal_value" type="number" min="0" placeholder="0" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+                </div>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-stone-500 font-semibold mb-1.5">POC</label>
+                  <input name="poc" list="poc-options" placeholder="Owner" className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-stone-100 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"/>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-6">
+              <button type="button" onClick={() => setAddLeadOpen(false)} className="px-4 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors">Cancel</button>
+              <button type="submit" className="px-4 py-2 rounded-md text-sm bg-orange-500 hover:bg-orange-400 text-white font-semibold flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"><Plus size={15}/> Add to In-Talks</button>
+            </div>
+          </form>
         </div>
       )}
 
