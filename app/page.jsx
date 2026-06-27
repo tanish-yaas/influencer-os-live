@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { createPoratal } from 'react-dom';
+import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import { 
   FolderKanban, Users, ArrowRightLeft, 
@@ -696,6 +696,7 @@ export default function InfluencerOS() {
   const lastNotifiedRef = useRef(null);
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const bellRef = useRef(null);
   const [orbitOpen, setOrbitOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
@@ -2833,6 +2834,7 @@ export default function InfluencerOS() {
             </button>
             <div className="relative flex items-center">
               <button
+                ref={bellRef}
                 onClick={() => setNotifPanelOpen(o => !o)}
                 title="Notifications"
                 className="relative flex items-center text-stone-500 hover:text-stone-300 transition-colors"
@@ -2840,41 +2842,49 @@ export default function InfluencerOS() {
                 <Bell size={18}/>
                 {unreadTotal > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">{unreadTotal > 9 ? '9+' : unreadTotal}</span>}
               </button>
-              {notifPanelOpen && (
-                <>
-                  <div className="fixed inset-0 z-[55]" onClick={() => setNotifPanelOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl z-[56] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                    <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between">
-                      <span className="text-sm font-semibold text-stone-100">Notifications</span>
-                      {unreadTotal > 0 && <span className="text-[11px] text-stone-500">{unreadTotal} unread</span>}
-                    </div>
-                    <div className="max-h-[60vh] overflow-y-auto">
-                      {unreadConvos.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-stone-500">You're all caught up 🎉</div>
-                      ) : unreadConvos.map(c => (
-                        <button
-                          key={c.ch}
-                          onClick={() => { setNotifPanelOpen(false); setMessagesOpen(true); openChannel(c.ch); }}
-                          className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left border-b border-white/[0.04] last:border-0"
-                        >
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-sm font-bold text-white shrink-0">
-                            {c.group ? <Hash size={16}/> : (c.name || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-stone-100 truncate">{c.name}</p>
-                              <span className="text-[10px] text-stone-500 shrink-0">{c.lastAt ? timeAgo(c.lastAt) : ''}</span>
+              {notifPanelOpen && createPortal((() => {
+                const r = bellRef.current ? bellRef.current.getBoundingClientRect() : null;
+                const top = (r ? r.bottom : 56) + 8;
+                const right = r ? Math.max(8, window.innerWidth - r.right) : 16;
+                return (
+                  <div className={theme === 'light' ? 'theme-light' : ''}>
+                    <div className="fixed inset-0 z-[75]" onClick={() => setNotifPanelOpen(false)}></div>
+                    <div
+                      className="fixed w-80 max-w-[calc(100vw-1rem)] bg-[#0c0a08] border border-white/10 rounded-xl shadow-2xl z-[76] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-1 duration-150"
+                      style={{ top, right, maxHeight: `calc(100vh - ${top + 12}px)` }}
+                    >
+                      <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between shrink-0">
+                        <span className="text-sm font-semibold text-stone-100">Notifications</span>
+                        {unreadTotal > 0 && <span className="text-[11px] text-stone-500">{unreadTotal} unread</span>}
+                      </div>
+                      <div className="overflow-y-auto">
+                        {unreadConvos.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-sm text-stone-500">You're all caught up 🎉</div>
+                        ) : unreadConvos.map(c => (
+                          <button
+                            key={c.ch}
+                            onClick={() => { setNotifPanelOpen(false); setMessagesOpen(true); openChannel(c.ch); }}
+                            className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left border-b border-white/[0.04] last:border-0"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/80 to-amber-600/80 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                              {c.group ? <Hash size={16}/> : (c.name || '?').charAt(0).toUpperCase()}
                             </div>
-                            {c.group && c.who && <p className="text-[11px] text-stone-500 leading-tight">{c.who}</p>}
-                            <p className="text-xs text-stone-400 truncate mt-0.5">{c.last}</p>
-                          </div>
-                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{c.unread}</span>
-                        </button>
-                      ))}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-stone-100 truncate">{c.name}</p>
+                                <span className="text-[10px] text-stone-500 shrink-0">{c.lastAt ? timeAgo(c.lastAt) : ''}</span>
+                              </div>
+                              {c.group && c.who && <p className="text-[11px] text-stone-500 leading-tight">{c.who}</p>}
+                              <p className="text-xs text-stone-400 truncate mt-0.5">{c.last}</p>
+                            </div>
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{c.unread}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </>
-              )}
+                );
+              })(), document.body)}
             </div>
             <button onClick={() => setSettingsOpen(true)} title="Settings" className="flex items-center text-stone-500 hover:text-stone-300 transition-colors">
               <Settings size={18}/>
