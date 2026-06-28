@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'YAAS influencer OS',
+  title: 'YAAS influencer OS (beta)',
   description: 'YAAS — influencer agency operating system',
   icons: {
     icon: 'https://framerusercontent.com/images/6ilTb1mEivC7MRT4niIsyIMktbs.png',

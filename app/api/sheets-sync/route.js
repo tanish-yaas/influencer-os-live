@@ -1,18 +1,16 @@
-// app/api/sheets-sync/route.js
-// One-way mirror: app -> Google Sheets. POST a snapshot of all campaigns'
-// live + in-talks creators; this writes a tab per campaign into two master
-// spreadsheets (one for Live Creators, one for In-Talks).
+// app/api/sync-creator-database/route.js
+// One-way mirror: app -> Google Sheets for the Creator Database (the rolled-up,
+// one-row-per-creator rolodex). POST { headers: [...], rows: [[...], ...] } and
+// this overwrites a single tab ("Creator Database") in one spreadsheet.
 //
-// Required environment variables (set in Vercel -> Settings -> Env Variables):
-//   GOOGLE_SA_EMAIL        - the service account email
-//   GOOGLE_SA_PRIVATE_KEY  - the service account private key (paste the whole
-//                            -----BEGIN PRIVATE KEY----- ... block; newlines
-//                            may be stored as literal \n, we handle both)
-//   SHEET_ID_LIVE          - spreadsheet ID of the "Live Creators" master sheet
-//   SHEET_ID_TALKS         - spreadsheet ID of the "In-Talks" master sheet
+// Required environment variables (Vercel -> Settings -> Env Variables):
+//   GOOGLE_SA_EMAIL        - the service account email (same one you already use)
+//   GOOGLE_SA_PRIVATE_KEY  - the service account private key (whole BEGIN/END
+//                            block; literal \n or real newlines both handled)
+//   SHEET_ID_DATABASE      - spreadsheet ID of the Creator Database master sheet
 //
-// Share BOTH spreadsheets with GOOGLE_SA_EMAIL as an Editor.
-// If any env var is missing, this route no-ops (so the app never breaks).
+// Share the spreadsheet with GOOGLE_SA_EMAIL as an Editor.
+// If any env var is missing, this route no-ops so the app never breaks.
 
 import crypto from 'crypto';
 
@@ -45,64 +43,56 @@ async function getAccessToken(email, key) {
   return j.access_token;
 }
 
-const sanitizeTab = (name) => (String(name || 'Campaign').replace(/[\[\]\*\?\/\\:]/g, ' ').trim().slice(0, 90) || 'Campaign');
+const TAB = 'Creator Database';
 const quoteTab = (tab) => `'${tab.replace(/'/g, "''")}'`;
-
-async function syncSpreadsheet(token, sheetId, entries) {
-  const auth = { Authorization: `Bearer ${token}` };
-  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, { headers: auth });
-  const meta = await metaRes.json();
-  if (meta.error) throw new Error('Sheet read failed: ' + (meta.error.message || ''));
-  const existing = new Set((meta.sheets || []).map(s => s.properties.title));
-
-  const toAdd = [];
-  for (const e of entries) {
-    const t = sanitizeTab(e.campaign);
-    if (!existing.has(t)) { toAdd.push({ addSheet: { properties: { title: t } } }); existing.add(t); }
-  }
-  if (toAdd.length) {
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
-      method: 'POST',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests: toAdd })
-    });
-  }
-
-  for (const e of entries) {
-    const tab = sanitizeTab(e.campaign);
-    const clearRange = encodeURIComponent(`${quoteTab(tab)}!A:Z`);
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${clearRange}:clear`, { method: 'POST', headers: auth });
-    const values = [e.headers || [], ...(e.rows || [])];
-    const writeRange = encodeURIComponent(`${quoteTab(tab)}!A1`);
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${writeRange}?valueInputOption=RAW`, {
-      method: 'PUT',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values })
-    });
-  }
-}
 
 export async function POST(request) {
   const email = process.env.GOOGLE_SA_EMAIL;
   let key = process.env.GOOGLE_SA_PRIVATE_KEY;
-  const liveId = process.env.SHEET_ID_LIVE;
-  const talksId = process.env.SHEET_ID_TALKS;
+  const sheetId = process.env.SHEET_ID_DATABASE;
 
-  if (!email || !key || !liveId || !talksId) {
-    return Response.json({ ok: false, skipped: true, reason: 'Google Sheets sync is not configured.' });
+  if (!email || !key || !sheetId) {
+    return Response.json({ ok: false, skipped: true, reason: 'Creator Database sync is not configured (set SHEET_ID_DATABASE).' });
   }
   key = key.replace(/\\n/g, '\n');
 
   let body;
   try { body = await request.json(); } catch { return Response.json({ ok: false, error: 'Invalid body' }, { status: 400 }); }
+  const headers = Array.isArray(body.headers) ? body.headers : [];
+  const rows = Array.isArray(body.rows) ? body.rows : [];
 
   try {
     const token = await getAccessToken(email, key);
-    if (Array.isArray(body.live)) await syncSpreadsheet(token, liveId, body.live);
-    if (Array.isArray(body.talks)) await syncSpreadsheet(token, talksId, body.talks);
-    return Response.json({ ok: true });
+    const auth = { Authorization: `Bearer ${token}` };
+
+    // Ensure the tab exists.
+    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, { headers: auth });
+    const meta = await metaRes.json();
+    if (meta.error) throw new Error('Sheet read failed: ' + (meta.error.message || ''));
+    const existing = new Set((meta.sheets || []).map(s => s.properties.title));
+    if (!existing.has(TAB)) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: { ...auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TAB } } }] })
+      });
+    }
+
+    // Clear then write.
+    const clearRange = encodeURIComponent(`${quoteTab(TAB)}!A:Z`);
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${clearRange}:clear`, { method: 'POST', headers: auth });
+
+    const values = [headers, ...rows];
+    const writeRange = encodeURIComponent(`${quoteTab(TAB)}!A1`);
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${writeRange}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values })
+    });
+
+    return Response.json({ ok: true, count: rows.length });
   } catch (e) {
-    console.error('sheets-sync error:', e?.message || e);
+    console.error('sync-creator-database error:', e?.message || e);
     return Response.json({ ok: false, error: e?.message || 'sync failed' });
   }
 }

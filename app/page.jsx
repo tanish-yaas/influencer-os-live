@@ -697,6 +697,12 @@ export default function InfluencerOS() {
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const bellRef = useRef(null);
+  const [dbSearch, setDbSearch] = useState('');
+  const [dbSort, setDbSort] = useState('booked');
+  const [dbPlatform, setDbPlatform] = useState('all');
+  const [dbDetailKey, setDbDetailKey] = useState(null);
+  const [dbSyncing, setDbSyncing] = useState(false);
+  const [dbSyncMsg, setDbSyncMsg] = useState('');
   const [orbitOpen, setOrbitOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
@@ -914,6 +920,7 @@ export default function InfluencerOS() {
 
   useEffect(() => { setTableExpanded(false); }, [activeCampaignId]);
   useEffect(() => { setTalksExpanded(false); }, [activeCampaignId, campaignView]);
+  useEffect(() => { setDbDetailKey(null); }, [activeTab]);
 
   // ---- Browser back/forward support for the dashboard view ----
   const isPoppingRef = useRef(false);
@@ -937,7 +944,7 @@ export default function InfluencerOS() {
       // close any open overlays so nothing floats over the restored view
       setMessagesOpen(false); setSettingsOpen(false); setProfileEditorOpen(false);
       setViewProfileEmail(null); setOrbitOpen(false); setNotifPanelOpen(false);
-      setAddLeadOpen(false); setTableExpanded(false); setTalksExpanded(false);
+      setAddLeadOpen(false); setTableExpanded(false); setTalksExpanded(false); setDbDetailKey(null);
       const s = e.state;
       const tab = (s && s.ios) ? (s.tab || 'campaigns') : 'campaigns';
       const camp = (s && s.ios) ? (s.camp ?? null) : null;
@@ -1368,6 +1375,132 @@ export default function InfluencerOS() {
     setSearchQuery('');
     setIsSearchFocused(false);
   };
+
+  // ===== Creator Database: collapse per-deal rows into one record per person =====
+  const creatorDatabase = useMemo(() => {
+    const norm = (s) => (s || '').toString().trim().toLowerCase();
+    const normLink = (s) => norm(s).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+    const campName = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '—';
+    const map = new Map();
+    for (const c of creators) {
+      const link = normLink(c.profile_link);
+      const key = link || norm(c.creator_name) || c.creator_deal_id;
+      if (!map.has(key)) {
+        map.set(key, { key, name: '', platforms: new Set(), profileLink: '', followers: 0, deals: [], totalBooked: 0, totalViews: 0, totalLikes: 0, totalComments: 0, totalShares: 0, totalSaves: 0, pocs: new Set(), campaigns: new Set(), contentTypes: new Set(), delivered: 0, lastGoLive: null });
+      }
+      const p = map.get(key);
+      const nm = (c.creator_name || '').trim();
+      if (nm.length > p.name.length) p.name = nm;
+      if (c.platform) p.platforms.add(c.platform);
+      if (!p.profileLink && c.profile_link) p.profileLink = c.profile_link;
+      p.followers = Math.max(p.followers, parseInt(c.followers) || 0);
+      p.totalBooked += parseInt(c.deal_value) || 0;
+      p.totalViews += parseInt(c.views) || 0;
+      p.totalLikes += parseInt(c.likes) || 0;
+      p.totalComments += parseInt(c.comments) || 0;
+      p.totalShares += parseInt(c.shares) || 0;
+      p.totalSaves += parseInt(c.saves) || 0;
+      if (c.poc) p.pocs.add(c.poc);
+      p.campaigns.add(campName(c.ip_id));
+      if (c.content_type) p.contentTypes.add(c.content_type);
+      if (c.deliverable_link && c.deliverable_link.trim()) p.delivered += 1;
+      if (c.planned_go_live_date && (!p.lastGoLive || c.planned_go_live_date > p.lastGoLive)) p.lastGoLive = c.planned_go_live_date;
+      p.deals.push(c);
+    }
+    return Array.from(map.values()).map(p => {
+      const eng = p.totalLikes + p.totalComments + p.totalShares + p.totalSaves;
+      return {
+        ...p,
+        name: p.name || '(unnamed)',
+        platforms: Array.from(p.platforms),
+        pocs: Array.from(p.pocs),
+        campaigns: Array.from(p.campaigns),
+        contentTypes: Array.from(p.contentTypes),
+        dealCount: p.deals.length,
+        engagements: eng,
+        avgCPV: p.totalViews > 0 ? p.totalBooked / p.totalViews : null,
+        avgCPE: eng > 0 ? p.totalBooked / eng : null,
+        deliveryRate: p.deals.length > 0 ? Math.round((p.delivered / p.deals.length) * 100) : 0
+      };
+    });
+  }, [creators, campaigns]);
+
+  const dbPlatformList = useMemo(() => {
+    const s = new Set();
+    creatorDatabase.forEach(p => p.platforms.forEach(pl => s.add(pl)));
+    return Array.from(s).sort();
+  }, [creatorDatabase]);
+
+  const dbFiltered = useMemo(() => {
+    const q = dbSearch.trim().toLowerCase();
+    let list = creatorDatabase.filter(p => {
+      if (dbPlatform !== 'all' && !p.platforms.includes(dbPlatform)) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q)
+        || p.platforms.join(' ').toLowerCase().includes(q)
+        || p.pocs.join(' ').toLowerCase().includes(q)
+        || p.campaigns.join(' ').toLowerCase().includes(q)
+        || (p.profileLink || '').toLowerCase().includes(q);
+    });
+    const sorters = {
+      booked: (a, b) => b.totalBooked - a.totalBooked,
+      collabs: (a, b) => b.dealCount - a.dealCount,
+      views: (a, b) => b.totalViews - a.totalViews,
+      followers: (a, b) => b.followers - a.followers,
+      cpv: (a, b) => (a.avgCPV ?? Infinity) - (b.avgCPV ?? Infinity),
+      recent: (a, b) => (b.lastGoLive || '').localeCompare(a.lastGoLive || ''),
+      name: (a, b) => a.name.localeCompare(b.name)
+    };
+    return list.sort(sorters[dbSort] || sorters.booked);
+  }, [creatorDatabase, dbSearch, dbPlatform, dbSort]);
+
+  const dbTotals = useMemo(() => ({
+    people: creatorDatabase.length,
+    booked: creatorDatabase.reduce((s, p) => s + p.totalBooked, 0),
+    views: creatorDatabase.reduce((s, p) => s + p.totalViews, 0),
+    reach: creatorDatabase.reduce((s, p) => s + p.followers, 0)
+  }), [creatorDatabase]);
+
+  const dbHeaders = ['Creator', 'Platform', 'Profile', 'Followers', 'Collabs', 'Total Booked (INR)', 'Total Views', 'Total Engagements', 'Avg CPV (INR)', 'Avg CPE (INR)', 'Delivery %', 'POC(s)', 'Campaigns', 'Last Go-Live'];
+  const dbRow = (p) => [
+    p.name, p.platforms.join(' / '), p.profileLink || '', p.followers, p.dealCount, p.totalBooked,
+    p.totalViews, p.engagements,
+    p.avgCPV != null ? Number(p.avgCPV.toFixed(2)) : '',
+    p.avgCPE != null ? Number(p.avgCPE.toFixed(2)) : '',
+    p.deliveryRate, p.pocs.join(' / '), p.campaigns.join(' / '), p.lastGoLive || ''
+  ];
+  const exportCreatorDatabase = () => {
+    const csv = [dbHeaders, ...dbFiltered.map(dbRow)].map(r => r.map(cell => {
+      const s = String(cell ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'creator-database.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const syncCreatorDatabaseToSheets = async () => {
+    setDbSyncing(true); setDbSyncMsg('');
+    try {
+      const rows = creatorDatabase.slice().sort((a, b) => b.totalBooked - a.totalBooked).map(dbRow);
+      const res = await fetch('/api/sync-creator-database', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers: dbHeaders, rows })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok) { setDbSyncMsg('Synced to Google Sheets ✓'); showToast('Creator Database synced to Sheets'); }
+      else if (j.skipped) { setDbSyncMsg('Sheets sync isn’t configured (add SHEET_ID_DATABASE).'); }
+      else { setDbSyncMsg('Sync failed: ' + (j.error || 'unknown error')); }
+    } catch (e) {
+      setDbSyncMsg('Sync failed: ' + (e?.message || 'network error'));
+    } finally {
+      setDbSyncing(false);
+      setTimeout(() => setDbSyncMsg(''), 6000);
+    }
+  };
+
+
 
   const computations = useMemo(() => {
     let opsTotal = 0;
@@ -2272,7 +2405,7 @@ export default function InfluencerOS() {
     return ordered;
   };
 
-  const NAV_COLORS = { campaigns: '#6366f1', finance_vs_ops: '#10b981', scraper: '#0ea5e9', payments: '#8b5cf6', reports: '#f43f5e' };
+  const NAV_COLORS = { campaigns: '#6366f1', finance_vs_ops: '#10b981', scraper: '#0ea5e9', creator_db: '#14b8a6', payments: '#8b5cf6', reports: '#f43f5e' };
   const NavItem = ({ id, icon: Icon, label }) => {
     const active = activeTab === id && !activeCampaignId;
     const light = theme === 'light';
@@ -2434,7 +2567,10 @@ export default function InfluencerOS() {
               )}
               <div className="h-7 w-px bg-white/15"></div>
               <div className="leading-tight">
-                <p className="font-semibold tracking-tight text-stone-100">Influencer OS</p>
+                <p className="font-semibold tracking-tight text-stone-100 flex items-center gap-1.5">
+                  Influencer OS
+                  <span className="text-[8px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-300 border border-orange-500/30">beta</span>
+                </p>
                 <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-orange-400/80">YAAS Influencer Dashboard</p>
               </div>
             </div>
@@ -2688,13 +2824,19 @@ export default function InfluencerOS() {
           ) : (
             <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] shrink-0"></div>
           )}
-          {!sidebarCollapsed && <span className="font-semibold text-stone-100 tracking-tight text-lg">Influencer OS</span>}
+          {!sidebarCollapsed && (
+            <span className="font-semibold text-stone-100 tracking-tight text-lg flex items-center gap-1.5">
+              Influencer OS
+              <span className="text-[8px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 border border-orange-500/30 relative -top-1.5">beta</span>
+            </span>
+          )}
         </button>
         <nav className="flex flex-col gap-1.5 flex-1">
           <NavItem icon={FolderKanban} id="campaigns" label="Campaigns"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={ArrowRightLeft} id="finance_vs_ops" label="Finance vs Ops"/>
           <NavItem icon={ScanSearch} id="scraper" label="Lead Scraper"/>
+          <NavItem icon={Users} id="creator_db" label="Creator Database"/>
           <NavItem icon={CreditCard} id="payments" label="Payments"/>
           <div className="h-px w-full bg-white/[0.06] my-2"></div>
           <NavItem icon={BarChart3} id="reports" label="Reports & Analytics"/>
@@ -3792,6 +3934,115 @@ export default function InfluencerOS() {
               </div>
             </div>
           )}
+
+          {activeTab === 'creator_db' && (
+            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Creator Database</h2>
+                  <p className="text-sm text-stone-500 mt-1 font-light max-w-2xl">Every creator you've worked with, collapsed into one record — booked value, performance, and POC history across all campaigns. Your private rolodex.</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={exportCreatorDatabase} className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors"><Download size={15}/> Export CSV</button>
+                  <button onClick={syncCreatorDatabaseToSheets} disabled={dbSyncing} className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white font-semibold transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">{dbSyncing ? <Loader2 size={15} className="animate-spin"/> : <RefreshCw size={15}/>} Sync to Sheets</button>
+                </div>
+              </div>
+              {dbSyncMsg && <p className="text-xs text-stone-400 -mt-2">{dbSyncMsg}</p>}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Creators', value: formatNumber(dbTotals.people) },
+                  { label: 'Total Booked', value: formatMoney(dbTotals.booked) },
+                  { label: 'Combined Reach', value: formatNumber(dbTotals.reach) },
+                  { label: 'Total Views', value: formatNumber(dbTotals.views) }
+                ].map(s => (
+                  <div key={s.label} className="bg-white/[0.025] border border-white/[0.07] rounded-xl px-4 py-3.5">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500 font-medium">{s.label}</p>
+                    <p className="text-xl font-semibold text-stone-100 mt-1 tracking-tight">{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center bg-white/[0.03] border border-white/[0.08] rounded-md px-3 py-1.5 flex-1 min-w-[220px]">
+                  <Search size={15} className="text-stone-500 shrink-0"/>
+                  <input value={dbSearch} onChange={(e) => setDbSearch(e.target.value)} placeholder="Search by name, platform, POC, campaign…" className="bg-transparent border-0 outline-none text-sm text-stone-200 placeholder-stone-600 ml-2 w-full"/>
+                  {dbSearch && <button onClick={() => setDbSearch('')} className="text-stone-500 hover:text-stone-300"><X size={14}/></button>}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-stone-500">Sort</span>
+                  <select value={dbSort} onChange={(e) => setDbSort(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-md px-2.5 py-2 text-stone-200 focus:outline-none focus:border-orange-500/70">
+                    <option value="booked">Most booked</option>
+                    <option value="collabs">Most collabs</option>
+                    <option value="views">Most views</option>
+                    <option value="followers">Most followers</option>
+                    <option value="cpv">Best CPV</option>
+                    <option value="recent">Recently live</option>
+                    <option value="name">Name A–Z</option>
+                  </select>
+                </div>
+              </div>
+
+              {dbPlatformList.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap -mt-2">
+                  <button onClick={() => setDbPlatform('all')} className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${dbPlatform === 'all' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'border-white/10 text-stone-400 hover:text-stone-200'}`}>All</button>
+                  {dbPlatformList.map(pl => (
+                    <button key={pl} onClick={() => setDbPlatform(pl)} className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${dbPlatform === pl ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'border-white/10 text-stone-400 hover:text-stone-200'}`}>{pl}</button>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl overflow-hidden">
+                {dbFiltered.length === 0 ? (
+                  <div className="text-center py-20 text-stone-600 text-sm">
+                    {creatorDatabase.length === 0 ? 'No creators yet. Once you book creators in campaigns, they\u2019ll roll up here automatically.' : 'No creators match your filters.'}
+                  </div>
+                ) : (
+                  <div className="overflow-auto max-h-[calc(100vh-23rem)]">
+                    <table className="w-full text-left text-sm min-w-[1000px]">
+                      <thead className="text-stone-500 bg-[#0c0a08] sticky top-0 z-10">
+                        <tr className="border-b border-white/[0.07]">
+                          <th className="px-5 py-2.5 font-medium text-[11px] uppercase tracking-wider">Creator</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Collabs</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Total Booked</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Views</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Avg CPV</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Avg CPE</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider text-right">Delivery</th>
+                          <th className="px-4 py-2.5 font-medium text-[11px] uppercase tracking-wider">POC</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.05]">
+                        {dbFiltered.map(p => (
+                          <tr key={p.key} onClick={() => setDbDetailKey(p.key)} className="hover:bg-white/[0.03] transition-colors cursor-pointer">
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/70 to-amber-600/70 flex items-center justify-center text-sm font-bold text-white shrink-0">{(p.name || '?').charAt(0).toUpperCase()}</div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-stone-100 truncate flex items-center gap-1.5">{p.name}{p.profileLink && <ExternalLink size={12} className="text-stone-500 shrink-0"/>}</p>
+                                  <p className="text-xs text-stone-500 truncate">{p.platforms.join(' · ') || '—'}{p.followers > 0 ? ` · ${formatNumber(p.followers)} followers` : ''}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.dealCount}</td>
+                            <td className="px-4 py-3 text-right font-medium text-stone-100 tabular-nums">{formatMoney(p.totalBooked)}</td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{formatNumber(p.totalViews)}</td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPV != null ? formatMicroMoney(p.avgCPV) : '—'}</td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPE != null ? formatMicroMoney(p.avgCPE) : '—'}</td>
+                            <td className="px-4 py-3 text-right">
+                              <span className={`tabular-nums font-medium ${p.deliveryRate >= 80 ? 'text-emerald-400' : p.deliveryRate >= 40 ? 'text-amber-400' : 'text-stone-400'}`}>{p.deliveryRate}%</span>
+                            </td>
+                            <td className="px-4 py-3 text-stone-400 truncate max-w-[160px]">{p.pocs.join(', ') || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-stone-600">Showing {dbFiltered.length} of {creatorDatabase.length} creators · grouped by profile link (or name when no link is set). Click a row for the full history.</p>
+            </div>
+          )}
         </div>
       </main>
 
@@ -3972,6 +4223,91 @@ export default function InfluencerOS() {
                   <button onClick={() => { setViewProfileEmail(null); setMessagesOpen(true); startDm(viewProfileEmail); }} className="mt-6 w-full bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]"><MessageSquare size={15}/> Message</button>
                 ) : (
                   <button onClick={() => { setViewProfileEmail(null); setProfileEditorOpen(true); }} className="mt-6 w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-stone-200 text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"><Edit2 size={15}/> Edit profile</button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============ CREATOR DATABASE DETAIL ============ */}
+      {dbDetailKey && (() => {
+        const d = creatorDatabase.find(p => p.key === dbDetailKey);
+        if (!d) return null;
+        const campOf = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '—';
+        const deals = d.deals.slice().sort((a, b) => (b.planned_go_live_date || '').localeCompare(a.planned_go_live_date || ''));
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDbDetailKey(null)}>
+            <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-white/[0.07] flex items-start justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-500/70 to-amber-600/70 flex items-center justify-center text-base font-bold text-white shrink-0">{(d.name || '?').charAt(0).toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold text-stone-100 truncate">{d.name}</h3>
+                    <p className="text-xs text-stone-500 truncate">{d.platforms.join(' · ') || '—'}{d.followers > 0 ? ` · ${formatNumber(d.followers)} followers` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {d.profileLink && <a href={d.profileLink.startsWith('http') ? d.profileLink : `https://${d.profileLink}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors"><ExternalLink size={14}/> Profile</a>}
+                  <button onClick={() => setDbDetailKey(null)} title="Close" className="h-9 w-9 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-100 hover:bg-white/[0.06] transition-colors"><X size={18}/></button>
+                </div>
+              </div>
+              <div className="p-6 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  {[
+                    { l: 'Total booked', v: formatMoney(d.totalBooked) },
+                    { l: 'Collabs', v: formatNumber(d.dealCount) },
+                    { l: 'Avg CPV', v: d.avgCPV != null ? formatMicroMoney(d.avgCPV) : '—' },
+                    { l: 'Avg CPE', v: d.avgCPE != null ? formatMicroMoney(d.avgCPE) : '—' },
+                    { l: 'Total views', v: formatNumber(d.totalViews) },
+                    { l: 'Engagements', v: formatNumber(d.engagements) },
+                    { l: 'Delivery rate', v: `${d.deliveryRate}%` },
+                    { l: 'POC(s)', v: d.pocs.join(', ') || '—' }
+                  ].map(s => (
+                    <div key={s.l} className="bg-white/[0.025] border border-white/[0.06] rounded-lg px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500">{s.l}</p>
+                      <p className="text-sm font-semibold text-stone-100 mt-0.5 truncate">{s.v}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold mb-2">Deal history ({deals.length})</p>
+                <div className="border border-white/[0.07] rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[680px]">
+                      <thead className="text-stone-500 bg-white/[0.02]">
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="px-4 py-2 font-medium text-[11px] uppercase tracking-wider">Campaign</th>
+                          <th className="px-3 py-2 font-medium text-[11px] uppercase tracking-wider">Type</th>
+                          <th className="px-3 py-2 font-medium text-[11px] uppercase tracking-wider text-right">Value</th>
+                          <th className="px-3 py-2 font-medium text-[11px] uppercase tracking-wider text-right">Views</th>
+                          <th className="px-3 py-2 font-medium text-[11px] uppercase tracking-wider">Go-Live</th>
+                          <th className="px-3 py-2 font-medium text-[11px] uppercase tracking-wider text-right">Link</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.05]">
+                        {deals.map(dl => (
+                          <tr key={dl.creator_deal_id} className="hover:bg-white/[0.02]">
+                            <td className="px-4 py-2.5 text-stone-200">{campOf(dl.ip_id)}</td>
+                            <td className="px-3 py-2.5 text-stone-400">{dl.content_type || '—'}</td>
+                            <td className="px-3 py-2.5 text-right text-stone-200 tabular-nums">{formatMoney(parseInt(dl.deal_value) || 0)}</td>
+                            <td className="px-3 py-2.5 text-right text-stone-400 tabular-nums">{formatNumber(parseInt(dl.views) || 0)}</td>
+                            <td className="px-3 py-2.5 text-stone-400">{dl.planned_go_live_date || '—'}</td>
+                            <td className="px-3 py-2.5 text-right">{dl.deliverable_link ? <a href={dl.deliverable_link.startsWith('http') ? dl.deliverable_link : `https://${dl.deliverable_link}`} target="_blank" rel="noreferrer" className="text-orange-400 hover:text-orange-300 inline-flex"><ExternalLink size={14}/></a> : <span className="text-stone-600">—</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {d.campaigns.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-semibold mb-2">Campaigns</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {d.campaigns.map((c, i) => <span key={i} className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-stone-300 text-xs">{c}</span>)}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
