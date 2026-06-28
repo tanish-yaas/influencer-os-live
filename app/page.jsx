@@ -703,6 +703,8 @@ export default function InfluencerOS() {
   const [dbDetailKey, setDbDetailKey] = useState(null);
   const [dbSyncing, setDbSyncing] = useState(false);
   const [dbSyncMsg, setDbSyncMsg] = useState('');
+  const [sheetSyncing, setSheetSyncing] = useState(false);
+  const [sheetSyncMsg, setSheetSyncMsg] = useState('');
   const [orbitOpen, setOrbitOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
@@ -843,7 +845,7 @@ export default function InfluencerOS() {
       const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'email' });
       if (error) throw error;
     } catch (e) {
-      // bio/interests/avatar_photo columns may not exist yet — fall back to the core fields
+      // bio/interests/avatar_photo columns may not exist yet; fall back to the core fields
       console.error('profile save (full) failed, retrying core fields:', e);
       try {
         const { email, display_name, title, avatar_index, is_admin } = row;
@@ -1152,8 +1154,9 @@ export default function InfluencerOS() {
   useEffect(() => { creatorsRef.current = creators; }, [creators]);
   useEffect(() => { campaignsRef.current = campaigns; }, [campaigns]);
   const sheetTimer = useRef(null);
+  const lastSheetToast = useRef(0);
 
-  const pushAllSheets = async () => {
+  const pushAllSheets = async (verbose = false) => {
     const camps = campaignsRef.current || [];
     const crs = creatorsRef.current || [];
     const num = (v) => Number(v) || 0;
@@ -1167,9 +1170,26 @@ export default function InfluencerOS() {
           ? [c.creator_name, c.platform, num(c.followers), c.content_type || '', c.planned_go_live_date || '', num(c.deal_value), num(c.views), num(c.likes), num(c.comments), num(c.shares), num(c.saves), c.deliverable_link || '', c.poc || '']
           : [c.creator_name, c.platform, num(c.followers), c.poc || '', num(c.deal_value), c.planned_go_live_date || '', c.profile_link || '', num(c.views), c.views > 0 ? (((num(c.likes) + num(c.comments)) / c.views) * 100).toFixed(2) : '0'])
     }));
+    const report = (msg, isError) => {
+      if (verbose) { showToast(msg); return; }
+      if (isError && Date.now() - lastSheetToast.current > 15000) { lastSheetToast.current = Date.now(); showToast(msg); }
+    };
     try {
-      await fetch('/api/sheets-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ live: build('live'), talks: build('talks') }) });
-    } catch {}
+      const res = await fetch('/api/sheets-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ live: build('live'), talks: build('talks') }) });
+      let j = null; try { j = await res.json(); } catch {}
+      if (j && j.ok) { report('Live + In-Talks sheets updated', false); return { ok: true }; }
+      let msg;
+      if (res.status === 404) msg = 'Sheets sync route is not deployed (app/api/sheets-sync/route.js).';
+      else if (j && j.skipped) msg = 'Google Sheets sync is not configured in Vercel (service account or sheet IDs missing).';
+      else if (j && j.error) msg = 'Sheets sync error: ' + j.error;
+      else msg = 'Sheets sync failed (HTTP ' + res.status + ').';
+      report(msg, true);
+      return { ok: false, msg };
+    } catch (e) {
+      const msg = 'Sheets sync failed: ' + ((e && e.message) || 'network error');
+      report(msg, true);
+      return { ok: false, msg };
+    }
   };
 
   const scheduleSheetSync = () => {
@@ -1380,7 +1400,7 @@ export default function InfluencerOS() {
   const creatorDatabase = useMemo(() => {
     const norm = (s) => (s || '').toString().trim().toLowerCase();
     const normLink = (s) => norm(s).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
-    const campName = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '—';
+    const campName = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '-';
     const map = new Map();
     for (const c of creators) {
       const link = normLink(c.profile_link);
@@ -1491,14 +1511,14 @@ export default function InfluencerOS() {
       let j = null;
       try { j = await res.json(); } catch {}
       if (res.status === 404) {
-        setDbSyncMsg('Sync route isn’t deployed yet — add app/api/sync-creator-database/route.js, then push to Vercel.');
+        setDbSyncMsg('Sync route isn’t deployed yet. Add app/api/sync-creator-database/route.js, then push to Vercel.');
       } else if (!res.ok || !j) {
         setDbSyncMsg(`Sync failed (server returned ${res.status}). Check the API route and env vars in Vercel.`);
       } else if (j.ok) {
         setDbSyncMsg(`Synced ${j.count ?? rows.length} creators to Google Sheets ✓`);
         showToast('Creator Database synced to Sheets');
       } else if (j.skipped) {
-        setDbSyncMsg('Sheets sync isn’t configured — add SHEET_ID_DATABASE in Vercel and share the sheet with your service account.');
+        setDbSyncMsg('Sheets sync isn’t configured. Add SHEET_ID_DATABASE in Vercel and share the sheet with your service account.');
       } else {
         setDbSyncMsg('Sync failed: ' + (j.error || 'unknown error from the server'));
       }
@@ -1704,7 +1724,7 @@ export default function InfluencerOS() {
     const { camp, range } = reportScope();
     const lines = [];
     if (o.summary) {
-      lines.push(['Influencer OS — YAAS Report']);
+      lines.push(['Influencer OS · YAAS Report']);
       lines.push(['Scope', camp, range, `${report.count} creators`]);
       lines.push([]);
       lines.push(['Summary']);
@@ -1769,8 +1789,8 @@ export default function InfluencerOS() {
       td.n,th.n{text-align:right}.foot{margin-top:18px;color:#a8a29e;font-size:10px}
       @media print{body{margin:14px}}
     </style></head><body>
-      <div class="brand"><div class="dot"></div><strong>Influencer OS — YAAS</strong></div>
-      <h1>${esc(camp)} — Campaign Report</h1>
+      <div class="brand"><div class="dot"></div><strong>Influencer OS · YAAS</strong></div>
+      <h1>${esc(camp)} · Campaign Report</h1>
       <div class="sub">Scope: ${esc(range)} &middot; ${r.count} creators &middot; Generated ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
       ${summaryBlock}
       ${tableBlock}
@@ -2062,7 +2082,7 @@ export default function InfluencerOS() {
       const data = await res.json();
       if (data.success && Array.isArray(data.results) && data.results.length) {
         setScrapeResults(data.results.map(r => ({ ...r, fee: '' })));
-        if (data.simulated) setScrapeNote(scrapePlatform === 'youtube' ? 'Showing simulated data — add a YOUTUBE_API_KEY to the scrape API route for live YouTube data.' : 'Showing simulated data — add an Apify token to the scrape API route for live Instagram data.');
+        if (data.simulated) setScrapeNote(scrapePlatform === 'youtube' ? 'Showing simulated data. Add a YOUTUBE_API_KEY to the scrape API route for live YouTube data.' : 'Showing simulated data. Add an Apify token to the scrape API route for live Instagram data.');
       } else {
         setScrapeNote(data.error || 'No profiles found for that search.');
       }
@@ -2198,7 +2218,7 @@ export default function InfluencerOS() {
     const draft = getLeadDraft(creator);
     const budget = Math.round(Number(draft.budget) || 0);
     const date = draft.date || '';
-    if (!budget || !date) { alert('Add an expected budget and a go-live date before confirming. (Invoice date is optional — add it later in the campaign.)'); return; }
+    if (!budget || !date) { alert('Add an expected budget and a go-live date before confirming. (Invoice date is optional; add it later in the campaign.)'); return; }
     const month = new Date(date).toLocaleString('default', { month: 'long' });
     const update = { deal_value: budget, planned_go_live_date: date, planned_go_live_month: month, creator_status: 'booked' };
     setCreators(creators.map(c => c.creator_deal_id === creator.creator_deal_id ? { ...c, ...update } : c));
@@ -2335,7 +2355,7 @@ export default function InfluencerOS() {
     setCreators(localCreatorsState);
     setIsCampaignSyncing(false);
     scheduleSheetSync();
-    alert(`Sync complete for this campaign — updated ${successfulSyncs} of ${creatorsWithLinks.length} creator${creatorsWithLinks.length === 1 ? '' : 's'} with live links.`);
+    alert(`Sync complete for this campaign. Updated ${successfulSyncs} of ${creatorsWithLinks.length} creator${creatorsWithLinks.length === 1 ? '' : 's'} with live links.`);
   };
 
   const inTalksTable = (campLeads, canManage) => (
@@ -2610,7 +2630,7 @@ export default function InfluencerOS() {
             {loginMode === 'google' ? (
               <>
                 <p className="text-stone-500 text-sm leading-relaxed mt-5 max-w-md">
-                  Sign in with your {ALLOWED_DOMAIN ? <><span className="font-semibold text-stone-300">@{ALLOWED_DOMAIN}</span> </> : ''}Google account. Single sign-on — no extra password to remember.
+                  Sign in with your {ALLOWED_DOMAIN ? <><span className="font-semibold text-stone-300">@{ALLOWED_DOMAIN}</span> </> : ''}Google account. Single sign-on, no extra password to remember.
                 </p>
 
                 <button
@@ -2757,7 +2777,7 @@ export default function InfluencerOS() {
   return (
     <div className={`flex h-screen bg-[#0a0807] font-sans text-stone-300 selection:bg-orange-500/30 ${theme === 'light' ? 'theme-light' : ''}`}>
       <style>{`
-        /* ============ LIGHT MODE — clean neutral palette ============ */
+        /* ============ LIGHT MODE: clean neutral palette ============ */
         /* canvas + kill dark backdrop */
         .theme-light main{background-color:#f4f5f7!important;background-image:none!important}
         .theme-light .orbital-bg{display:none!important}
@@ -2780,7 +2800,7 @@ export default function InfluencerOS() {
         /* borders */
         .theme-light [class~="border-white/[0.06]"],.theme-light [class~="border-white/[0.07]"],.theme-light [class~="border-white/[0.08]"]{border-color:#e6e8ec!important}
         .theme-light [class~="border-white/10"],.theme-light [class~="border-white/[0.1]"]{border-color:#dde0e6!important}
-        /* text — slate scale */
+        /* text: slate scale */
         .theme-light [class~="text-stone-100"]{color:#0e121b!important}
         .theme-light [class~="text-stone-200"]{color:#1d2433!important}
         .theme-light [class~="text-stone-300"]{color:#344054!important}
@@ -2828,16 +2848,16 @@ export default function InfluencerOS() {
           {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
         </button>
 
-        <button onClick={() => setOrbitOpen(true)} title="psst — click me ✨" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
+        <button onClick={() => setOrbitOpen(true)} title="psst, click me ✨" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
           {!logoError ? (
             <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain transition-transform duration-200 group-hover/logo:scale-105 ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-11 w-auto max-w-[120px]'}`}/>
           ) : (
             <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] shrink-0"></div>
           )}
           {!sidebarCollapsed && (
-            <span className="font-semibold text-stone-100 tracking-tight text-base whitespace-nowrap leading-none">
+            <span className="font-semibold text-stone-100 tracking-tight text-base whitespace-nowrap leading-none inline-flex items-center">
               Influencer&nbsp;OS
-              <span className="ml-1 align-top text-[7px] font-bold uppercase tracking-[0.1em] px-1 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">beta</span>
+              <span className="ml-1.5 text-[7px] font-bold uppercase tracking-[0.1em] px-1 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 leading-none">beta</span>
             </span>
           )}
         </button>
@@ -3461,7 +3481,7 @@ export default function InfluencerOS() {
                 const campLeads = creators.filter(c => c.ip_id === activeCampaignId && c.creator_status === 'lead');
                 const header = (
                   <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between gap-3">
-                    <p className="text-sm text-stone-400 hidden md:block">Talking phase — set a budget + go-live date, assign a POC, then confirm (✓) to move into Live Creators.</p>
+                    <p className="text-sm text-stone-400 hidden md:block">Talking phase: set a budget + go-live date, assign a POC, then confirm (✓) to move into Live Creators.</p>
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                       {campLeads.length > 0 && (
                         <button onClick={() => setTalksExpanded(v => !v)} title={talksExpanded ? 'Exit full screen' : 'Expand table'} className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors">
@@ -3487,7 +3507,7 @@ export default function InfluencerOS() {
                       <div className="bg-[#0c0a08] border border-white/[0.08] rounded-xl shadow-2xl w-full h-full flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
                         <div className="px-5 py-3.5 border-b border-white/[0.07] flex items-center justify-between gap-3 shrink-0">
                           <div className="flex items-center gap-2 min-w-0">
-                            <h3 className="text-sm font-semibold text-stone-100 truncate">{activeCampaign?.ip_name || 'Campaign'} — In-Talks</h3>
+                            <h3 className="text-sm font-semibold text-stone-100 truncate">{activeCampaign?.ip_name || 'Campaign'} · In-Talks</h3>
                             <span className="text-xs text-stone-500 shrink-0">({campLeads.length})</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -3756,8 +3776,8 @@ export default function InfluencerOS() {
                   <StatCard label="Likes" value={formatNumber(report.likes)} dot={CHART_PALETTE[0]} />
                   <StatCard label="Comments" value={formatNumber(report.comments)} dot={CHART_PALETTE[3]} />
                   <StatCard label="E.R. (Avg)" value={`${report.erAvg.toFixed(3)}%`} dot={CHART_PALETTE[4]} />
-                  <StatCard label="E.R. (Video)" value={report.erVideo == null ? '—' : `${report.erVideo.toFixed(3)}%`} dot={CHART_PALETTE[5]} />
-                  <StatCard label="E.R. (Static)" value={report.erStatic == null ? '—' : `${report.erStatic.toFixed(3)}%`} dot={CHART_PALETTE[6]} />
+                  <StatCard label="E.R. (Video)" value={report.erVideo == null ? '-' : `${report.erVideo.toFixed(3)}%`} dot={CHART_PALETTE[5]} />
+                  <StatCard label="E.R. (Static)" value={report.erStatic == null ? '-' : `${report.erStatic.toFixed(3)}%`} dot={CHART_PALETTE[6]} />
                   <StatCard label="CPE" value={formatMicroMoney(report.cpe)} dot={CHART_PALETTE[2]} />
                   <StatCard label="CPV" value={formatMicroMoney(report.cpv)} dot={CHART_PALETTE[7]} />
                   <StatCard label="Shares" value={formatNumber(report.shares)} dot={CHART_PALETTE[8]} />
@@ -3890,7 +3910,7 @@ export default function InfluencerOS() {
                             className="w-full bg-black/40 border border-white/10 rounded-md pl-6 pr-2 py-1.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70"
                           />
                         </div>
-                        <div className="text-xs text-stone-400 tabular-nums whitespace-nowrap">CPV {cpv == null ? '—' : formatMicroMoney(cpv)} · CPE {cpe == null ? '—' : formatMicroMoney(cpe)}</div>
+                        <div className="text-xs text-stone-400 tabular-nums whitespace-nowrap">CPV {cpv == null ? '-' : formatMicroMoney(cpv)} · CPE {cpe == null ? '-' : formatMicroMoney(cpe)}</div>
                       </div>
 
                       <div className="mt-4 relative">
@@ -3900,7 +3920,7 @@ export default function InfluencerOS() {
                         {leadPickerFor === idx && (
                           <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c0a08] border border-white/10 rounded-lg shadow-2xl z-20 p-3 space-y-2.5">
                             {campaigns.length === 0 ? (
-                              <p className="text-xs text-stone-500 p-1">No campaigns yet — create one first.</p>
+                              <p className="text-xs text-stone-500 p-1">No campaigns yet. Create one first.</p>
                             ) : (
                               <>
                                 <div>
@@ -3950,7 +3970,7 @@ export default function InfluencerOS() {
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <h2 className="text-2xl font-semibold text-stone-100 tracking-tight">Creator Database</h2>
-                  <p className="text-sm text-stone-500 mt-1 font-light max-w-2xl">Every creator you've worked with, collapsed into one record — booked value, performance, and POC history across all campaigns. Your private rolodex.</p>
+                  <p className="text-sm text-stone-500 mt-1 font-light max-w-2xl">Every creator you've worked with, collapsed into one record: booked value, performance, and POC history across all campaigns. Your private rolodex.</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={exportCreatorDatabase} className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border border-white/10 text-stone-300 hover:bg-white/[0.06] transition-colors"><Download size={15}/> Export CSV</button>
@@ -4030,19 +4050,19 @@ export default function InfluencerOS() {
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500/70 to-amber-600/70 flex items-center justify-center text-sm font-bold text-white shrink-0">{(p.name || '?').charAt(0).toUpperCase()}</div>
                                 <div className="min-w-0">
                                   <p className="font-medium text-stone-100 truncate flex items-center gap-1.5">{p.name}{p.profileLink && <ExternalLink size={12} className="text-stone-500 shrink-0"/>}</p>
-                                  <p className="text-xs text-stone-500 truncate">{p.platforms.join(' · ') || '—'}{p.followers > 0 ? ` · ${formatNumber(p.followers)} followers` : ''}</p>
+                                  <p className="text-xs text-stone-500 truncate">{p.platforms.join(' · ') || '-'}{p.followers > 0 ? ` · ${formatNumber(p.followers)} followers` : ''}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.dealCount}</td>
                             <td className="px-4 py-3 text-right font-medium text-stone-100 tabular-nums">{formatMoney(p.totalBooked)}</td>
                             <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{formatNumber(p.totalViews)}</td>
-                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPV != null ? formatMicroMoney(p.avgCPV) : '—'}</td>
-                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPE != null ? formatMicroMoney(p.avgCPE) : '—'}</td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPV != null ? formatMicroMoney(p.avgCPV) : '-'}</td>
+                            <td className="px-4 py-3 text-right text-stone-300 tabular-nums">{p.avgCPE != null ? formatMicroMoney(p.avgCPE) : '-'}</td>
                             <td className="px-4 py-3 text-right">
                               <span className={`tabular-nums font-medium ${p.deliveryRate >= 80 ? 'text-emerald-400' : p.deliveryRate >= 40 ? 'text-amber-400' : 'text-stone-400'}`}>{p.deliveryRate}%</span>
                             </td>
-                            <td className="px-4 py-3 text-stone-400 truncate max-w-[160px]">{p.pocs.join(', ') || '—'}</td>
+                            <td className="px-4 py-3 text-stone-400 truncate max-w-[160px]">{p.pocs.join(', ') || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4197,7 +4217,7 @@ export default function InfluencerOS() {
             </div>
             <div className="absolute bottom-0 inset-x-0 p-6 text-center pointer-events-none">
               {!logoError && <img src={LOGO_URL} alt="YAAS" className="app-logo h-9 w-auto max-w-[150px] object-contain mx-auto mb-3 opacity-90"/>}
-              <p className={`text-xs ${theme === 'light' ? 'text-orange-800/70' : 'text-stone-500'}`}>Every creator, campaign, and rupee — orbiting one system.</p>
+              <p className={`text-xs ${theme === 'light' ? 'text-orange-800/70' : 'text-stone-500'}`}>Every creator, campaign, and rupee, all orbiting one system.</p>
             </div>
           </div>
         </div>
@@ -4244,7 +4264,7 @@ export default function InfluencerOS() {
       {dbDetailKey && (() => {
         const d = creatorDatabase.find(p => p.key === dbDetailKey);
         if (!d) return null;
-        const campOf = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '—';
+        const campOf = (id) => (campaigns.find(c => c.ip_id === id)?.ip_name) || '-';
         const deals = d.deals.slice().sort((a, b) => (b.planned_go_live_date || '').localeCompare(a.planned_go_live_date || ''));
         return (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDbDetailKey(null)}>
@@ -4254,7 +4274,7 @@ export default function InfluencerOS() {
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-500/70 to-amber-600/70 flex items-center justify-center text-base font-bold text-white shrink-0">{(d.name || '?').charAt(0).toUpperCase()}</div>
                   <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-stone-100 truncate">{d.name}</h3>
-                    <p className="text-xs text-stone-500 truncate">{d.platforms.join(' · ') || '—'}{d.followers > 0 ? ` · ${formatNumber(d.followers)} followers` : ''}</p>
+                    <p className="text-xs text-stone-500 truncate">{d.platforms.join(' · ') || '-'}{d.followers > 0 ? ` · ${formatNumber(d.followers)} followers` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -4267,12 +4287,12 @@ export default function InfluencerOS() {
                   {[
                     { l: 'Total booked', v: formatMoney(d.totalBooked) },
                     { l: 'Collabs', v: formatNumber(d.dealCount) },
-                    { l: 'Avg CPV', v: d.avgCPV != null ? formatMicroMoney(d.avgCPV) : '—' },
-                    { l: 'Avg CPE', v: d.avgCPE != null ? formatMicroMoney(d.avgCPE) : '—' },
+                    { l: 'Avg CPV', v: d.avgCPV != null ? formatMicroMoney(d.avgCPV) : '-' },
+                    { l: 'Avg CPE', v: d.avgCPE != null ? formatMicroMoney(d.avgCPE) : '-' },
                     { l: 'Total views', v: formatNumber(d.totalViews) },
                     { l: 'Engagements', v: formatNumber(d.engagements) },
                     { l: 'Delivery rate', v: `${d.deliveryRate}%` },
-                    { l: 'POC(s)', v: d.pocs.join(', ') || '—' }
+                    { l: 'POC(s)', v: d.pocs.join(', ') || '-' }
                   ].map(s => (
                     <div key={s.l} className="bg-white/[0.025] border border-white/[0.06] rounded-lg px-3 py-2.5">
                       <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500">{s.l}</p>
@@ -4299,11 +4319,11 @@ export default function InfluencerOS() {
                         {deals.map(dl => (
                           <tr key={dl.creator_deal_id} className="hover:bg-white/[0.02]">
                             <td className="px-4 py-2.5 text-stone-200">{campOf(dl.ip_id)}</td>
-                            <td className="px-3 py-2.5 text-stone-400">{dl.content_type || '—'}</td>
+                            <td className="px-3 py-2.5 text-stone-400">{dl.content_type || '-'}</td>
                             <td className="px-3 py-2.5 text-right text-stone-200 tabular-nums">{formatMoney(parseInt(dl.deal_value) || 0)}</td>
                             <td className="px-3 py-2.5 text-right text-stone-400 tabular-nums">{formatNumber(parseInt(dl.views) || 0)}</td>
-                            <td className="px-3 py-2.5 text-stone-400">{dl.planned_go_live_date || '—'}</td>
-                            <td className="px-3 py-2.5 text-right">{dl.deliverable_link ? <a href={dl.deliverable_link.startsWith('http') ? dl.deliverable_link : `https://${dl.deliverable_link}`} target="_blank" rel="noreferrer" className="text-orange-400 hover:text-orange-300 inline-flex"><ExternalLink size={14}/></a> : <span className="text-stone-600">—</span>}</td>
+                            <td className="px-3 py-2.5 text-stone-400">{dl.planned_go_live_date || '-'}</td>
+                            <td className="px-3 py-2.5 text-right">{dl.deliverable_link ? <a href={dl.deliverable_link.startsWith('http') ? dl.deliverable_link : `https://${dl.deliverable_link}`} target="_blank" rel="noreferrer" className="text-orange-400 hover:text-orange-300 inline-flex"><ExternalLink size={14}/></a> : <span className="text-stone-600">-</span>}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4436,7 +4456,7 @@ export default function InfluencerOS() {
         {teamProfiles.map(p => <option key={p.email} value={p.display_name} />)}
       </datalist>
 
-      {/* Timeline Day — deliverables posted that day */}
+      {/* Timeline Day: deliverables posted that day */}
       {reportExport.open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReportExport({ ...reportExport, open: false })}>
           <div className="bg-[#0c0a08] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[88vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
@@ -4444,7 +4464,7 @@ export default function InfluencerOS() {
               <h3 className="text-lg font-semibold text-stone-100">Export {reportExport.format.toUpperCase()} report</h3>
               <button onClick={() => setReportExport({ ...reportExport, open: false })} className="text-stone-500 hover:text-stone-200 text-sm">Close</button>
             </div>
-            <p className="text-xs text-stone-500 mb-4">Everything's on by default — switch off anything you don't want in the file.</p>
+            <p className="text-xs text-stone-500 mb-4">Everything's on by default. Switch off anything you don't want in the file.</p>
 
             <div className="space-y-2.5">
               {[
@@ -4583,7 +4603,7 @@ export default function InfluencerOS() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Deliverable</p><p className="text-stone-200">{c.content_type}</p></div>
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Fee</p><p className="text-stone-200 tabular-nums">{formatMoney(c.deal_value)}</p></div>
-                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Go-Live</p><p className="text-stone-200 tabular-nums">{c.planned_go_live_date || '—'}</p></div>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Go-Live</p><p className="text-stone-200 tabular-nums">{c.planned_go_live_date || '-'}</p></div>
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"><p className="text-stone-500 mb-0.5">Eng. Rate</p><p className="text-orange-300 tabular-nums">{c.views > 0 ? ((m.engagement / c.views) * 100).toFixed(1) : '0.0'}%</p></div>
                 </div>
 
@@ -4648,6 +4668,24 @@ export default function InfluencerOS() {
                 </div>
                 <p className="text-xs text-stone-500 mt-3">Adjusts text size across the whole app.</p>
               </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-medium flex items-center gap-1.5"><RefreshCw size={12}/> Google Sheets</p>
+                <button
+                  onClick={async () => {
+                    setSheetSyncing(true); setSheetSyncMsg('');
+                    const r = await pushAllSheets(false);
+                    setSheetSyncMsg(r && r.ok ? 'Live + In-Talks sheets updated.' : ((r && r.msg) || 'Sync failed.'));
+                    setSheetSyncing(false);
+                    setTimeout(() => setSheetSyncMsg(''), 12000);
+                  }}
+                  disabled={sheetSyncing}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-medium transition-colors bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06] disabled:opacity-60"
+                >
+                  {sheetSyncing ? <Loader2 size={15} className="animate-spin"/> : <RefreshCw size={15}/>} Sync Live + In-Talks now
+                </button>
+                {sheetSyncMsg && <p className={`text-xs mt-2 ${sheetSyncMsg.includes('updated') ? 'text-emerald-400' : 'text-amber-400'}`}>{sheetSyncMsg}</p>}
+                <p className="text-xs text-stone-500 mt-2">Mirrors every campaign's creators to your Google Sheets. Needs the sync API route and service-account env vars set in Vercel.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -4660,7 +4698,7 @@ export default function InfluencerOS() {
             <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02] shrink-0">
               <div className="flex items-center gap-2">
                 <MessageSquare size={16} className="text-orange-400"/>
-                <h3 className="font-medium text-stone-100">Comments — {commentModal.creator?.creator_name}</h3>
+                <h3 className="font-medium text-stone-100">Comments · {commentModal.creator?.creator_name}</h3>
               </div>
               <button type="button" onClick={() => setCommentModal({ isOpen: false, creator: null })} className="text-stone-500 hover:text-stone-300">Close</button>
             </div>
@@ -4892,11 +4930,11 @@ export default function InfluencerOS() {
                 <input name="campaign_name" defaultValue={editingCampaign?.ip_name} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(responsible — gets edit access)</span></label>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Owner Email <span className="text-stone-600 normal-case tracking-normal">(responsible, gets edit access)</span></label>
                 <input name="owner" type="email" defaultValue={editingCampaign?.owner} required placeholder="someone@yaas.studio" className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional — can also edit, sync &amp; delete)</span></label>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Editors <span className="text-stone-600 normal-case tracking-normal">(optional, can also edit, sync &amp; delete)</span></label>
                 <div className="flex gap-2">
                   <input
                     type="email"
@@ -4944,7 +4982,7 @@ export default function InfluencerOS() {
 
             <div className="p-6 space-y-5 overflow-y-auto">
               <div className="bg-orange-500/[0.06] border border-orange-500/20 rounded-lg px-4 py-3 text-sm text-orange-200 flex items-center gap-2">
-                <Check size={16}/> Found <strong>{importRows.length}</strong> creator{importRows.length === 1 ? '' : 's'} across the sheet. Invoice details are skipped — add bill dates later by editing each creator.
+                <Check size={16}/> Found <strong>{importRows.length}</strong> creator{importRows.length === 1 ? '' : 's'} across the sheet. Invoice details are skipped. Add bill dates later by editing each creator.
               </div>
 
               <div className="grid grid-cols-2 gap-5">
@@ -4995,10 +5033,10 @@ export default function InfluencerOS() {
                         <tr key={i} className="text-stone-300">
                           <td className="px-3 py-2 truncate max-w-[140px]">{r.name}</td>
                           <td className="px-3 py-2">{r.platform}</td>
-                          <td className="px-3 py-2">{r.month || '—'}</td>
+                          <td className="px-3 py-2">{r.month || '-'}</td>
                           <td className="px-3 py-2 tabular-nums">{formatMoney(r.spend)}</td>
                           <td className="px-3 py-2 tabular-nums">{formatNumber(r.views)}</td>
-                          <td className="px-3 py-2">{r.deliverable ? <Check size={13} className="text-orange-400"/> : <span className="text-stone-600">—</span>}</td>
+                          <td className="px-3 py-2">{r.deliverable ? <Check size={13} className="text-orange-400"/> : <span className="text-stone-600">-</span>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -5009,7 +5047,7 @@ export default function InfluencerOS() {
               <label className="flex items-center gap-2.5 text-sm text-stone-300 cursor-pointer">
                 <input type="checkbox" checked={importAutoSync} onChange={(e) => setImportAutoSync(e.target.checked)} className="accent-orange-500 w-4 h-4" />
                 Auto-sync live metrics from deliverable links after import
-                <span className="text-stone-600 text-xs">(slower — pulls each link)</span>
+                <span className="text-stone-600 text-xs">(slower, pulls each link)</span>
               </label>
 
               {importError && (
