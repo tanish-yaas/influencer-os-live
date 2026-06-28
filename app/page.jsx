@@ -705,6 +705,11 @@ export default function InfluencerOS() {
   const [dbSyncMsg, setDbSyncMsg] = useState('');
   const [sheetSyncing, setSheetSyncing] = useState(false);
   const [sheetSyncMsg, setSheetSyncMsg] = useState('');
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportCategory, setSupportCategory] = useState('bug');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportMsg, setSupportMsg] = useState('');
   const [orbitOpen, setOrbitOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [timelineCampaignFilter, setTimelineCampaignFilter] = useState('all');
@@ -946,7 +951,7 @@ export default function InfluencerOS() {
       // close any open overlays so nothing floats over the restored view
       setMessagesOpen(false); setSettingsOpen(false); setProfileEditorOpen(false);
       setViewProfileEmail(null); setOrbitOpen(false); setNotifPanelOpen(false);
-      setAddLeadOpen(false); setTableExpanded(false); setTalksExpanded(false); setDbDetailKey(null);
+      setAddLeadOpen(false); setTableExpanded(false); setTalksExpanded(false); setDbDetailKey(null); setSupportOpen(false);
       const s = e.state;
       const tab = (s && s.ios) ? (s.tab || 'campaigns') : 'campaigns';
       const camp = (s && s.ios) ? (s.camp ?? null) : null;
@@ -1527,6 +1532,43 @@ export default function InfluencerOS() {
     } finally {
       setDbSyncing(false);
       setTimeout(() => setDbSyncMsg(''), 9000);
+    }
+  };
+
+  const submitSupport = async () => {
+    const body = supportMessage.trim();
+    if (!body) { setSupportMsg('Please describe the issue or idea first.'); return; }
+    setSupportSending(true); setSupportMsg('');
+    const catLabel = { bug: 'Bug report', feature: 'Feature request', question: 'Question', other: 'Other' }[supportCategory] || 'Support';
+    const fromEmail = (currentUser && currentUser.email) || '';
+    const fromName = profileName || (profile && profile.display_name) || fromEmail || 'A YAAS user';
+    const subject = `[YAAS OS] ${catLabel} from ${fromName}`;
+    const context = `\n\n----------------\nFrom: ${fromName} <${fromEmail}>\nType: ${catLabel}\nPage: ${typeof window !== 'undefined' ? window.location.href : ''}\nWhen: ${new Date().toLocaleString()}`;
+    const fullBody = body + context;
+    let sent = false;
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: catLabel, message: body, fromEmail, fromName, subject, context })
+      });
+      let j = null; try { j = await res.json(); } catch {}
+      if (res.ok && j && j.ok) sent = true;
+    } catch {}
+    if (sent) {
+      showToast('Support request sent to the YAAS team');
+      setSupportMessage('');
+      setSupportSending(false);
+      setSupportMsg('Sent to the YAAS team. Thank you!');
+      setTimeout(() => { setSupportOpen(false); setSupportMsg(''); }, 1600);
+    } else {
+      // Fallback: open the user's email app pre-addressed to support
+      try {
+        const a = document.createElement('a');
+        a.href = `mailto:tanish@yaas.studio?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
+        a.click();
+      } catch {}
+      setSupportSending(false);
+      setSupportMsg('Opening your email app to send to tanish@yaas.studio. Just hit send.');
     }
   };
 
@@ -3093,6 +3135,12 @@ export default function InfluencerOS() {
                       <Edit2 size={15} className="text-stone-500"/> Edit profile
                     </button>
                     <button
+                      onClick={() => { setProfileMenuOpen(false); setSupportMessage(''); setSupportCategory('bug'); setSupportMsg(''); setSupportOpen(true); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-300 hover:bg-white/[0.04] transition-colors border-t border-white/[0.06]"
+                    >
+                      <Mail size={15} className="text-stone-500"/> Contact support
+                    </button>
+                    <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-300 hover:bg-white/[0.04] transition-colors border-t border-white/[0.06]"
                     >
@@ -4259,6 +4307,46 @@ export default function InfluencerOS() {
           </div>
         );
       })()}
+
+      {/* ============ CONTACT SUPPORT ============ */}
+      {supportOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSupportOpen(false)}>
+          <div className="bg-[#0c0a08] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/[0.07] flex justify-between items-center bg-white/[0.02]">
+              <h3 className="font-medium text-stone-100 flex items-center gap-2"><Mail size={16} className="text-orange-400"/> Contact support</h3>
+              <button onClick={() => setSupportOpen(false)} className="text-stone-500 hover:text-stone-300"><X size={18}/></button>
+            </div>
+            <div className="p-6 space-y-5">
+              <p className="text-sm text-stone-400">Found a bug, have a question, or want to suggest a feature? Send it straight to the YAAS team.</p>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-2 font-medium">Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['bug', 'Bug'], ['feature', 'Feature idea'], ['question', 'Question'], ['other', 'Other']].map(([val, label]) => (
+                    <button key={val} type="button" onClick={() => setSupportCategory(val)} className={`py-2.5 rounded-lg border text-sm font-medium transition-colors ${supportCategory === val ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : 'bg-white/[0.03] border-white/10 text-stone-300 hover:bg-white/[0.06]'}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Your message</label>
+                <textarea
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  autoFocus
+                  rows={5}
+                  placeholder="Describe the issue or your idea. The more detail, the better."
+                  className="w-full resize-none bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-orange-500/70"
+                />
+              </div>
+              <p className="text-[11px] text-stone-500">Sent as {profileName || (profile && profile.display_name) || (currentUser && currentUser.email)} to tanish@yaas.studio.</p>
+              {supportMsg && <p className={`text-xs ${supportMsg.includes('Sent') ? 'text-emerald-400' : supportMsg.includes('Opening') ? 'text-stone-400' : 'text-amber-400'}`}>{supportMsg}</p>}
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setSupportOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
+                <button onClick={submitSupport} disabled={supportSending} className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white text-sm font-semibold rounded-md flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">{supportSending ? <Loader2 size={15} className="animate-spin"/> : <Send size={15}/>} Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============ CREATOR DATABASE DETAIL ============ */}
       {dbDetailKey && (() => {
