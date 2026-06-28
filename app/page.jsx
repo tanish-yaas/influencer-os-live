@@ -625,7 +625,7 @@ export default function InfluencerOS() {
   const [modalContentType, setModalContentType] = useState('Reel Collab');
 
   const CONTENT_TYPES = {
-    Instagram: ['Reel Collab', 'Story (Set of 3)', 'Static Post', 'Carousel', 'Reel + Story Combo'],
+    Instagram: ['Reel Collab', 'Story', 'Static Post', 'Carousel', 'Reel + Story Combo'],
     YouTube: ['YouTube Integration', 'Dedicated Video', 'Shorts', 'Community Post'],
     TikTok: ['TikTok Video', 'TikTok Series'],
     LinkedIn: ['LinkedIn Post', 'LinkedIn Video', 'LinkedIn Article']
@@ -1488,15 +1488,25 @@ export default function InfluencerOS() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headers: dbHeaders, rows })
       });
-      const j = await res.json().catch(() => ({}));
-      if (j.ok) { setDbSyncMsg('Synced to Google Sheets ✓'); showToast('Creator Database synced to Sheets'); }
-      else if (j.skipped) { setDbSyncMsg('Sheets sync isn’t configured (add SHEET_ID_DATABASE).'); }
-      else { setDbSyncMsg('Sync failed: ' + (j.error || 'unknown error')); }
+      let j = null;
+      try { j = await res.json(); } catch {}
+      if (res.status === 404) {
+        setDbSyncMsg('Sync route isn’t deployed yet — add app/api/sync-creator-database/route.js, then push to Vercel.');
+      } else if (!res.ok || !j) {
+        setDbSyncMsg(`Sync failed (server returned ${res.status}). Check the API route and env vars in Vercel.`);
+      } else if (j.ok) {
+        setDbSyncMsg(`Synced ${j.count ?? rows.length} creators to Google Sheets ✓`);
+        showToast('Creator Database synced to Sheets');
+      } else if (j.skipped) {
+        setDbSyncMsg('Sheets sync isn’t configured — add SHEET_ID_DATABASE in Vercel and share the sheet with your service account.');
+      } else {
+        setDbSyncMsg('Sync failed: ' + (j.error || 'unknown error from the server'));
+      }
     } catch (e) {
       setDbSyncMsg('Sync failed: ' + (e?.message || 'network error'));
     } finally {
       setDbSyncing(false);
-      setTimeout(() => setDbSyncMsg(''), 6000);
+      setTimeout(() => setDbSyncMsg(''), 9000);
     }
   };
 
@@ -2818,16 +2828,16 @@ export default function InfluencerOS() {
           {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
         </button>
 
-        <button onClick={() => setOrbitOpen(true)} title="psst — click me ✨" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}>
+        <button onClick={() => setOrbitOpen(true)} title="psst — click me ✨" className={`flex items-center mb-10 mt-2 group/logo ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
           {!logoError ? (
-            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain transition-transform duration-200 group-hover/logo:scale-105 ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-12 w-auto max-w-[170px]'}`}/>
+            <img src={LOGO_URL} alt="YAAS" onError={() => setLogoError(true)} className={`app-logo object-contain transition-transform duration-200 group-hover/logo:scale-105 ${sidebarCollapsed ? 'h-9 w-auto max-w-[44px]' : 'h-11 w-auto max-w-[120px]'}`}/>
           ) : (
             <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 shadow-[0_0_14px_rgba(249,115,22,0.6)] shrink-0"></div>
           )}
           {!sidebarCollapsed && (
-            <span className="font-semibold text-stone-100 tracking-tight text-lg flex items-center gap-1.5">
-              Influencer OS
-              <span className="text-[8px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 border border-orange-500/30 relative -top-1.5">beta</span>
+            <span className="font-semibold text-stone-100 tracking-tight text-base whitespace-nowrap leading-none">
+              Influencer&nbsp;OS
+              <span className="ml-1 align-top text-[7px] font-bold uppercase tracking-[0.1em] px-1 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">beta</span>
             </span>
           )}
         </button>
