@@ -726,6 +726,7 @@ export default function InfluencerOS() {
   const [likesMode, setLikesMode] = useState('cumulative');
   const [commentsMode, setCommentsMode] = useState('cumulative');
   const [reportsView, setReportsView] = useState('reports');
+  const [compactStats, setCompactStats] = useState(true);
   const [reportExport, setReportExport] = useState({ open: false, format: 'csv' });
   const [exportOpts, setExportOpts] = useState({
     summary: true, breakdown: true,
@@ -1342,6 +1343,12 @@ export default function InfluencerOS() {
   const formatMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
   const formatMicroMoney = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount);
   const formatNumber = (num) => new Intl.NumberFormat('en-IN').format(num);
+  const formatCompact = (num) => new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(num) || 0);
+  const formatCompactMoney = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 }).format(Number(num) || 0);
+  const formatDate = (d) => { if (!d) return ''; const dt = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
+  // On-dashboard stat display: compact (K/M/B) when toggle is on, full numbers otherwise. Exports always use full numbers.
+  const statNum = (num) => compactStats ? formatCompact(num) : formatNumber(num);
+  const statMoney = (num) => compactStats ? formatCompactMoney(num) : formatMoney(num);
 
   const getCreatorBillDate = (creatorId) => bills.find(b => b.creator_deal_id === creatorId)?.invoice_date || '';
 
@@ -1535,40 +1542,54 @@ export default function InfluencerOS() {
     }
   };
 
-  const submitSupport = async () => {
-    const body = supportMessage.trim();
-    if (!body) { setSupportMsg('Please describe the issue or idea first.'); return; }
-    setSupportSending(true); setSupportMsg('');
+  const buildSupportMail = () => {
     const catLabel = { bug: 'Bug report', feature: 'Feature request', question: 'Question', other: 'Other' }[supportCategory] || 'Support';
     const fromEmail = (currentUser && currentUser.email) || '';
     const fromName = profileName || (profile && profile.display_name) || fromEmail || 'A YAAS user';
     const subject = `[YAAS OS] ${catLabel} from ${fromName}`;
     const context = `\n\n----------------\nFrom: ${fromName} <${fromEmail}>\nType: ${catLabel}\nPage: ${typeof window !== 'undefined' ? window.location.href : ''}\nWhen: ${new Date().toLocaleString()}`;
-    const fullBody = body + context;
-    let sent = false;
+    return { catLabel, fromEmail, fromName, subject, context, fullBody: supportMessage.trim() + context };
+  };
+  const openSupportMail = () => {
+    const { subject, fullBody } = buildSupportMail();
+    try {
+      const a = document.createElement('a');
+      a.href = `mailto:tanish@yaas.studio?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
+      a.click();
+    } catch {}
+    setSupportMsg('Opening your email app. Just hit send.');
+  };
+  const submitSupport = async () => {
+    const body = supportMessage.trim();
+    if (!body) { setSupportMsg('Please describe the issue or idea first.'); return; }
+    setSupportSending(true); setSupportMsg('');
+    const { catLabel, fromEmail, fromName, subject, context } = buildSupportMail();
+    let status = 0, j = null, neterr = false;
     try {
       const res = await fetch('/api/support', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category: catLabel, message: body, fromEmail, fromName, subject, context })
       });
-      let j = null; try { j = await res.json(); } catch {}
-      if (res.ok && j && j.ok) sent = true;
-    } catch {}
-    if (sent) {
+      status = res.status;
+      try { j = await res.json(); } catch {}
+    } catch { neterr = true; }
+    setSupportSending(false);
+    if (status && j && j.ok) {
       showToast('Support request sent to the YAAS team');
       setSupportMessage('');
-      setSupportSending(false);
       setSupportMsg('Sent to the YAAS team. Thank you!');
       setTimeout(() => { setSupportOpen(false); setSupportMsg(''); }, 1600);
+      return;
+    }
+    if (neterr || status === 404) {
+      openSupportMail();
+      setSupportMsg('Could not reach the send service, so I opened your email app instead. Just hit send.');
+    } else if (j && j.skipped) {
+      setSupportMsg('Server sending is not switched on yet. Add RESEND_API_KEY in Vercel and redeploy (or use the email-app link below).');
+    } else if (j && j.error) {
+      setSupportMsg('Send failed: ' + j.error);
     } else {
-      // Fallback: open the user's email app pre-addressed to support
-      try {
-        const a = document.createElement('a');
-        a.href = `mailto:tanish@yaas.studio?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
-        a.click();
-      } catch {}
-      setSupportSending(false);
-      setSupportMsg('Opening your email app to send to tanish@yaas.studio. Just hit send.');
+      setSupportMsg('Send failed (HTTP ' + status + '). Check the route and RESEND_API_KEY in Vercel, or use the email-app link below.');
     }
   };
 
@@ -1863,16 +1884,19 @@ export default function InfluencerOS() {
       owner: (formData.get('owner') || '').trim().toLowerCase(),
       status: editingCampaign ? editingCampaign.status : 'active',
       budget: parseInt(formData.get('budget')) || 0,
+      start_date: formData.get('start_date') || null,
       editors: cleanEditors,
       image_url: campaignImage || null
     };
 
     if (editingCampaign) {
       setCampaigns(campaigns.map(c => c.ip_id === campData.ip_id ? campData : c));
-      await supabase.from('campaigns').update(campData).eq('ip_id', campData.ip_id);
+      const { error } = await supabase.from('campaigns').update(campData).eq('ip_id', campData.ip_id);
+      if (error) { const { start_date, ...rest } = campData; await supabase.from('campaigns').update(rest).eq('ip_id', campData.ip_id); }
     } else {
       setCampaigns([...campaigns, campData]);
-      await supabase.from('campaigns').insert([campData]);
+      const { error } = await supabase.from('campaigns').insert([campData]);
+      if (error) { const { start_date, ...rest } = campData; await supabase.from('campaigns').insert([rest]); }
     }
     setCampaignModalOpen(false);
     setEditingCampaign(null);
@@ -3246,14 +3270,33 @@ export default function InfluencerOS() {
                       <h3 className="text-lg font-medium text-stone-200">{camp.ip_name}</h3>
                       <p className="text-sm text-stone-500 mt-1">Owner: {camp.owner}</p>
                       
-                      <div className="mt-5 pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-4">
+                      <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-end justify-between gap-3">
                         <div>
-                          <p className="text-xs text-stone-500 mb-1">Booked Value</p>
-                          <p className="text-sm font-medium text-stone-100 tabular-nums">{formatMoney(bookedValue)}</p>
+                          <p className="text-xs text-stone-500 mb-1">Start date</p>
+                          <p className="text-sm font-medium text-stone-100">{camp.start_date ? formatDate(camp.start_date) : <span className="text-stone-500 font-normal">Not set</span>}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-stone-500 mb-1">Total Views</p>
-                          <p className="text-sm font-medium text-stone-100 tabular-nums">{formatNumber(campViews)}</p>
+                        <div className="relative group/info">
+                          <button onClick={(e) => e.stopPropagation()} aria-label="Campaign totals" className="p-1.5 rounded-md text-stone-500 hover:text-orange-400 hover:bg-white/[0.07] transition-colors">
+                            <Info size={16}/>
+                          </button>
+                          <div className={`opacity-0 group-hover/info:opacity-100 pointer-events-none absolute right-0 bottom-full mb-2 w-56 p-3 rounded-lg border transition-opacity duration-150 z-30 ${theme === 'light' ? 'bg-white border-stone-200 shadow-xl' : 'bg-[#17130f] border-white/10 shadow-2xl'}`}>
+                            <p className={`text-[10px] uppercase tracking-[0.18em] mb-2 ${theme === 'light' ? 'text-stone-400' : 'text-stone-500'}`}>Campaign totals</p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-[11px] ${theme === 'light' ? 'text-stone-500' : 'text-stone-400'}`}>Booked value</span>
+                                <span className={`text-xs font-semibold tabular-nums ${theme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>{formatMoney(bookedValue)}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-[11px] ${theme === 'light' ? 'text-stone-500' : 'text-stone-400'}`}>Total budget</span>
+                                <span className={`text-xs font-semibold tabular-nums ${theme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>{formatMoney(camp.budget || 0)}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-[11px] ${theme === 'light' ? 'text-stone-500' : 'text-stone-400'}`}>Total views</span>
+                                <span className={`text-xs font-semibold tabular-nums ${theme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>{formatNumber(campViews)}</span>
+                              </div>
+                            </div>
+                            <div className={`absolute right-3 -bottom-1 w-2 h-2 rotate-45 border-r border-b ${theme === 'light' ? 'bg-white border-stone-200' : 'bg-[#17130f] border-white/10'}`}></div>
+                          </div>
                         </div>
                       </div>
                       
@@ -3728,13 +3771,19 @@ export default function InfluencerOS() {
                 </div>
               </div>
 
+              <div className="flex items-center justify-end -mb-1">
+                <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-[11px] font-medium">
+                  <button onClick={() => setCompactStats(true)} className={`px-2.5 py-1 transition-colors ${compactStats ? 'bg-orange-500/20 text-orange-300' : 'text-stone-500 hover:text-stone-300'}`} title="Show as K / M / B">K/M/B</button>
+                  <button onClick={() => setCompactStats(false)} className={`px-2.5 py-1 transition-colors border-l border-white/10 ${!compactStats ? 'bg-orange-500/20 text-orange-300' : 'text-stone-500 hover:text-stone-300'}`} title="Show exact numbers">Exact</button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <StatCard label="Total Spend" value={formatMoney(analytics.totalSpend)} dot={CHART_PALETTE[0]} />
-                <StatCard label="Total Views" value={formatNumber(analytics.totalViews)} dot={CHART_PALETTE[1]} />
-                <StatCard label="Engagement" value={formatNumber(analytics.totalEng)} dot={CHART_PALETTE[4]} />
+                <StatCard label="Total Spend" value={statMoney(analytics.totalSpend)} dot={CHART_PALETTE[0]} />
+                <StatCard label="Total Views" value={statNum(analytics.totalViews)} dot={CHART_PALETTE[1]} />
+                <StatCard label="Engagement" value={statNum(analytics.totalEng)} dot={CHART_PALETTE[4]} />
                 <StatCard label="Creators" value={formatNumber(analytics.creatorCount)} sub={`${analytics.campaignCount} campaign${analytics.campaignCount === 1 ? '' : 's'}`} dot={CHART_PALETTE[3]} />
                 <StatCard label="Avg CPV" value={formatMicroMoney(analytics.avgCpv)} dot={CHART_PALETTE[2]} />
-                <StatCard label="Eng. Rate" value={`${analytics.engRate.toFixed(1)}%`} sub={`${formatNumber(analytics.totalFollowers)} reach`} dot={CHART_PALETTE[5]} />
+                <StatCard label="Eng. Rate" value={`${analytics.engRate.toFixed(1)}%`} sub={`${statNum(analytics.totalFollowers)} reach`} dot={CHART_PALETTE[5]} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3818,18 +3867,24 @@ export default function InfluencerOS() {
 
               {/* Statistics Overview */}
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium mb-3">Statistics Overview</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500 font-medium">Statistics Overview</p>
+                  <div className="flex items-center rounded-md border border-white/10 overflow-hidden text-[11px] font-medium">
+                    <button onClick={() => setCompactStats(true)} className={`px-2.5 py-1 transition-colors ${compactStats ? 'bg-orange-500/20 text-orange-300' : 'text-stone-500 hover:text-stone-300'}`} title="Show as K / M / B">K/M/B</button>
+                    <button onClick={() => setCompactStats(false)} className={`px-2.5 py-1 transition-colors border-l border-white/10 ${!compactStats ? 'bg-orange-500/20 text-orange-300' : 'text-stone-500 hover:text-stone-300'}`} title="Show exact numbers">Exact</button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  <StatCard label="Views" value={formatNumber(report.views)} dot={CHART_PALETTE[1]} />
-                  <StatCard label="Likes" value={formatNumber(report.likes)} dot={CHART_PALETTE[0]} />
-                  <StatCard label="Comments" value={formatNumber(report.comments)} dot={CHART_PALETTE[3]} />
+                  <StatCard label="Views" value={statNum(report.views)} dot={CHART_PALETTE[1]} />
+                  <StatCard label="Likes" value={statNum(report.likes)} dot={CHART_PALETTE[0]} />
+                  <StatCard label="Comments" value={statNum(report.comments)} dot={CHART_PALETTE[3]} />
                   <StatCard label="E.R. (Avg)" value={`${report.erAvg.toFixed(3)}%`} dot={CHART_PALETTE[4]} />
                   <StatCard label="E.R. (Video)" value={report.erVideo == null ? '-' : `${report.erVideo.toFixed(3)}%`} dot={CHART_PALETTE[5]} />
                   <StatCard label="E.R. (Static)" value={report.erStatic == null ? '-' : `${report.erStatic.toFixed(3)}%`} dot={CHART_PALETTE[6]} />
                   <StatCard label="CPE" value={formatMicroMoney(report.cpe)} dot={CHART_PALETTE[2]} />
                   <StatCard label="CPV" value={formatMicroMoney(report.cpv)} dot={CHART_PALETTE[7]} />
-                  <StatCard label="Shares" value={formatNumber(report.shares)} dot={CHART_PALETTE[8]} />
-                  <StatCard label="Total Spend" value={formatMoney(report.spend)} dot={CHART_PALETTE[0]} />
+                  <StatCard label="Shares" value={statNum(report.shares)} dot={CHART_PALETTE[8]} />
+                  <StatCard label="Total Spend" value={statMoney(report.spend)} dot={CHART_PALETTE[0]} />
                 </div>
               </div>
 
@@ -4339,9 +4394,12 @@ export default function InfluencerOS() {
               </div>
               <p className="text-[11px] text-stone-500">Sent as {profileName || (profile && profile.display_name) || (currentUser && currentUser.email)} to tanish@yaas.studio.</p>
               {supportMsg && <p className={`text-xs ${supportMsg.includes('Sent') ? 'text-emerald-400' : supportMsg.includes('Opening') ? 'text-stone-400' : 'text-amber-400'}`}>{supportMsg}</p>}
-              <div className="flex justify-end gap-3">
-                <button onClick={() => setSupportOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
-                <button onClick={submitSupport} disabled={supportSending} className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white text-sm font-semibold rounded-md flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">{supportSending ? <Loader2 size={15} className="animate-spin"/> : <Send size={15}/>} Send</button>
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" onClick={openSupportMail} className="text-xs text-stone-500 hover:text-stone-300 underline underline-offset-2">Use email app instead</button>
+                <div className="flex gap-3">
+                  <button onClick={() => setSupportOpen(false)} className="px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-stone-300 text-sm font-medium rounded-md transition-colors">Cancel</button>
+                  <button onClick={submitSupport} disabled={supportSending} className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white text-sm font-semibold rounded-md flex items-center gap-2 transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">{supportSending ? <Loader2 size={15} className="animate-spin"/> : <Send size={15}/>} Send</button>
+                </div>
               </div>
             </div>
           </div>
@@ -5046,9 +5104,15 @@ export default function InfluencerOS() {
                 )}
                 <p className="text-[11px] text-stone-600 mt-2">Everyone else who logs in can view this campaign but can't edit it.</p>
               </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Total Budget</label>
-                <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Total Budget</label>
+                  <input name="budget" type="number" defaultValue={editingCampaign?.budget} required className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70" />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-1.5 font-medium">Start Date <span className="text-stone-600 normal-case tracking-normal">(optional)</span></label>
+                  <input name="start_date" type="date" defaultValue={editingCampaign?.start_date || ''} className="w-full bg-white/[0.03] border border-white/10 rounded-md px-3 py-2.5 text-sm text-stone-200 focus:outline-none focus:border-orange-500/70 [color-scheme:dark]" />
+                </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="submit" className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-md transition-colors shadow-[0_0_22px_-6px_rgba(249,115,22,0.7)]">
